@@ -1,11 +1,12 @@
 "use client";
 
 import Navbar from "@/components/Navbar";
+import CheckoutButton from "@/components/CheckoutButton"; // <--- IMPORTED HERE
 import { useState, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link"; // Used for navigating after success
+import Link from "next/link"; 
 
-// --- 1. MOCK DATABASE (Same as before) ---
+// --- 1. MOCK DATABASE ---
 const COMPONENT_DATA = {
   motherboards: [
     { id: "m1", name: "MSI B450M Pro-VDH", price: 6500, socket: "AM4", memory: "DDR4" },
@@ -108,10 +109,9 @@ function ConfiguratorContent() {
 
   const totalPrice = Object.values(selection).reduce((acc, item) => acc + item.price, 0);
 
-  // Handle Form Submit
+  // Handle Form Submit (Manual Order Request)
   const handleOrderSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Here we would send data to your backend/email
     setOrderSuccess(true);
   };
 
@@ -129,25 +129,24 @@ function ConfiguratorContent() {
               </div>
             </div>
          </div>
+         
          <div className="mt-6 bg-[#121212] p-4 rounded-lg border border-white/10">
            <p className="text-xs text-[#A0A0A0] uppercase tracking-wide">Total Estimate</p>
-           <p className="text-3xl font-orbitron font-bold text-white mt-1">₹{totalPrice.toLocaleString("en-IN")}</p>
+           <p className="text-3xl font-orbitron font-bold text-white mt-1 mb-4">₹{totalPrice.toLocaleString("en-IN")}</p>
            
-           {/* CHECKOUT BUTTON TRIGGERS MODAL */}
-           <button 
-             onClick={() => setShowModal(true)}
-             className="w-full mt-4 py-3 bg-[#4E2C8B] hover:bg-[#3b2169] text-white font-bold rounded uppercase tracking-wider text-sm transition-colors"
-           >
-             Checkout Build
-           </button>
+           {/* --- PAYMENT BUTTON ADDED HERE --- */}
+           <CheckoutButton amount={totalPrice} />
+           
+           <p className="text-[10px] text-center text-[#A0A0A0] mt-3">
+             Secure payment via Razorpay
+           </p>
          </div>
       </div>
 
-      {/* RIGHT COLUMN: Selectors (Same as before) */}
+      {/* RIGHT COLUMN: Selectors */}
       <div className="lg:col-span-2 overflow-y-auto pr-2 custom-scrollbar space-y-8 pb-20">
         <h1 className="font-orbitron text-3xl font-bold text-white mb-6">Configure Your Rig</h1>
         
-        {/* We use the same sections as before */}
         <Section title="Motherboard" description="Platform" selectedId={selection.motherboard.id}>
           {COMPONENT_DATA.motherboards.map((item) => (
              <OptionCard key={item.id} item={item} isSelected={selection.motherboard.id === item.id} onClick={() => handleSelect("motherboard", item)} tag={`${item.socket} / ${item.memory}`} />
@@ -203,93 +202,11 @@ function ConfiguratorContent() {
         </Section>
       </div>
 
-      {/* --- 3. THE CHECKOUT MODAL --- */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#1A1A1A] border border-white/10 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl relative">
-            
-            {/* Close Button */}
-            {!orderSuccess && (
-               <button 
-                 onClick={() => setShowModal(false)}
-                 className="absolute top-4 right-4 text-[#A0A0A0] hover:text-white"
-               >
-                 ✕
-               </button>
-            )}
-
-            {orderSuccess ? (
-              // SUCCESS MESSAGE
-              <div className="p-12 text-center">
-                <div className="w-16 h-16 bg-[#4E2C8B] rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">✓</div>
-                <h2 className="font-orbitron text-2xl font-bold text-white mb-2">Order Request Received!</h2>
-                <p className="text-[#A0A0A0] mb-6">Your Build ID is #RB-{Math.floor(Math.random() * 10000)}. <br/>We will contact you on WhatsApp shortly to confirm payment details.</p>
-                <Link href="/">
-                  <button className="px-6 py-2 bg-white text-black font-bold rounded hover:bg-[#D0D0D0]">
-                    Back to Home
-                  </button>
-                </Link>
-              </div>
-            ) : (
-              // ORDER SUMMARY & FORM
-              <div className="grid grid-cols-1 md:grid-cols-2">
-                {/* Left: Summary */}
-                <div className="bg-[#121212] p-8 border-r border-white/5">
-                  <h3 className="font-orbitron text-lg text-white mb-4">Build Summary</h3>
-                  <div className="space-y-2 text-xs text-[#A0A0A0] mb-6 h-64 overflow-y-auto custom-scrollbar">
-                    <p className="flex justify-between"><span>CPU:</span> <span className="text-white">{selection.cpu.name}</span></p>
-                    <p className="flex justify-between"><span>GPU:</span> <span className="text-white">{selection.gpu.name}</span></p>
-                    <p className="flex justify-between"><span>RAM:</span> <span className="text-white">{selection.ram.name}</span></p>
-                    <p className="flex justify-between"><span>Mobo:</span> <span className="text-white">{selection.motherboard.name}</span></p>
-                    <p className="flex justify-between"><span>Storage:</span> <span className="text-white">{selection.storage.name}</span></p>
-                    <p className="flex justify-between"><span>Case:</span> <span className="text-white">{selection.cabinet.name}</span></p>
-                    <p className="flex justify-between"><span>PSU:</span> <span className="text-white">{selection.psu.name}</span></p>
-                    <p className="flex justify-between"><span>Cooler:</span> <span className="text-white">{selection.aio.name}</span></p>
-                  </div>
-                  <div className="border-t border-white/10 pt-4">
-                    <p className="flex justify-between text-white font-bold">
-                      <span>Total:</span>
-                      <span className="text-[#4E2C8B]">₹{totalPrice.toLocaleString("en-IN")}</span>
-                    </p>
-                  </div>
-                </div>
-
-                {/* Right: User Details Form */}
-                <div className="p-8">
-                  <h3 className="font-orbitron text-lg text-white mb-4">Your Details</h3>
-                  <form onSubmit={handleOrderSubmit} className="space-y-4">
-                    <div>
-                      <label className="block text-xs text-[#A0A0A0] mb-1">Full Name</label>
-                      <input required type="text" className="w-full bg-[#121212] border border-white/10 rounded p-2 text-white focus:border-[#4E2C8B] outline-none" placeholder="Enter your name" />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-[#A0A0A0] mb-1">Phone / WhatsApp</label>
-                      <input required type="tel" className="w-full bg-[#121212] border border-white/10 rounded p-2 text-white focus:border-[#4E2C8B] outline-none" placeholder="+91 99999 XXXXX" />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-[#A0A0A0] mb-1">Email Address</label>
-                      <input required type="email" className="w-full bg-[#121212] border border-white/10 rounded p-2 text-white focus:border-[#4E2C8B] outline-none" placeholder="you@example.com" />
-                    </div>
-                    
-                    <button type="submit" className="w-full py-3 bg-[#4E2C8B] hover:bg-[#3b2169] text-white font-bold rounded mt-4">
-                      Submit Order Request
-                    </button>
-                    <p className="text-[10px] text-center text-[#A0A0A0]">
-                      *Payment link will be shared after stock verification.
-                    </p>
-                  </form>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }
 
-// --- HELPER COMPONENTS (Same as before) ---
+// --- HELPER COMPONENTS ---
 function Section({ title, description, children }: any) {
   return (
     <div className="bg-[#1A1A1A]/50 rounded-lg p-6 border border-white/5">
