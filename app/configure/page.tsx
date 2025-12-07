@@ -1,203 +1,298 @@
 "use client";
 
 import Navbar from "@/components/Navbar";
-import CheckoutButton from "@/components/CheckoutButton"; 
-import { useState, useMemo, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useConfigurator } from "../hooks/useConfigurator";
+import { Suspense, useState } from "react";
+import { OS } from "../data/types";
 
-// --- 1. MOCK DATABASE (Unchanged, just cleaner formatting) ---
-const COMPONENT_DATA = {
-  motherboards: [
-    { id: "m1", name: "MSI B450M Pro-VDH", price: 6500, socket: "AM4", memory: "DDR4" },
-    { id: "m2", name: "ASUS ROG Strix B550-F", price: 16500, socket: "AM4", memory: "DDR4" },
-    { id: "m3", name: "Gigabyte B650 Gaming X", price: 18000, socket: "AM5", memory: "DDR5" },
-    { id: "m4", name: "MSI MAG Z790 Tomahawk", price: 28000, socket: "LGA1700", memory: "DDR5" },
-  ],
-  cpus: [
-    { id: "c1", name: "AMD Ryzen 5 5600X", price: 14500, socket: "AM4" },
-    { id: "c2", name: "AMD Ryzen 7 5800X3D", price: 28000, socket: "AM4" },
-    { id: "c3", name: "AMD Ryzen 5 7600X", price: 21000, socket: "AM5" },
-    { id: "c4", name: "AMD Ryzen 7 7800X3D", price: 36000, socket: "AM5" },
-    { id: "c5", name: "Intel Core i5-13600K", price: 29000, socket: "LGA1700" },
-    { id: "c6", name: "Intel Core i7-14700K", price: 38000, socket: "LGA1700" },
-  ],
-  gpus: [
-    { id: "g1", name: "NVIDIA RTX 3060 12GB", price: 26000 },
-    { id: "g2", name: "NVIDIA RTX 4060 Ti", price: 38000 },
-    { id: "g3", name: "NVIDIA RTX 4070 Super", price: 62000 },
-    { id: "g4", name: "NVIDIA RTX 4090", price: 185000 },
-  ],
-  ram: [
-    { id: "r1", name: "16GB (8x2) Corsair Vengeance DDR4 3200MHz", price: 4200, type: "DDR4" },
-    { id: "r2", name: "32GB (16x2) G.Skill Ripjaws DDR4 3600MHz", price: 7500, type: "DDR4" },
-    { id: "r3", name: "32GB (16x2) XPG Lancer DDR5 6000MHz", price: 10500, type: "DDR5" },
-    { id: "r4", name: "64GB (32x2) G.Skill Trident Z5 DDR5 6400MHz", price: 22000, type: "DDR5" },
-  ],
-  storage: [
-    { id: "s1", name: "500GB WD Blue SN580 NVMe", price: 3800 },
-    { id: "s2", name: "1TB Samsung 980 Pro NVMe", price: 8500 },
-    { id: "s3", name: "2TB WD Black SN850X", price: 15500 },
-  ],
-  psu: [
-    { id: "p1", name: "Deepcool PM650D (650W Gold)", price: 4800 },
-    { id: "p2", name: "Corsair RM750e (750W Gold)", price: 9500 },
-    { id: "p3", name: "MSI MPG A1000G (1000W Gold)", price: 16000 },
-  ],
-  cabinet: [
-    { id: "cab1", name: "Ant Esports ICE-100", price: 3500 },
-    { id: "cab2", name: "Lian Li Lancool 216", price: 8500 },
-    { id: "cab3", name: "NZXT H9 Flow", price: 16000 },
-  ],
-  aio: [
-    { id: "a1", name: "Stock Air Cooler", price: 0 },
-    { id: "a2", name: "Deepcool AG400 Air Cooler", price: 2000 },
-    { id: "a3", name: "Deepcool LS720 360mm AIO", price: 11000 },
-    { id: "a4", name: "NZXT Kraken Elite 360", price: 24000 },
-  ],
-  os: [
-    { id: "o1", name: "Windows 10 Pro (Trial)", price: 0 },
-    { id: "o2", name: "Windows 11 Pro (Retail Key)", price: 1200 },
-  ],
-};
-
-// --- 2. CONFIGURATOR CONTENT ---
-
+// --- MAIN CONTENT ---
 function ConfiguratorContent() {
-  const searchParams = useSearchParams();
-  const mode = searchParams.get("mode"); 
-
-  // Initial State
-  const [selection, setSelection] = useState({
-    motherboard: COMPONENT_DATA.motherboards[2], 
-    cpu: COMPONENT_DATA.cpus[2],                 
-    gpu: COMPONENT_DATA.gpus[2],
-    ram: COMPONENT_DATA.ram[2],                  
-    storage: COMPONENT_DATA.storage[1],
-    psu: COMPONENT_DATA.psu[1],
-    cabinet: COMPONENT_DATA.cabinet[1],
-    aio: COMPONENT_DATA.aio[1],
-    os: COMPONENT_DATA.os[0],
-  });
-
-  // Filter Logic
-  const availableCPUs = useMemo(() => {
-    return COMPONENT_DATA.cpus.filter(cpu => cpu.socket === selection.motherboard.socket);
-  }, [selection.motherboard]);
-
-  const availableRAM = useMemo(() => {
-    return COMPONENT_DATA.ram.filter(ram => ram.type === selection.motherboard.memory);
-  }, [selection.motherboard]);
-
-  // Handler
-  const handleSelect = (category: string, item: any) => {
-    setSelection((prev) => {
-      const newState = { ...prev, [category]: item };
-      // Auto-reset CPU/RAM if incompatible mobo selected
-      if (category === "motherboard") {
-         const firstValidCPU = COMPONENT_DATA.cpus.find(c => c.socket === item.socket);
-         if (firstValidCPU) newState.cpu = firstValidCPU;
-         const firstValidRAM = COMPONENT_DATA.ram.find(r => r.type === item.memory);
-         if (firstValidRAM) newState.ram = firstValidRAM;
-      }
-      return newState;
-    });
-  };
-
-  const totalPrice = Object.values(selection).reduce((acc, item) => acc + item.price, 0);
+  const { selections, setters, data, stats } = useConfigurator();
 
   return (
     <div className="pt-24 pb-10 max-w-7xl mx-auto px-4 md:px-6 grid grid-cols-1 lg:grid-cols-3 gap-8 h-auto lg:h-[calc(100vh-80px)]">
       
-      {/* LEFT COLUMN: Preview & Summary */}
-      <div className="lg:col-span-1 bg-brand-charcoal rounded-xl border border-white/5 flex flex-col p-6 h-auto lg:h-full lg:overflow-hidden order-1">
-         {/* Visual Preview */}
-         <div className="grow flex items-center justify-center relative mb-6 py-8 lg:py-0">
-            <div className="w-40 h-56 md:w-48 md:h-64 rounded-lg border-2 border-dashed border-brand-purple flex items-center justify-center text-center p-4">
-              <div className="space-y-2">
-                <p className="font-orbitron font-bold text-white text-sm md:text-base">{selection.cabinet.name}</p>
-                <p className="text-xs text-brand-silver">+ {selection.gpu.name}</p>
-                <p className="text-xs text-brand-silver">+ {selection.aio.name}</p>
-              </div>
+      {/* LEFT COLUMN: Summary */}
+      <div className="lg:col-span-1 bg-brand-charcoal rounded-xl border border-white/5 flex flex-col p-6 h-auto order-1 lg:sticky lg:top-24">
+         <h2 className="font-orbitron font-bold text-xl text-white mb-6">Build Summary</h2>
+         
+         {/* Power Meter */}
+         <div className="mb-8 p-4 bg-brand-black rounded-lg border border-white/10">
+            <div className="flex justify-between items-end mb-2">
+                <span className="text-brand-silver text-xs uppercase tracking-wider">Estimated Power</span>
+                <div className="text-right">
+                    <span className={`text-xl font-bold ${stats.powerStats.totalTDP > (selections.psu?.wattage || 0) ? "text-red-500" : "text-brand-blue"}`}>
+                        {stats.powerStats.totalTDP}W
+                    </span>
+                    <span className="text-brand-silver/50 text-xs ml-1">/ {selections.psu?.wattage || 0}W PSU</span>
+                </div>
+            </div>
+            <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                <div 
+                    className={`h-full transition-all duration-500 ${stats.powerStats.totalTDP > (selections.psu?.wattage || 0) ? "bg-red-500" : "bg-brand-blue"}`}
+                    style={{ width: `${Math.min((stats.powerStats.totalTDP / (selections.psu?.wattage || 1)) * 100, 100)}%` }}
+                ></div>
             </div>
          </div>
-         
-         {/* Price Box */}
-         <div className="mt-auto bg-brand-black p-4 rounded-lg border border-white/10">
-           <p className="text-xs text-brand-silver uppercase tracking-wide">Total Estimate</p>
-           <p className="text-3xl font-orbitron font-bold text-white mt-1 mb-4">₹{totalPrice.toLocaleString("en-IN")}</p>
-           
-           <CheckoutButton amount={totalPrice} />
-           
-           <p className="text-[10px] text-center text-brand-silver/50 mt-3">
-             Secure payment via Razorpay
-           </p>
+
+         {/* List */}
+         <div className="space-y-4 text-sm font-saira grow">
+            <SummaryItem label="CPU" value={selections.cpu?.name || "Select Processor"} warn={!selections.cpu} />
+            <SummaryItem label="Cooler" value={selections.cooler?.name || "Select Cooler"} />
+            <SummaryItem label="Motherboard" value={selections.mobo?.name || "Select Board"} warn={selections.cpu && !selections.mobo} />
+            <SummaryItem label="RAM" value={selections.ram?.name || "Select RAM"} />
+            <SummaryItem label="GPU" value={selections.gpu?.name || "Select GPU"} />
+            <SummaryItem label="Storage" value={selections.storage?.name || "Select Storage"} />
+            <SummaryItem label="Case" value={selections.cabinet?.name || "Select Case"} />
+            <SummaryItem label="PSU" value={selections.psu?.name || "Select PSU"} warn={stats.powerStats.totalTDP > 0 && !selections.psu} />
+            
+            <div className="border-t border-white/5 pt-2 mt-2">
+                <SummaryItem label="OS 1" value={selections.primaryOS?.name || "None"} />
+                {selections.secondaryOS && <SummaryItem label="OS 2" value={selections.secondaryOS.name} />}
+            </div>
+         </div>
+
+         <div className="mt-8 pt-6 border-t border-white/10">
+            <p className="text-xs text-brand-silver uppercase">Total Estimate</p>
+            <p className="text-3xl font-orbitron font-bold text-white">₹{stats.totalPrice.toLocaleString("en-IN")}</p>
          </div>
       </div>
 
       {/* RIGHT COLUMN: Selectors */}
       <div className="lg:col-span-2 overflow-y-auto pr-2 custom-scrollbar space-y-8 pb-20 order-2">
-        <h1 className="font-orbitron text-2xl md:text-3xl font-bold text-white mb-6">Configure Your Rig</h1>
         
-        <Section title="Motherboard" description="Platform" selectedId={selection.motherboard.id}>
-          {COMPONENT_DATA.motherboards.map((item) => (
-             <OptionCard key={item.id} item={item} isSelected={selection.motherboard.id === item.id} onClick={() => handleSelect("motherboard", item)} tag={`${item.socket} / ${item.memory}`} />
-          ))}
-        </Section>
-        
-        <Section title="Processor (CPU)" description={`Compatible with ${selection.motherboard.socket}`} selectedId={selection.cpu.id}>
-          {availableCPUs.map((item) => (
-             <OptionCard key={item.id} item={item} isSelected={selection.cpu.id === item.id} onClick={() => handleSelect("cpu", item)} />
+        <Section title="Processor" description="Determines your Platform">
+          <NoneCard isSelected={selections.cpu === null} onClick={() => setters.setCPU(null)} />
+          {data.cpus.map((item) => (
+             <OptionCard key={item.id} item={item} isSelected={selections.cpu?.id === item.id} onClick={() => setters.setCPU(item)} tag={item.socket} />
           ))}
         </Section>
 
-        <Section title="Graphics Card (GPU)" description="Performance" selectedId={selection.gpu.id}>
-          {COMPONENT_DATA.gpus.map((item) => (
-             <OptionCard key={item.id} item={item} isSelected={selection.gpu.id === item.id} onClick={() => handleSelect("gpu", item)} />
+        <Section title="Cooling" description="AIO or Air Cooler">
+          <NoneCard isSelected={selections.cooler === null} onClick={() => setters.setCooler(null)} />
+          {data.coolers.map((item) => (
+             <OptionCard key={item.id} item={item} isSelected={selections.cooler?.id === item.id} onClick={() => setters.setCooler(item)} warn={!item.isSufficient} tag={!item.isSufficient ? "Too Weak" : "Compatible"} />
           ))}
         </Section>
 
-        <Section title="Memory (RAM)" description={`Compatible with ${selection.motherboard.memory}`} selectedId={selection.ram.id}>
-          {availableRAM.map((item) => (
-             <OptionCard key={item.id} item={item} isSelected={selection.ram.id === item.id} onClick={() => handleSelect("ram", item)} />
-          ))}
+        <Section title="Motherboard" description={`Compatible with ${selections.cpu?.socket || "selected CPU"}`}>
+          {!selections.cpu ? (
+            <p className="text-brand-silver/50 text-center py-4 italic">Please select a Processor first to see compatible motherboards.</p>
+          ) : (
+            <>
+              <NoneCard isSelected={selections.mobo === null} onClick={() => setters.setMobo(null)} />
+              {data.motherboards.length === 0 ? <p className="text-red-400 text-sm">No compatible boards found.</p> :
+                data.motherboards.map((item) => (
+                    <OptionCard key={item.id} item={item} isSelected={selections.mobo?.id === item.id} onClick={() => setters.setMobo(item)} tag={item.formFactor} />
+                ))
+              }
+            </>
+          )}
         </Section>
-        
-        <Section title="Storage" description="NVMe SSD" selectedId={selection.storage.id}>
-          {COMPONENT_DATA.storage.map((item) => (
-             <OptionCard key={item.id} item={item} isSelected={selection.storage.id === item.id} onClick={() => handleSelect("storage", item)} />
+
+        <Section title="Memory" description="RAM">
+          <NoneCard isSelected={selections.ram === null} onClick={() => setters.setRAM(null)} />
+          {data.rams.map((item) => (
+             <OptionCard key={item.id} item={item} isSelected={selections.ram?.id === item.id} onClick={() => setters.setRAM(item)} />
           ))}
         </Section>
 
-        <Section title="Power Supply" description="PSU" selectedId={selection.psu.id}>
-          {COMPONENT_DATA.psu.map((item) => (
-             <OptionCard key={item.id} item={item} isSelected={selection.psu.id === item.id} onClick={() => handleSelect("psu", item)} />
+        <Section title="Graphics" description="GPU">
+          <NoneCard isSelected={selections.gpu === null} onClick={() => setters.setGPU(null)} />
+          {data.gpus.map((item) => (
+             <OptionCard key={item.id} item={item} isSelected={selections.gpu?.id === item.id} onClick={() => setters.setGPU(item)} />
           ))}
         </Section>
 
-        <Section title="Cabinet" description="Case" selectedId={selection.cabinet.id}>
-          {COMPONENT_DATA.cabinet.map((item) => (
-             <OptionCard key={item.id} item={item} isSelected={selection.cabinet.id === item.id} onClick={() => handleSelect("cabinet", item)} />
+        <Section title="Storage" description="SSD">
+          <NoneCard isSelected={selections.storage === null} onClick={() => setters.setStorage(null)} />
+          {data.storages.map((item) => (
+             <OptionCard key={item.id} item={item} isSelected={selections.storage?.id === item.id} onClick={() => setters.setStorage(item)} />
           ))}
         </Section>
 
-        <Section title="Cooling" description="AIO / Air" selectedId={selection.aio.id}>
-          {COMPONENT_DATA.aio.map((item) => (
-             <OptionCard key={item.id} item={item} isSelected={selection.aio.id === item.id} onClick={() => handleSelect("aio", item)} />
+        <Section title="Cabinet" description="PC Case">
+          <NoneCard isSelected={selections.cabinet === null} onClick={() => setters.setCabinet(null)} />
+          {data.cabinets.map((item) => (
+             <OptionCard key={item.id} item={item} isSelected={selections.cabinet?.id === item.id} onClick={() => setters.setCabinet(item)} warn={!item.isCompatible || !item.isGpuFit} tag={!item.isCompatible ? "Mobo Won't Fit" : (!item.isGpuFit ? "GPU Too Long" : "Fits")} />
           ))}
         </Section>
-        
-        <Section title="OS" description="Windows" selectedId={selection.os.id}>
-          {COMPONENT_DATA.os.map((item) => (
-             <OptionCard key={item.id} item={item} isSelected={selection.os.id === item.id} onClick={() => handleSelect("os", item)} />
+
+        <Section title="Power Supply" description="PSU">
+          <NoneCard isSelected={selections.psu === null} onClick={() => setters.setPSU(null)} />
+          {data.psus.map((item) => (
+             <OptionCard key={item.id} item={item} isSelected={selections.psu?.id === item.id} onClick={() => setters.setPSU(item)} tag={item.wattage + "W"} recommended={item.isRecommended} warn={!item.isCompatible} />
           ))}
         </Section>
+
+        <OperatingSystemSection 
+            allOs={data.osList} 
+            primaryOs={selections.primaryOS} 
+            setPrimaryOs={setters.setPrimaryOS}
+            secondaryOs={selections.secondaryOS}
+            setSecondaryOs={setters.setSecondaryOS}
+        />
+
       </div>
-
     </div>
   );
 }
 
-// --- HELPER COMPONENTS ---
+// --- COMPONENTS ---
+
+function NoneCard({ isSelected, onClick }: any) {
+    return (
+        <div 
+            onClick={onClick}
+            className={`cursor-pointer p-4 rounded border transition-all flex justify-between items-center group
+                ${isSelected ? "bg-white/10 border-white/30" : "bg-transparent border-dashed border-white/10 hover:border-white/30"}
+            `}
+        >
+            <span className={`text-sm font-saira ${isSelected ? "text-white" : "text-brand-silver/50"}`}>
+                Not Required / Remove
+            </span>
+            <span className="text-xs text-brand-silver/30">₹0</span>
+        </div>
+    )
+}
+
+function OperatingSystemSection({ allOs, primaryOs, setPrimaryOs, secondaryOs, setSecondaryOs }: any) {
+  const [activeTab, setActiveTab] = useState<string | null>(null); 
+  const [activeWinSeries, setActiveWinSeries] = useState<"Home" | "Pro" | null>(null);
+
+  const toggleTab = (tab: string) => setActiveTab(activeTab === tab ? null : tab);
+  
+  const handleSingleSelect = (os: OS | null) => {
+    setPrimaryOs(os);
+    setSecondaryOs(null);
+  };
+
+  const winHome = allOs.filter((os: OS) => os.family === "Windows" && os.series === "Home");
+  const winPro = allOs.filter((os: OS) => os.family === "Windows" && os.series === "Pro");
+  const linuxList = allOs.filter((os: OS) => os.family === "Linux");
+
+  return (
+    <div className="bg-white/5 rounded-lg border border-white/5 overflow-hidden">
+        <div className="p-6 border-b border-white/5 flex justify-between items-center">
+            <div>
+                <h3 className="text-white font-bold uppercase tracking-wider">Operating System</h3>
+                <p className="text-sm text-brand-silver/70">Select your Primary OS or Dual Boot Config</p>
+            </div>
+            {/* Master Clear Button for OS */}
+            {(primaryOs || secondaryOs) && (
+                <button onClick={() => handleSingleSelect(null)} className="text-xs text-red-400 hover:text-red-300 underline">
+                    Clear Selection
+                </button>
+            )}
+        </div>
+
+        {/* 1. WINDOWS 11 */}
+        <div>
+            <button onClick={() => toggleTab("windows")} className="w-full text-left p-4 hover:bg-white/5 flex justify-between items-center text-white font-orbitron">
+                <span>1. Windows 11</span>
+                <span>{activeTab === "windows" ? "▼" : "▶"}</span>
+            </button>
+            {activeTab === "windows" && (
+                <div className="p-4 bg-brand-black/50 border-y border-white/5 pl-8 space-y-4">
+                     <div>
+                        <button onClick={() => setActiveWinSeries(activeWinSeries === "Home" ? null : "Home")} className="text-brand-silver hover:text-white text-sm font-bold flex items-center gap-2 mb-2">
+                           {activeWinSeries === "Home" ? "▼" : "▶"} Windows 11 Home
+                        </button>
+                        {activeWinSeries === "Home" && (
+                            <div className="grid gap-2 pl-4">
+                                {winHome.map((os: OS) => (
+                                    <MiniOsCard key={os.id} item={os} isSelected={primaryOs?.id === os.id && !secondaryOs} onClick={() => handleSingleSelect(os)} />
+                                ))}
+                            </div>
+                        )}
+                     </div>
+                     <div>
+                        <button onClick={() => setActiveWinSeries(activeWinSeries === "Pro" ? null : "Pro")} className="text-brand-silver hover:text-white text-sm font-bold flex items-center gap-2 mb-2">
+                           {activeWinSeries === "Pro" ? "▼" : "▶"} Windows 11 Pro
+                        </button>
+                        {activeWinSeries === "Pro" && (
+                            <div className="grid gap-2 pl-4">
+                                {winPro.map((os: OS) => (
+                                    <MiniOsCard key={os.id} item={os} isSelected={primaryOs?.id === os.id && !secondaryOs} onClick={() => handleSingleSelect(os)} />
+                                ))}
+                            </div>
+                        )}
+                     </div>
+                </div>
+            )}
+        </div>
+
+        {/* 2. LINUX */}
+        <div className="border-t border-white/5">
+            <button onClick={() => toggleTab("linux")} className="w-full text-left p-4 hover:bg-white/5 flex justify-between items-center text-white font-orbitron">
+                <span>2. Linux (Top 10)</span>
+                <span>{activeTab === "linux" ? "▼" : "▶"}</span>
+            </button>
+            {activeTab === "linux" && (
+                <div className="p-4 bg-brand-black/50 border-t border-white/5 pl-8 grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {linuxList.map((os: OS) => (
+                         <MiniOsCard key={os.id} item={os} isSelected={primaryOs?.id === os.id && !secondaryOs} onClick={() => handleSingleSelect(os)} />
+                    ))}
+                </div>
+            )}
+        </div>
+
+        {/* 3. DUAL OS */}
+        <div className="border-t border-white/5">
+            <button onClick={() => toggleTab("dual")} className="w-full text-left p-4 hover:bg-white/5 flex justify-between items-center text-white font-orbitron">
+                <span>3. Dual OS Config</span>
+                <span>{activeTab === "dual" ? "▼" : "▶"}</span>
+            </button>
+            {activeTab === "dual" && (
+                <div className="p-4 bg-brand-black/50 border-t border-white/5 space-y-6">
+                    <div>
+                        <h4 className="text-brand-purple text-sm font-bold mb-3 uppercase tracking-wider">Slot 1 (Primary)</h4>
+                        <div className="h-40 overflow-y-auto custom-scrollbar border border-white/10 rounded p-2">
+                            {allOs.map((os: OS) => (
+                                <MiniOsCard key={`s1-${os.id}`} item={os} isSelected={primaryOs?.id === os.id} onClick={() => setPrimaryOs(os)} compact />
+                            ))}
+                        </div>
+                    </div>
+                    <div>
+                        <h4 className="text-brand-blue text-sm font-bold mb-3 uppercase tracking-wider">Slot 2 (Secondary)</h4>
+                        <div className="h-40 overflow-y-auto custom-scrollbar border border-white/10 rounded p-2">
+                             {allOs.map((os: OS) => (
+                                <MiniOsCard key={`s2-${os.id}`} item={os} isSelected={secondaryOs?.id === os.id} onClick={() => setSecondaryOs(os)} compact />
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    </div>
+  )
+}
+
+function MiniOsCard({ item, isSelected, onClick, compact }: any) {
+    return (
+        <div 
+            onClick={onClick}
+            className={`cursor-pointer p-3 rounded flex justify-between items-center transition-colors border ${
+                isSelected ? "bg-brand-purple text-white border-brand-purple" : "bg-white/5 text-brand-silver border-transparent hover:bg-white/10"
+            } ${compact ? "mb-1" : ""}`}
+        >
+            <span className="text-sm font-saira">{item.name}</span>
+            <span className="text-xs font-bold opacity-70">
+                {item.price === 0 ? "FREE" : `₹${item.price.toLocaleString("en-IN")}`}
+            </span>
+        </div>
+    )
+}
+
+function SummaryItem({ label, value, warn }: any) {
+    return (
+        <div className="flex justify-between border-b border-white/5 pb-2">
+            <span className="text-brand-silver">{label}</span>
+            <span className={`text-right font-medium ${warn ? "text-brand-burgundy" : "text-white"}`}>{value}</span>
+        </div>
+    )
+}
+
 function Section({ title, description, children }: any) {
   return (
     <div className="bg-white/5 rounded-lg p-6 border border-white/5">
@@ -212,22 +307,32 @@ function Section({ title, description, children }: any) {
   );
 }
 
-function OptionCard({ item, isSelected, onClick, tag }: any) {
+function OptionCard({ item, isSelected, onClick, tag, recommended, warn }: any) {
+  let borderColor = "border-white/5 hover:border-white/20";
+  let bgColor = "bg-brand-black";
+
+  if (isSelected) {
+    borderColor = "border-brand-purple";
+    bgColor = "bg-brand-purple/20";
+  } else if (recommended) {
+    borderColor = "border-brand-blue/50";
+  } else if (warn) {
+    borderColor = "border-brand-burgundy/50";
+    bgColor = "bg-brand-burgundy/10 opacity-60";
+  }
+
   return (
-    <div 
-      onClick={onClick}
-      className={`cursor-pointer p-4 rounded border transition-all flex justify-between items-center group
-        ${isSelected ? "bg-brand-purple/20 border-brand-purple" : "bg-brand-black border-white/5 hover:border-white/20"}
-      `}
-    >
+    <div onClick={onClick} className={`cursor-pointer p-4 rounded border transition-all flex justify-between items-center ${bgColor} ${borderColor}`}>
       <div>
-        <p className={`font-saira text-sm font-medium ${isSelected ? "text-white" : "text-brand-silver"}`}>
-          {item.name}
-        </p>
-        {tag && <span className="text-[10px] uppercase text-brand-silver/70 bg-white/5 px-2 py-0.5 rounded mt-1 inline-block">{tag}</span>}
+        <p className={`font-saira text-sm font-medium ${isSelected ? "text-white" : "text-brand-silver"}`}>{item.name}</p>
+        <div className="flex gap-2 mt-1">
+            {tag && <span className="text-[10px] uppercase text-brand-silver/70 bg-white/5 px-2 py-0.5 rounded inline-block">{tag}</span>}
+            {recommended && <span className="text-[10px] uppercase text-brand-black bg-brand-blue px-2 py-0.5 rounded inline-block font-bold">Recommended</span>}
+            {warn && <span className="text-[10px] uppercase text-white bg-brand-burgundy px-2 py-0.5 rounded inline-block font-bold">Warning</span>}
+        </div>
       </div>
       <span className={`text-xs font-bold ${isSelected ? "text-brand-purple" : "text-brand-silver/50"}`}>
-        {item.price === 0 ? "FREE" : `+ ₹${item.price.toLocaleString("en-IN")}`}
+        ₹{item.price.toLocaleString("en-IN")}
       </span>
     </div>
   );
@@ -237,7 +342,7 @@ export default function ConfiguratorPage() {
   return (
     <main className="min-h-screen bg-brand-black text-white font-saira">
       <Navbar />
-      <Suspense fallback={<div className="pt-32 text-center text-white">Loading Configurator...</div>}>
+      <Suspense fallback={<div className="pt-32 text-center text-white">Loading Engine...</div>}>
         <ConfiguratorContent />
       </Suspense>
     </main>
