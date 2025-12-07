@@ -1,0 +1,54 @@
+// This is your Complete Database Blueprint
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"  // Changed from "sqlite"
+  url      = env("POSTGRES_PRISMA_URL") // Uses Vercel's special URL
+  directUrl = env("POSTGRES_URL_NON_POOLING") // For direct connections (migrations)
+}
+
+// --- 1. USER SYSTEM ---
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String   
+  fullName  String?
+  phone     String?
+  createdAt DateTime @default(now())
+  orders    Order[] 
+}
+
+// --- 2. ORDER SYSTEM ---
+model Order {
+  id            String   @id @default(uuid())
+  buildName     String   
+  totalPrice    Int
+  status        String   @default("Pending") // Pending, Paid, Built, Shipped
+  createdAt     DateTime @default(now())
+  
+  // Link to User
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  
+  // PC Details (Stored as stringified JSON)
+  configuration String     
+}
+
+// --- 3. BLOG SYSTEM (NEW) ---
+model Post {
+  id          String   @id @default(uuid())
+  title       String
+  slug        String   @unique // URL-friendly name (e.g. "best-gaming-pc")
+  content     String   // The HTML body of the blog
+  excerpt     String?  // Short summary for SEO
+  image       String?  // Cover Image URL
+  tags        String?  // "Gaming, Nvidia"
+  published   Boolean  @default(false)
+  views       Int      @default(0)
+  author      String   @default("Rig Builders Team")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
