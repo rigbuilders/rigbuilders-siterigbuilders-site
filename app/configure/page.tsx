@@ -120,7 +120,7 @@ function ConfiguratorContent() {
       
       {/* LEFT COLUMN: Preview & Summary */}
       <div className="lg:col-span-1 bg-[#1A1A1A] rounded-xl border border-white/5 flex flex-col p-6 h-full overflow-hidden">
-         <div className="flex-grow flex items-center justify-center relative mb-6">
+         <div className="grow flex items-center justify-center relative mb-6">
             <div className={`w-48 h-64 rounded-lg border-2 border-dashed border-[#4E2C8B] flex items-center justify-center text-center p-4`}>
               <div className="space-y-2">
                 <p className="font-orbitron font-bold text-white">{selection.cabinet.name}</p>
