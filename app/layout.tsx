@@ -28,13 +28,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      {/* FIX: suppressHydrationWarning={true} tells Next.js to ignore 
-        attributes added by browser extensions (like ColorZilla) 
-        so the app doesn't crash.
-      */}
       <body 
         suppressHydrationWarning={true}
-        className={`${saira.variable} ${orbitron.variable} antialiased bg-[#121212] text-[#D0D0D0]`}
+        // ADDED "font-saira" HERE:
+        className={`${saira.variable} ${orbitron.variable} font-saira antialiased bg-brand-black text-brand-silver`}
       >
         {children}
       </body>

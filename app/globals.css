@@ -1,20 +1,29 @@
 @import "tailwindcss";
 
-/* Your custom CSS variables (optional) */
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  /* Define your custom colors here to match your brand */
+  --color-brand-black: #121212;
+  --color-brand-charcoal: #1A1A1A;
+  --color-brand-purple: #4E2C8B;
+  --color-brand-blue: #265DAB;
+  --color-brand-silver: #A0A0A0;
+  --color-brand-text: #D0D0D0;
+  --color-brand-burgundy: #8C2F39;
+  
+  /* Link the Tailwind utility class to the CSS variable from layout.tsx */
+  --font-saira: var(--font-saira);
+  --font-orbitron: var(--font-orbitron);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Optional: Reset base styles */
+:root {
+  --background: #121212;
+  --foreground: #D0D0D0;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+  /* Force the default font to be Saira */
+  font-family: var(--font-saira), sans-serif; 
 }
-

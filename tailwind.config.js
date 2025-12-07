@@ -1,13 +1,12 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
-    "./app/**/*.{js,ts,jsx,tsx}",
-    "./components/**/*.{js,ts,jsx,tsx}",
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./components/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
       colors: {
-        // Brand Palette [cite: 32-40]
         brand: {
           black: "#121212",      // Matte Black
           charcoal: "#1A1A1A",   // Charcoal Gray
@@ -20,7 +19,6 @@ module.exports = {
         }
       },
       fontFamily: {
-        // Typography [cite: 41-43]
         saira: ["var(--font-saira)", "sans-serif"],
         orbitron: ["var(--font-orbitron)", "sans-serif"],
       },
