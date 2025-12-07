@@ -1,12 +1,11 @@
 "use client";
 
 import Navbar from "@/components/Navbar";
-import CheckoutButton from "@/components/CheckoutButton"; // <--- IMPORTED HERE
+import CheckoutButton from "@/components/CheckoutButton"; 
 import { useState, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link"; 
 
-// --- 1. MOCK DATABASE ---
+// --- 1. MOCK DATABASE (Unchanged, just cleaner formatting) ---
 const COMPONENT_DATA = {
   motherboards: [
     { id: "m1", name: "MSI B450M Pro-VDH", price: 6500, socket: "AM4", memory: "DDR4" },
@@ -67,10 +66,6 @@ function ConfiguratorContent() {
   const searchParams = useSearchParams();
   const mode = searchParams.get("mode"); 
 
-  // Modal State
-  const [showModal, setShowModal] = useState(false);
-  const [orderSuccess, setOrderSuccess] = useState(false);
-
   // Initial State
   const [selection, setSelection] = useState({
     motherboard: COMPONENT_DATA.motherboards[2], 
@@ -97,6 +92,7 @@ function ConfiguratorContent() {
   const handleSelect = (category: string, item: any) => {
     setSelection((prev) => {
       const newState = { ...prev, [category]: item };
+      // Auto-reset CPU/RAM if incompatible mobo selected
       if (category === "motherboard") {
          const firstValidCPU = COMPONENT_DATA.cpus.find(c => c.socket === item.socket);
          if (firstValidCPU) newState.cpu = firstValidCPU;
@@ -109,43 +105,38 @@ function ConfiguratorContent() {
 
   const totalPrice = Object.values(selection).reduce((acc, item) => acc + item.price, 0);
 
-  // Handle Form Submit (Manual Order Request)
-  const handleOrderSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setOrderSuccess(true);
-  };
-
   return (
-    <div className="pt-24 pb-10 max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-3 gap-8 h-[calc(100vh-80px)]">
+    <div className="pt-24 pb-10 max-w-7xl mx-auto px-4 md:px-6 grid grid-cols-1 lg:grid-cols-3 gap-8 h-auto lg:h-[calc(100vh-80px)]">
       
       {/* LEFT COLUMN: Preview & Summary */}
-      <div className="lg:col-span-1 bg-[#1A1A1A] rounded-xl border border-white/5 flex flex-col p-6 h-full overflow-hidden">
-         <div className="grow flex items-center justify-center relative mb-6">
-            <div className={`w-48 h-64 rounded-lg border-2 border-dashed border-[#4E2C8B] flex items-center justify-center text-center p-4`}>
+      <div className="lg:col-span-1 bg-brand-charcoal rounded-xl border border-white/5 flex flex-col p-6 h-auto lg:h-full lg:overflow-hidden order-1">
+         {/* Visual Preview */}
+         <div className="grow flex items-center justify-center relative mb-6 py-8 lg:py-0">
+            <div className="w-40 h-56 md:w-48 md:h-64 rounded-lg border-2 border-dashed border-brand-purple flex items-center justify-center text-center p-4">
               <div className="space-y-2">
-                <p className="font-orbitron font-bold text-white">{selection.cabinet.name}</p>
-                <p className="text-xs text-[#A0A0A0]">+ {selection.gpu.name}</p>
-                <p className="text-xs text-[#A0A0A0]">+ {selection.aio.name}</p>
+                <p className="font-orbitron font-bold text-white text-sm md:text-base">{selection.cabinet.name}</p>
+                <p className="text-xs text-brand-silver">+ {selection.gpu.name}</p>
+                <p className="text-xs text-brand-silver">+ {selection.aio.name}</p>
               </div>
             </div>
          </div>
          
-         <div className="mt-6 bg-[#121212] p-4 rounded-lg border border-white/10">
-           <p className="text-xs text-[#A0A0A0] uppercase tracking-wide">Total Estimate</p>
+         {/* Price Box */}
+         <div className="mt-auto bg-brand-black p-4 rounded-lg border border-white/10">
+           <p className="text-xs text-brand-silver uppercase tracking-wide">Total Estimate</p>
            <p className="text-3xl font-orbitron font-bold text-white mt-1 mb-4">₹{totalPrice.toLocaleString("en-IN")}</p>
            
-           {/* --- PAYMENT BUTTON ADDED HERE --- */}
            <CheckoutButton amount={totalPrice} />
            
-           <p className="text-[10px] text-center text-[#A0A0A0] mt-3">
+           <p className="text-[10px] text-center text-brand-silver/50 mt-3">
              Secure payment via Razorpay
            </p>
          </div>
       </div>
 
       {/* RIGHT COLUMN: Selectors */}
-      <div className="lg:col-span-2 overflow-y-auto pr-2 custom-scrollbar space-y-8 pb-20">
-        <h1 className="font-orbitron text-3xl font-bold text-white mb-6">Configure Your Rig</h1>
+      <div className="lg:col-span-2 overflow-y-auto pr-2 custom-scrollbar space-y-8 pb-20 order-2">
+        <h1 className="font-orbitron text-2xl md:text-3xl font-bold text-white mb-6">Configure Your Rig</h1>
         
         <Section title="Motherboard" description="Platform" selectedId={selection.motherboard.id}>
           {COMPONENT_DATA.motherboards.map((item) => (
@@ -209,10 +200,10 @@ function ConfiguratorContent() {
 // --- HELPER COMPONENTS ---
 function Section({ title, description, children }: any) {
   return (
-    <div className="bg-[#1A1A1A]/50 rounded-lg p-6 border border-white/5">
+    <div className="bg-white/5 rounded-lg p-6 border border-white/5">
       <div className="mb-4">
         <h3 className="text-white font-bold uppercase tracking-wider">{title}</h3>
-        <p className="text-sm text-[#A0A0A0]">{description}</p>
+        <p className="text-sm text-brand-silver/70">{description}</p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {children}
@@ -226,16 +217,16 @@ function OptionCard({ item, isSelected, onClick, tag }: any) {
     <div 
       onClick={onClick}
       className={`cursor-pointer p-4 rounded border transition-all flex justify-between items-center group
-        ${isSelected ? "bg-[#4E2C8B]/20 border-[#4E2C8B]" : "bg-[#121212] border-white/5 hover:border-white/20"}
+        ${isSelected ? "bg-brand-purple/20 border-brand-purple" : "bg-brand-black border-white/5 hover:border-white/20"}
       `}
     >
       <div>
-        <p className={`font-saira text-sm font-medium ${isSelected ? "text-white" : "text-[#D0D0D0]"}`}>
+        <p className={`font-saira text-sm font-medium ${isSelected ? "text-white" : "text-brand-silver"}`}>
           {item.name}
         </p>
-        {tag && <span className="text-[10px] uppercase text-[#A0A0A0] bg-white/5 px-2 py-0.5 rounded mt-1 inline-block">{tag}</span>}
+        {tag && <span className="text-[10px] uppercase text-brand-silver/70 bg-white/5 px-2 py-0.5 rounded mt-1 inline-block">{tag}</span>}
       </div>
-      <span className={`text-xs font-bold ${isSelected ? "text-[#4E2C8B]" : "text-[#A0A0A0]"}`}>
+      <span className={`text-xs font-bold ${isSelected ? "text-brand-purple" : "text-brand-silver/50"}`}>
         {item.price === 0 ? "FREE" : `+ ₹${item.price.toLocaleString("en-IN")}`}
       </span>
     </div>
@@ -244,9 +235,9 @@ function OptionCard({ item, isSelected, onClick, tag }: any) {
 
 export default function ConfiguratorPage() {
   return (
-    <main className="min-h-screen bg-[#121212] text-white font-saira">
+    <main className="min-h-screen bg-brand-black text-white font-saira">
       <Navbar />
-      <Suspense fallback={<div className="p-20 text-center text-white">Loading Configurator...</div>}>
+      <Suspense fallback={<div className="pt-32 text-center text-white">Loading Configurator...</div>}>
         <ConfiguratorContent />
       </Suspense>
     </main>

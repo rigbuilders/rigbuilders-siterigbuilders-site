@@ -1,78 +1,74 @@
-// 1. Activate Link tool
 import Link from "next/link";
 
 export default function SignatureEdition() {
   return (
-    <section
-      className="w-full bg-[#121212] py-20 px-6 border-t border-white/5"
-      id="signature"
-    >
-      <div className="max-w-6xl mx-auto">
+    <section className="w-full bg-brand-black py-20 px-6 border-t border-white/5" id="signature">
+      <div className="max-w-6xl mx-auto text-center">
+        
+        {/* HEADER */}
+        <span className="font-saira text-brand-purple tracking-[0.2em] uppercase text-sm font-bold">
+          Signature Edition
+        </span>
+        <h2 className="text-3xl md:text-5xl font-orbitron font-bold text-white mt-4 mb-6">
+          Commissioned. Not Assembled.
+        </h2>
+        <p className="text-brand-silver/70 text-base md:text-lg font-saira max-w-3xl mx-auto leading-relaxed">
+          Our most premium rigs — hand-built, thermally tuned, cable-certified and delivered with complete stress-test proof.
+        </p>
 
-        {/* TITLE */}
-        <div className="text-center max-w-2xl mx-auto">
-          <p className="text-xs uppercase tracking-[0.3em] text-[#4E2C8B] font-saira font-bold">
-            Signature Edition
-          </p>
-          <h2 className="mt-3 text-3xl font-orbitron font-bold text-white">
-            Commissioned. Not Assembled.
-          </h2>
-          <p className="mt-3 text-sm text-[#D0D0D0]/75 font-saira">
-            Our most premium rigs — hand–built, thermally tuned, cable–certified
-            and delivered with complete stress–test proof.
-          </p>
-        </div>
-
-        {/* FEATURE ROW */}
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Card 1 */}
-          <div className="bg-[#1A1A1A] rounded-2xl p-6 border border-white/5 shadow-lg">
-            <p className="text-xs uppercase tracking-[0.25em] text-[#A0A0A0] font-bold">
+        {/* FEATURE GRID */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16 text-left">
+          
+          {/* Feature 1 */}
+          <div className="bg-white/5 p-8 rounded-2xl border border-white/5 hover:border-brand-purple/50 transition duration-300">
+            <span className="text-brand-silver/40 text-xs font-bold tracking-widest uppercase mb-4 block">
               01 · Proof Culture
-            </p>
-            <h3 className="mt-3 text-lg font-bold text-white font-orbitron">
-              Stress–Tested & Documented
+            </span>
+            <h3 className="text-white text-xl font-orbitron font-bold mb-3">
+              Stress-Tested & Documented
             </h3>
-            <p className="mt-2 text-sm text-[#D0D0D0]/70 font-saira">
+            <p className="text-brand-silver/60 text-sm font-saira leading-relaxed">
               Cinebench, 3DMark, and thermal logs are captured and stored for every build.
             </p>
           </div>
 
-          {/* Card 2 */}
-          <div className="bg-[#1A1A1A] rounded-2xl p-6 border border-[#4E2C8B]/40 shadow-lg">
-            <p className="text-xs uppercase tracking-[0.25em] text-[#A0A0A0] font-bold">
+          {/* Feature 2 */}
+          <div className="bg-white/5 p-8 rounded-2xl border border-white/5 hover:border-brand-purple/50 transition duration-300">
+            <span className="text-brand-silver/40 text-xs font-bold tracking-widest uppercase mb-4 block">
               02 · Visual Identity
-            </p>
-            <h3 className="mt-3 text-lg font-bold text-white font-orbitron">
+            </span>
+            <h3 className="text-white text-xl font-orbitron font-bold mb-3">
               Signature Cable & Lighting
             </h3>
-            <p className="mt-2 text-sm text-[#D0D0D0]/70 font-saira">
+            <p className="text-brand-silver/60 text-sm font-saira leading-relaxed">
               Matte black + deep purple cable theme, tuned RGB profile.
             </p>
           </div>
 
-          {/* Card 3 */}
-          <div className="bg-[#1A1A1A] rounded-2xl p-6 border border-white/5 shadow-lg">
-            <p className="text-xs uppercase tracking-[0.25em] text-[#A0A0A0] font-bold">
+          {/* Feature 3 */}
+          <div className="bg-white/5 p-8 rounded-2xl border border-white/5 hover:border-brand-purple/50 transition duration-300">
+            <span className="text-brand-silver/40 text-xs font-bold tracking-widest uppercase mb-4 block">
               03 · Ownership
-            </p>
-            <h3 className="mt-3 text-lg font-bold text-white font-orbitron">
+            </span>
+            <h3 className="text-white text-xl font-orbitron font-bold mb-3">
               Named Build & QR Log
             </h3>
-            <p className="mt-2 text-sm text-[#D0D0D0]/70 font-saira">
+            <p className="text-brand-silver/60 text-sm font-saira leading-relaxed">
               Every Signature rig gets a unique Build ID and QR code linked to your name.
             </p>
           </div>
+
         </div>
 
-        {/* CTA BUTTON - LINKED! */}
-        <div className="mt-12 flex justify-center">
+        {/* CTA BUTTON */}
+        <div className="mt-16">
           <Link href="/signature">
-            <button className="px-8 py-3 rounded-full bg-[#4E2C8B] text-white text-xs font-bold font-orbitron uppercase tracking-[0.25em] hover:opacity-90 hover:scale-105 transition-all">
-              Explore Signature Edition
+            <button className="px-10 py-4 bg-brand-purple hover:bg-brand-purple/80 text-white font-orbitron font-bold rounded-full tracking-wider transition-all transform hover:scale-105 shadow-[0_0_20px_rgba(78,44,139,0.4)]">
+              EXPLORE SIGNATURE EDITION
             </button>
           </Link>
         </div>
+
       </div>
     </section>
   );

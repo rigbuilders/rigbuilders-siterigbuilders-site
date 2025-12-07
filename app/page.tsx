@@ -4,19 +4,18 @@ import AscendSeries from "../components/AscendSeries";
 import WorkPro from "../components/WorkPro";
 import CreatorSeries from "../components/CreatorSeries";
 import SignatureEdition from "../components/SignatureEdition";
-import CheckoutButton from "@/components/CheckoutButton";
-
+import Footer from "../components/Footer"; 
 
 export default function Home() {
   return (
-    <>
+    <main className="bg-brand-black min-h-screen flex flex-col">
       <Navbar />
       <Hero />
       <AscendSeries />
       <WorkPro />
       <CreatorSeries />
       <SignatureEdition />
-      <CheckoutButton amount={45000} />
-    </>
+      <Footer />
+    </main>
   );
 }
