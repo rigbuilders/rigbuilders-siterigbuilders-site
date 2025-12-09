@@ -43,7 +43,7 @@ export default function ProductsPage() {
       {/* HEADER */}
       <section className="pt-32 pb-12 px-6 border-b border-white/5 bg-brand-charcoal">
         <div className="max-w-7xl mx-auto">
-          <h1 className="font-orbitron font-bold text-4xl text-white mb-2">COMPONENT <span className="text-brand-purple">CATALOG</span></h1>
+          <h1 className="font-orbitron font-bold text-4xl text-white mb-2">PRODUCT <span className="text-brand-purple">CATALOG</span></h1>
           <p className="text-brand-silver">Premium hardware. Verified for compatibility. In Stock.</p>
         </div>
       </section>

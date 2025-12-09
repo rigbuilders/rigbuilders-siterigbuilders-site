@@ -20,21 +20,22 @@ export function useConfigurator() {
 
   // --- LOGIC: COMPATIBILITY FILTERS ---
   
-  // 1. Motherboards: Depend on CPU
+  // 1. Motherboards: Depend on CPU & Stock
   const compatibleMotherboards = useMemo(() => {
-    if (!selectedCPU) return []; // No CPU = No Mobos shown
-    return motherboards.filter((m) => m.socket === selectedCPU.socket);
+    if (!selectedCPU) return []; 
+    // Filter by Socket AND In-Stock
+    return motherboards.filter((m) => m.socket === selectedCPU.socket && m.inStock);
   }, [selectedCPU]);
 
-  // 2. RAM: Depend on CPU
+  // 2. RAM: Depend on CPU & Stock
   const compatibleRAM = useMemo(() => {
-    if (!selectedCPU) return rams; // Show all if no CPU (or return [] to be strict. Let's show all for browsing)
-    return rams.filter((r) => r.type === selectedCPU.supportedRam);
+    if (!selectedCPU) return rams.filter(r => r.inStock); 
+    return rams.filter((r) => r.type === selectedCPU.supportedRam && r.inStock);
   }, [selectedCPU]);
 
-  // 3. Cabinets: Depend on Mobo Size & GPU Length
+  // 3. Cabinets: Depend on Mobo Size & GPU Length & Stock
   const compatibleCabinets = useMemo(() => {
-    return cabinets.map(cab => ({
+    return cabinets.filter(c => c.inStock).map(cab => ({
         ...cab,
         // If no mobo selected, assume it fits. If mobo selected, check size.
         isCompatible: selectedMobo ? cab.supportedMotherboards.includes(selectedMobo.formFactor) : true,
@@ -43,9 +44,9 @@ export function useConfigurator() {
     }));
   }, [selectedMobo, selectedGPU]);
 
-  // 4. Coolers: Depend on CPU TDP
+  // 4. Coolers: Depend on CPU TDP & Stock
   const compatibleCoolers = useMemo(() => {
-    return coolers.map(cooler => ({ 
+    return coolers.filter(c => c.inStock).map(cooler => ({ 
         ...cooler, 
         isSufficient: selectedCPU ? cooler.tdpRating >= selectedCPU.tdp : true 
     }));
@@ -68,7 +69,7 @@ export function useConfigurator() {
 
   // --- LOGIC: PSU RECOMMENDATION ---
   const processedPSUs = useMemo(() => {
-    return psus.map((psu) => ({
+    return psus.filter(p => p.inStock).map((psu) => ({
       ...psu,
       isCompatible: psu.wattage >= powerStats.totalTDP,
       isRecommended: psu.wattage >= powerStats.recommended,
@@ -108,7 +109,18 @@ export function useConfigurator() {
   return {
     selections: { cpu: selectedCPU, mobo: selectedMobo, gpu: selectedGPU, ram: selectedRAM, psu: selectedPSU, cabinet: selectedCabinet, cooler: selectedCooler, storage: selectedStorage, primaryOS, secondaryOS },
     setters: { setCPU: handleCPUChange, setMobo: setSelectedMobo, setGPU: setSelectedGPU, setRAM: setSelectedRAM, setPSU: setSelectedPSU, setCabinet: setSelectedCabinet, setCooler: setSelectedCooler, setStorage: setSelectedStorage, setPrimaryOS, setSecondaryOS },
-    data: { cpus, motherboards: compatibleMotherboards, gpus, rams: compatibleRAM, psus: processedPSUs, cabinets: compatibleCabinets, coolers: compatibleCoolers, storages, osList },
+    data: { 
+      cpus: cpus.filter(c => c.inStock), 
+      motherboards: compatibleMotherboards, 
+      gpus: gpus.filter(g => g.inStock), 
+      rams: compatibleRAM, 
+      psus: processedPSUs, 
+      cabinets: compatibleCabinets, 
+      coolers: compatibleCoolers, 
+      storages: storages.filter(s => s.inStock), 
+      osList: osList.filter(o => o.inStock) 
+    },
+    // This is the part that was likely missing or broken:
     stats: { powerStats, totalPrice }
   };
 }

@@ -33,7 +33,7 @@ export const rams: RAM[] = [
 export const psus: PSU[] = [
   { id: "p1", category: "psu", brand: "Deepcool", name: "PM650D (650W)", price: 4800, wattage: 650, rating: "Gold", inStock: true },
   { id: "p2", category: "psu", brand: "Corsair", name: "RM850e (850W)", price: 10500, wattage: 850, rating: "Gold", inStock: true },
-  { id: "p3", category: "psu", brand: "ASUS", name: "Thor 1000W Platinum", price: 24000, wattage: 1000, rating: "Platinum", inStock: true },
+  { id: "p3", category: "psu", brand: "ASUS", name: "Thor 1000W Platinum", price: 24000, wattage: 1000, rating: "Platinum", inStock: false },
 ];
 
 // --- 6. CABINETS ---

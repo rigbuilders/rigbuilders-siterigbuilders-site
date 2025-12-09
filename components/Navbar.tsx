@@ -49,10 +49,10 @@ export default function Navbar() {
                 </div>
             </div>
 
-            {/* 2. COMPONENTS DROPDOWN */}
+            {/* 2. PRODUCTS DROPDOWN */}
             <div className="group relative h-full flex items-center">
                 <Link href="/products" className="text-brand-silver hover:text-white transition-colors flex items-center gap-1">
-                    COMPONENTS <span className="text-[10px]">▼</span>
+                    PRODUCTS <span className="text-[10px]">▼</span>
                 </Link>
                 {/* Dropdown Panel */}
                 <div className="absolute top-full left-0 w-48 bg-brand-charcoal border border-white/10 rounded-b-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform translate-y-2 group-hover:translate-y-0 overflow-hidden flex flex-col">
