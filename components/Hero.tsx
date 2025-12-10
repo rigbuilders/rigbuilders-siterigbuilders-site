@@ -16,7 +16,7 @@ const Hero = () => {
         </h2>
         <h1 className="font-orbitron font-black text-4xl sm:text-5xl md:text-7xl lg:text-8xl text-white mb-6 leading-tight">
           COMMISSIONED.<br />
-          <span className="text-transparent bg-clip-text 'bg-gradient-to-r' from-brand-purple to-brand-blue">
+          <span className="font-orbitron font-black text-4xl sm:text-5xl md:text-7xl lg:text-8xl text-white mb-6 leading-tight">
             NOT ASSEMBLED.
           </span>
         </h1>
