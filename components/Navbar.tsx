@@ -5,6 +5,26 @@ import Image from "next/image";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 
+// Utility component for the User Account Popover
+const UserAccountMenu = () => {
+  return (
+    // FIX: Shifted right by another 10px (from -10px to -20px)
+    <div className="absolute top-full right-[-20px] w-48 bg-[#121212] border border-white/10 shadow-lg p-2 font-saira text-white/90 z-50">
+      <p className="text-sm font-bold p-2 mb-1 text-center">Guest Mode</p>
+      
+      {/* FIX: Changed route from /login to /signin to match your app structure */}
+      <Link href="/signin" className="block text-center w-full py-2 bg-brand-charcoal hover:bg-white/10 transition-colors text-sm">
+        Log In
+      </Link>
+      
+      <Link href="/signup" className="block text-center w-full py-2 mt-1 bg-brand-purple hover:bg-brand-purple/80 transition-colors text-sm font-bold">
+        Sign Up
+      </Link>
+    </div>
+  );
+};
+
+
 export default function Navbar() {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const pathname = usePathname();
@@ -14,8 +34,9 @@ export default function Navbar() {
       className="fixed top-0 left-0 w-full z-50 bg-[#121212] border-b border-white/10 font-orbitron"
       onMouseLeave={() => setActiveMenu(null)}
     >
-      {/* MAIN BAR - Height 80px, Side Margins 100px */}
-      <div className="h-[80px] mx-[100px] flex items-center justify-between">
+      {/* MAIN BAR - Height 80px. Margins: 100px (1920px+) / 80px (1440px) */}
+      {/* Note: The px-[80px] is set to cover 1440px+ and 2xl:px-[100px] covers 1920px+ */}
+      <div className="h-[80px] px-[80px] 2xl:px-[100px] flex items-center justify-between">
         
         {/* 1. LEFT: LOGO */}
         <Link href="/" className="flex-shrink-0 flex items-center">
@@ -30,8 +51,8 @@ export default function Navbar() {
            </div>
         </Link>
 
-        {/* 2. CENTER: NAVIGATION LINKS (Orbitron, 18px) */}
-        <div className="hidden md:flex items-center h-full gap-12 text-[18px] tracking-wide text-white">
+        {/* 2. CENTER: NAVIGATION LINKS (Orbitron, 16px - Medium) */}
+        <div className="hidden lg:flex items-center h-full gap-12 text-[16px] font-medium tracking-wide text-white">
           
           {/* PRODUCTS (Trigger for Mega Menu) */}
           <div 
@@ -67,25 +88,41 @@ export default function Navbar() {
           </Link>
         </div>
 
-        {/* 3. RIGHT: ICONS & CTA */}
-        <div className="flex items-center gap-8">
+        {/* 3. RIGHT: ICONS & CTA -  Spacing at 37px */}
+        <div className="flex items-center justify-center h-full space-x-[37px]">
           
           {/* Icons Group */}
-          <div className="flex items-center gap-6">
-            <button className="hover:opacity-80 transition-opacity flex items-center justify-center">
-              <Image src="/icons/navbar/cart.png" alt="Cart" width={32} height={32} />
+          {/* Cart Icon */}
+          <button className="hover:opacity-80 transition-opacity flex items-center justify-center">
+            <Image src="/icons/navbar/cart.png" alt="Cart" width={24} height={24} />
+          </button>
+
+          {/* User Account Icon/Button with Hover State */}
+          <div 
+            // FIX: Made this relative for the absolute dropdown and added hover states for the line
+            className="relative h-full flex items-center group"
+            onMouseEnter={() => setActiveMenu("user")}
+            onMouseLeave={() => setActiveMenu(null)}
+          >
+            <button className="hover:opacity-80 transition-opacity flex items-center justify-center relative py-2">
+              <Image src="/icons/navbar/User Account.svg" alt="Account" width={24} height={24} />
+              {/* Added Underline for Account Icon */}
+              <span className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[1px] bg-white transition-transform duration-300 origin-center ${activeMenu === "user" ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"}`}></span>
             </button>
-            <button className="hover:opacity-80 transition-opacity flex items-center justify-center">
-              <Image src="/icons/navbar/User Account.svg" alt="Account" width={28} height={28} />
-            </button>
-            <button className="hover:opacity-80 transition-opacity flex items-center justify-center">
-              <Image src="/icons/navbar/search.svg" alt="Search" width={30} height={30} />
-            </button>
+            {activeMenu === "user" && <UserAccountMenu />}
           </div>
 
-          {/* CTA Button: Outline Style */}
-          <Link href="/configure">
-            <button className="border border-white text-white px-8 py-2 text-[14px] font-bold tracking-wider hover:bg-white hover:text-brand-black transition-all uppercase">
+          {/* Search Icon */}
+          <button className="hover:opacity-80 transition-opacity flex items-center justify-center">
+            <Image src="/icons/navbar/search.svg" alt="Search" width={24} height={24} />
+          </button>
+          
+          {/* CTA Button: BUILD YOURS (153x36px size) */}
+          <Link href="/configure" className="h-full flex items-center">
+            <button 
+                className="border border-white text-white px-[20px] py-[8px] text-xs font-medium tracking-wider hover:bg-white hover:text-[#121212] transition-all uppercase leading-none"
+                style={{ width: '153px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
               BUILD YOURS
             </button>
           </Link>
@@ -106,9 +143,8 @@ export default function Navbar() {
           {/* COL 1: PC COMPONENTS */}
           <div className="space-y-6">
             <div className="flex items-center gap-4 mb-4">
-               {/* Left Icon */}
+               {/* Icons remain the same size */}
                <Image src="/icons/navbar/products/PC Components 2.png" alt="Chip Icon" width={32} height={32} className="object-contain"/>
-               {/* Right Icon */}
                <Image src="/icons/navbar/products/PC Components.svg" alt="Fan Icon" width={32} height={32} className="object-contain"/>
             </div>
             <h3 className="font-orbitron text-lg font-bold text-white mb-2">PC Components</h3>

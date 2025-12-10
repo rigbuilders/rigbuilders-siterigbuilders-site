@@ -1,10 +1,12 @@
 "use client";
 
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { FcGoogle } from "react-icons/fc";
+import { supabase } from "@/lib/supabaseClient"; 
 
 export default function SignInPage() {
   const router = useRouter();
@@ -21,65 +23,79 @@ export default function SignInPage() {
     setLoading(true);
     setError("");
 
-    console.log("Attempting Login:", formData.email);
-
     try {
-      // 1. Send data to API
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+      // REAL DB LOGIN
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
       });
 
-      const data = await response.json();
+      if (error) throw error;
 
-      if (response.ok) {
-        // 2. Success: Save user & Redirect
+      if (data.user) {
         console.log("Login Success:", data.user);
-        localStorage.setItem("currentUser", JSON.stringify(data.user));
-        router.push("/dashboard");
-      } else {
-        // 3. Server Error (Wrong password)
-        console.error("Login Failed:", data.error);
-        setError(data.error || "Invalid email or password");
+        // FIX: Redirect to Home Page instead of Dashboard
+        router.push("/"); 
       }
-    } catch (err) {
-      console.error("Network Error:", err);
-      setError("Network connection failed. Please try again.");
+    } catch (err: any) {
+      console.error("Login Failed:", err.message);
+      setError(err.message || "Invalid email or password.");
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <main className="min-h-screen bg-[#121212] text-white font-saira">
-      <Navbar />
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    setError("");
+    
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          // FIX: Redirect to Home Page after Google Login
+          redirectTo: `${window.location.origin}/`,
+        },
+      });
+
+      if (error) throw error;
       
-      <div className="flex items-center justify-center min-h-[calc(100vh-80px)] px-6">
-        <div className="w-full max-w-md bg-[#1A1A1A] p-8 rounded-2xl border border-white/5 shadow-2xl relative overflow-hidden">
-          
-          <div className="absolute top-0 right-0 w-32 h-32 bg-[#4E2C8B]/20 blur-[50px] rounded-full pointer-events-none"></div>
+    } catch (err: any) {
+      setError(err.message || "Google sign in failed.");
+      setLoading(false);
+    }
+  };
 
-          <div className="text-center mb-8 relative z-10">
-            <h1 className="font-orbitron text-3xl font-bold mb-2">Welcome Back</h1>
-            <p className="text-[#A0A0A0] text-sm">Sign in to access your commissioned builds.</p>
-          </div>
+  return (
+    <div className="bg-[#121212] min-h-screen text-white font-saira flex flex-col"> 
+      <Navbar />
 
-          {/* ERROR BOX */}
+      <div className="flex-grow pt-24 pb-12 px-6 flex items-center justify-center w-full relative z-10">
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-64 h-64 bg-[#4E2C8B]/20 blur-[100px] rounded-full pointer-events-none"></div>
+
+        <div className="bg-[#1A1A1A] p-8 md:p-12 rounded-xl shadow-2xl w-full max-w-md border border-white/5 relative z-20">
+          <h1 className="font-orbitron text-3xl font-bold text-center mb-2 text-white">
+            Welcome Back
+          </h1>
+          <p className="text-[#A0A0A0] text-sm text-center mb-10">Sign in to access your commissioned builds.</p>
+
           {error && (
-            <div className="mb-6 p-3 bg-red-500/10 border border-red-500/50 rounded text-red-400 text-sm text-center font-bold">
+            <div className="bg-red-900/50 text-red-300 p-3 rounded-md mb-4 text-center text-sm border border-red-800">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-5 relative z-10">
+          <form onSubmit={handleLogin} className="space-y-6">
             <div>
-              <label className="block text-xs uppercase tracking-wider text-[#A0A0A0] mb-2">Email Address</label>
-              <input 
-                type="email" 
+              <label htmlFor="email" className="block text-xs uppercase tracking-wider text-[#A0A0A0] mb-2">
+                Email Address
+              </label>
+              <input
+                type="email"
+                id="email"
                 required
                 value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="w-full bg-[#121212] border border-white/10 rounded p-3 text-white focus:border-[#4E2C8B] outline-none transition-colors"
                 placeholder="you@example.com"
               />
@@ -87,30 +103,33 @@ export default function SignInPage() {
 
             <div>
               <div className="flex justify-between items-center mb-2">
-                <label className="block text-xs uppercase tracking-wider text-[#A0A0A0]">Password</label>
+                <label htmlFor="password" className="block text-xs uppercase tracking-wider text-[#A0A0A0]">
+                  Password
+                </label>
                 <Link href="/forgot-password">
                     <span className="text-xs text-[#4E2C8B] hover:text-white cursor-pointer transition-colors">Forgot Password?</span>
                 </Link>
               </div>
-              <input 
-                type="password" 
+              <input
+                type="password"
+                id="password"
                 required
                 value={formData.password}
-                onChange={(e) => setFormData({...formData, password: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 className="w-full bg-[#121212] border border-white/10 rounded p-3 text-white focus:border-[#4E2C8B] outline-none transition-colors"
                 placeholder="••••••••"
               />
             </div>
 
             <button 
+              type="submit"
               disabled={loading}
-              className="w-full py-4 bg-[#4E2C8B] hover:bg-[#3b2169] text-white font-bold rounded uppercase tracking-widest transition-all disabled:opacity-50"
+              className="w-full py-4 bg-[#4E2C8B] hover:bg-[#3b2169] text-white font-bold rounded uppercase tracking-widest transition-all disabled:opacity-50 font-orbitron"
             >
               {loading ? "Signing In..." : "Sign In"}
             </button>
           </form>
 
-          {/* Social Login */}
           <div className="relative my-8">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-white/10"></div>
@@ -119,16 +138,25 @@ export default function SignInPage() {
               <span className="bg-[#1A1A1A] px-2 text-[#A0A0A0]">Or continue with</span>
             </div>
           </div>
-          <button className="w-full py-3 bg-white text-black font-bold rounded flex items-center justify-center gap-3 hover:bg-[#D0D0D0] transition-colors">
+          
+          <button 
+            onClick={handleGoogleSignIn}
+            disabled={loading}
+            className="w-full py-3 bg-white text-black font-bold rounded flex items-center justify-center gap-3 hover:bg-[#D0D0D0] transition-colors disabled:opacity-50"
+          >
             <FcGoogle size={24} />
             <span>Google</span>
           </button>
 
           <div className="mt-8 text-center text-sm text-[#A0A0A0]">
-            New to Rig Builders? <Link href="/signup" className="text-[#4E2C8B] font-bold hover:underline">Create Account</Link>
+            New to Rig Builders?
+            <Link href="/signup" className="text-[#4E2C8B] font-bold hover:underline ml-1">
+              Create Account
+            </Link>
           </div>
         </div>
       </div>
-    </main>
+      <Footer />
+    </div>
   );
 }
