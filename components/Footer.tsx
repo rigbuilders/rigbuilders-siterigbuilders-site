@@ -48,9 +48,9 @@ export default function Footer() {
         <div>
           <h4 className="font-orbitron text-white text-lg mb-6">CONTACT</h4>
           <ul className="space-y-4 font-saira text-brand-silver text-sm">
-            <li>New Delhi, India</li>
-            <li>support@rigbuilders.in</li>
-            <li>+91 99999 XXXXX</li>
+            <li>Bathinda, Punjab, India</li>
+            <li>info@rigbuilders.in</li>
+            <li>+91 77078-01014</li>
           </ul>
         </div>
       </div>
