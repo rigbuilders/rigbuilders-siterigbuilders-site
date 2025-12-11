@@ -27,7 +27,7 @@ const FilterGroup = ({ title, options, selected, onChange }: any) => {
       >
         <h3 className="font-orbitron text-lg font-bold text-white uppercase tracking-wide">{title}</h3>
         <span className="text-brand-purple font-bold text-xl">{isOpen ? "-" : "+"}</span>
-      </div>s
+      </div>
       
       {isOpen && (
         <div className="space-y-2">

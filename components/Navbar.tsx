@@ -2,26 +2,25 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { User } from "@supabase/supabase-js";
-import { allProducts } from "@/app/data/products"; // Import product list for search suggestions
+import { allProducts } from "@/app/data/products"; 
 
-// --- SEARCH HOOK WITH SUGGESTIONS ---
+// --- SEARCH HOOK ---
 const useGlobalSearch = () => {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<any[]>([]);
 
-  // Filter suggestions as user types
   useEffect(() => {
     if (query.trim().length > 1) {
       const lowerQuery = query.toLowerCase();
       const matches = allProducts.filter(p => 
         p.name.toLowerCase().includes(lowerQuery) || 
         p.brand.toLowerCase().includes(lowerQuery)
-      ).slice(0, 5); // Limit to top 5 matches
+      ).slice(0, 5); 
       setSuggestions(matches);
     } else {
       setSuggestions([]);
@@ -29,20 +28,19 @@ const useGlobalSearch = () => {
   }, [query]);
 
   const handleSearch = (e: React.KeyboardEvent<HTMLInputElement> | string) => {
-    // If passed a string (click), use it. If event (enter key), check key.
     const searchTerm = typeof e === 'string' ? e : query;
     const isEnter = typeof e !== 'string' && e.key === 'Enter';
 
     if ((isEnter || typeof e === 'string') && searchTerm.trim()) {
       router.push(`/products?search=${encodeURIComponent(searchTerm)}`);
-      setSuggestions([]); // Clear suggestions on search
+      setSuggestions([]); 
     }
   };
 
   return { query, setQuery, suggestions, handleSearch };
 };
 
-// --- SUB-COMPONENT: USER ACCOUNT MENU ---
+// --- USER MENU ---
 const UserAccountMenu = ({ user }: { user: User | null }) => {
   const router = useRouter();
 
@@ -52,8 +50,6 @@ const UserAccountMenu = ({ user }: { user: User | null }) => {
   };
 
   const menuWrapperClasses = "absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-[#121212] border border-white/10 shadow-2xl font-saira text-white z-50 cursor-default";
-  
-  // Bridge to prevent hover gap issues
   const Bridge = () => <div className="absolute -top-6 left-0 w-full h-6 bg-transparent" />;
 
   if (user) {
@@ -90,15 +86,13 @@ const UserAccountMenu = ({ user }: { user: User | null }) => {
   );
 };
 
-// --- SUB-COMPONENT: SEARCH MENU (With Suggestions) ---
+// --- SEARCH MENU ---
 const SearchMenu = () => {
   const { query, setQuery, suggestions, handleSearch } = useGlobalSearch();
 
   return (
     <div className="absolute top-full mt-2 right-0 w-[400px] bg-[#121212] border border-white/10 shadow-2xl p-6 font-saira text-white z-50">
-       {/* Bridge for Search Menu */}
        <div className="absolute -top-6 right-0 w-20 h-6 bg-transparent" />
-       
        <div className="relative mb-6">
           <Image src="/icons/navbar/search.svg" alt="Search" width={16} height={16} className="absolute left-3 top-1/2 -translate-y-1/2" />
           <input 
@@ -109,8 +103,6 @@ const SearchMenu = () => {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => handleSearch(e)}
           />
-          
-          {/* SEARCH SUGGESTIONS DROPDOWN */}
           {suggestions.length > 0 && (
             <div className="absolute top-full left-0 w-full bg-[#1A1A1A] border border-white/10 mt-1 rounded shadow-xl z-[60]">
                 {suggestions.map((product) => (
@@ -126,7 +118,6 @@ const SearchMenu = () => {
             </div>
           )}
        </div>
-
        <div>
           <h4 className="font-bold text-sm text-white mb-3">Quick links</h4>
           <ul className="space-y-2 text-sm text-brand-silver">
@@ -139,12 +130,10 @@ const SearchMenu = () => {
   )
 }
 
-// --- MAIN NAVBAR COMPONENT ---
+// --- MAIN NAVBAR ---
 export default function Navbar() {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  // Separate search state for the mega menu specific search input if needed, 
-  // but reusing the logic is cleaner if you want suggestions there too.
   const megaMenuSearch = useGlobalSearch(); 
 
   useEffect(() => {
@@ -159,86 +148,74 @@ export default function Navbar() {
     <nav className="fixed top-0 left-0 w-full z-50 bg-[#121212] border-b border-white/10 font-orbitron" onMouseLeave={() => setActiveMenu(null)}>
       <div className="h-[80px] px-[80px] 2xl:px-[100px] flex items-center justify-between relative">
         
-        {/* 1. LEFT: LOGO */}
+        {/* LOGO */}
         <Link href="/" className="flex-shrink-0 flex items-center">
            <div className="relative h-10 w-40">
              <Image src="/icons/navbar/logo.png" alt="Rig Builders" fill className="object-contain object-left" priority />
            </div>
         </Link>
 
-        {/* 2. CENTER: NAVIGATION LINKS */}
+        {/* CENTER NAVIGATION */}
         <div className="hidden lg:flex items-center h-full gap-12 text-[16px] font-medium tracking-wide text-white">
           
-          {/* PRODUCTS */}
+          {/* PRODUCTS (Mega Menu 1) */}
           <div className="h-full flex items-center relative group cursor-pointer" onMouseEnter={() => setActiveMenu("products")}>
             <span className="relative py-2">
               PRODUCTS
-              {/* Center-out Animation */}
               <span className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[1px] bg-white transition-transform duration-300 origin-center ${activeMenu === "products" ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"}`}></span>
             </span>
           </div>
 
-          {/* DESKTOPS */}
-          <Link href="/ascend" className="h-full flex items-center relative group">
+          {/* DESKTOPS (Mega Menu 2 - NEW) */}
+          <Link href="/desktops" className="h-full flex items-center relative group" onMouseEnter={() => setActiveMenu("desktops")}>
             <span className="relative py-2">
               DESKTOPS
-              {/* Center-out Animation */}
-              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[1px] bg-white transition-transform duration-300 origin-center scale-x-0 group-hover:scale-x-100"></span>
+              <span className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[1px] bg-white transition-transform duration-300 origin-center ${activeMenu === "desktops" ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"}`}></span>
             </span>
           </Link>
 
           {/* ACCESSORIES */}
-          <Link href="/accessories" className="h-full flex items-center relative group">
+          <Link href="/accessories" className="h-full flex items-center relative group" onMouseEnter={() => setActiveMenu(null)}>
             <span className="relative py-2">
               ACCESSORIES
-              {/* Center-out Animation */}
               <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[1px] bg-white transition-transform duration-300 origin-center scale-x-0 group-hover:scale-x-100"></span>
             </span>
           </Link>
 
           {/* SUPPORT */}
-          <Link href="/support" className="h-full flex items-center relative group">
+          <Link href="/support" className="h-full flex items-center relative group" onMouseEnter={() => setActiveMenu(null)}>
             <span className="relative py-2">
               SUPPORT
-              {/* Center-out Animation */}
               <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[1px] bg-white transition-transform duration-300 origin-center scale-x-0 group-hover:scale-x-100"></span>
             </span>
           </Link>
         </div>
 
-        {/* 3. RIGHT: ICONS & CTA */}
+        {/* RIGHT ICONS */}
         <div className="flex items-center justify-center h-full space-x-[37px]">
-          
-          {/* CART */}
           <button className="h-full flex items-center justify-center relative group">
             <div className="relative py-2">
               <Image src="/icons/navbar/cart.png" alt="Cart" width={24} height={24} className="group-hover:opacity-80 transition-opacity" />
-              {/* Center-out Animation */}
               <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[1px] bg-white transition-transform duration-300 origin-center scale-x-0 group-hover:scale-x-100"></span>
             </div>
           </button>
 
-          {/* USER ACCOUNT */}
           <div className="relative h-full flex items-center group" onMouseEnter={() => setActiveMenu("user")} onMouseLeave={() => setActiveMenu(null)}>
             <button className="h-full flex items-center justify-center relative py-2">
               <Image src="/icons/navbar/User Account.svg" alt="Account" width={24} height={24} className="group-hover:opacity-80 transition-opacity" />
-              {/* Center-out Animation */}
               <span className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[1px] bg-white transition-transform duration-300 origin-center ${activeMenu === "user" ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"}`}></span>
             </button>
             {activeMenu === "user" && <UserAccountMenu user={user} />}
           </div>
 
-          {/* SEARCH */}
           <div className="relative h-full flex items-center group" onMouseEnter={() => setActiveMenu("search")} onMouseLeave={() => setActiveMenu(null)}>
              <button className="h-full flex items-center justify-center relative py-2">
                 <Image src="/icons/navbar/search.svg" alt="Search" width={24} height={24} className="group-hover:opacity-80 transition-opacity" />
-                {/* Center-out Animation */}
                 <span className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[1px] bg-white transition-transform duration-300 origin-center ${activeMenu === "search" ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"}`}></span>
              </button>
              {activeMenu === "search" && <SearchMenu />}
           </div>
           
-          {/* CTA */}
           <Link href="/configure" className="h-full flex items-center">
             <button className="border border-white text-white px-[20px] py-[8px] text-xs font-medium tracking-wider hover:bg-white hover:text-[#121212] transition-all uppercase leading-none" style={{ width: '153px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               BUILD YOURS
@@ -247,7 +224,9 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* --- MEGA MENU OVERLAY (Products) --- */}
+      {/* --- MEGA MENUS --- */}
+      
+      {/* 1. PRODUCTS MENU (Original) */}
       <div 
         className={`absolute top-[80px] left-0 w-full bg-[#121212]/90 backdrop-blur-md border-t border-white/10 transition-all duration-300 overflow-hidden ${activeMenu === "products" ? "opacity-100 visible max-h-[600px]" : "opacity-0 invisible max-h-0"}`}
         onMouseEnter={() => setActiveMenu("products")}
@@ -297,8 +276,6 @@ export default function Navbar() {
               <li><Link href="/accessories" className="hover:text-white transition-colors">USB Drives</Link></li>
             </ul>
           </div>
-          
-          {/* COL 4: SEARCH (Includes Suggestions now!) */}
           <div className="space-y-8 pl-8 border-l border-white/10">
             <div className="relative">
                 <div className="absolute left-3 top-1/2 -translate-y-1/2">
@@ -312,7 +289,6 @@ export default function Navbar() {
                   onChange={(e) => megaMenuSearch.setQuery(e.target.value)}
                   onKeyDown={(e) => megaMenuSearch.handleSearch(e)}
                 />
-                {/* MEGA MENU SUGGESTIONS */}
                 {megaMenuSearch.suggestions.length > 0 && (
                     <div className="absolute top-full left-0 w-full bg-[#1A1A1A] border border-white/10 mt-1 rounded shadow-xl z-[60]">
                         {megaMenuSearch.suggestions.map((product) => (
@@ -342,6 +318,71 @@ export default function Navbar() {
           </div>
         </div>
       </div>
+
+      {/* 2. DESKTOPS MEGA MENU (NEW DESIGN) */}
+      <div 
+        className={`absolute top-[80px] left-0 w-full bg-[#121212]/90 backdrop-blur-md border-t border-white/10 transition-all duration-300 overflow-hidden ${activeMenu === "desktops" ? "opacity-100 visible max-h-[600px]" : "opacity-0 invisible max-h-0"}`}
+        onMouseEnter={() => setActiveMenu("desktops")}
+        onMouseLeave={() => setActiveMenu(null)}
+      >
+        {/* Adjusted grid: Removed gap-8, added divide-x for clean vertical lines */}
+        <div className="mx-[100px] py-16 grid grid-cols-4 divide-x divide-white/10 text-white">
+          
+          {/* COL 1: ASCEND */}
+          <div className="flex flex-col items-center px-8">
+             <div className="text-center">
+               <h2 className="text-[40px] uppercase leading-none font-orbitron" style={{ fontFamily: 'Android Assassin, Orbitron, sans-serif' }}>ASCEND</h2>
+               <h3 className="text-[22px] font-medium font-orbitron uppercase tracking-widest text-brand-silver mt-[13px] leading-none">SERIES</h3>
+             </div>
+             <Link href="/ascend" className="w-full mt-[21px]">
+                <div className="border border-white/30 py-3 text-center hover:bg-white hover:text-black transition-all cursor-pointer">
+                   <span className="font-orbitron font-medium text-[18px] uppercase">GAMING</span>
+                </div>
+             </Link>
+          </div>
+
+          {/* COL 2: WORKPRO */}
+          <div className="flex flex-col items-center px-8">
+             <div className="text-center">
+               <h2 className="text-[40px] font-semibold leading-none font-montserrat">WorkPro</h2>
+               <h3 className="text-[22px] font-medium font-orbitron uppercase tracking-widest text-brand-silver mt-[13px] leading-none">SERIES</h3>
+             </div>
+             <Link href="/workpro" className="w-full mt-[21px]">
+                <div className="border border-white/30 py-3 text-center hover:bg-white hover:text-black transition-all cursor-pointer">
+                   <span className="font-orbitron font-medium text-[18px] uppercase">WORKSTATIONS</span>
+                </div>
+             </Link>
+          </div>
+
+          {/* COL 3: CREATOR */}
+          <div className="flex flex-col items-center px-8">
+             <div className="text-center">
+               <h2 className="text-[40px] font-medium leading-none font-saira uppercase">CREATOR</h2>
+               <h3 className="text-[22px] font-medium font-orbitron uppercase tracking-widest text-brand-silver mt-[13px] leading-none">SERIES</h3>
+             </div>
+             <Link href="/creator" className="w-full mt-[21px]">
+                <div className="border border-white/30 py-3 text-center hover:bg-white hover:text-black transition-all cursor-pointer">
+                   <span className="font-orbitron font-medium text-[18px] uppercase">STUDIO</span>
+                </div>
+             </Link>
+          </div>
+
+          {/* COL 4: SIGNATURE */}
+          <div className="flex flex-col items-center px-8">
+             <div className="text-center">
+               <h2 className="text-[40px] font-bold leading-none font-orbitron uppercase">SIGNATURE</h2>
+               <h3 className="text-[22px] font-medium font-orbitron uppercase tracking-widest text-brand-silver mt-[13px] leading-none">SERIES</h3>
+             </div>
+             <Link href="/signature" className="w-full mt-[21px]">
+                <div className="border border-white/30 py-3 text-center hover:bg-white hover:text-black transition-all cursor-pointer">
+                   <span className="font-orbitron font-medium text-[18px] uppercase">FLAGSHIP</span>
+                </div>
+             </Link>
+          </div>
+
+        </div>
+      </div>
+
     </nav>
   );
 }
