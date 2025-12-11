@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Saira, Orbitron } from "next/font/google"; 
 import "./globals.css";
+// IMPORT THE CART PROVIDER
+import { CartProvider } from "./context/CartContext"; 
 
 const saira = Saira({
   subsets: ["latin"],
@@ -30,10 +32,12 @@ export default function RootLayout({
     <html lang="en">
       <body 
         suppressHydrationWarning={true}
-        // ADDED "font-saira" HERE:
         className={`${saira.variable} ${orbitron.variable} font-saira antialiased bg-brand-black text-brand-silver`}
       >
-        {children}
+        {/* WRAP THE APP IN CART PROVIDER */}
+        <CartProvider>
+          {children}
+        </CartProvider>
       </body>
     </html>
   );
