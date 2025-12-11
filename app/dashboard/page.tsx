@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import { FaBoxOpen, FaSave, FaTicketAlt, FaDownload, FaMicrochip, FaUserCircle } from "react-icons/fa"; 
+import { FaBoxOpen, FaSave, FaTicketAlt, FaMicrochip } from "react-icons/fa"; 
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("orders");
@@ -42,6 +42,26 @@ export default function DashboardPage() {
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.push("/signin");
+  };
+
+  // 2. Delete Order Function
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!confirm("Are you sure you want to cancel this order?")) return;
+
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      // Update UI immediately by filtering out the deleted order
+      setOrders(prev => prev.filter(order => order.id !== orderId));
+    } catch (err: any) {
+      console.error("Delete failed:", err);
+      alert("Could not delete order.");
+    }
   };
 
   if (loading) return <div className="min-h-screen bg-[#121212] flex items-center justify-center text-white">Loading Dashboard...</div>;
@@ -128,22 +148,32 @@ export default function DashboardPage() {
                                 )}
                               </div>
                            </div>
-                           <div className="text-right flex flex-col items-end">
-                              <p className="font-bold text-lg mb-2">₹{order.total_amount.toLocaleString("en-IN")}</p>
+                           
+                           {/* Price and Actions Section */}
+                           <div className="text-right flex flex-col items-end gap-2">
+                              <p className="font-bold text-lg">₹{order.total_amount.toLocaleString("en-IN")}</p>
                               
-                              {/* ADDED: Checkout Button for Pending Orders */}
+                              {/* ACTIONS FOR PENDING ORDERS (Cancel & Retry) */}
                               {order.status === "pending" && (
-                                <button 
-                                  onClick={() => router.push("/cart")} // Redirects to cart to retry (Simplest logic for now)
-                                  className="bg-brand-purple text-white text-[10px] font-bold uppercase px-3 py-1.5 rounded hover:bg-white hover:text-black transition-all"
-                                >
-                                  Complete Payment
-                                </button>
+                                <div className="flex gap-2">
+                                    <button 
+                                      onClick={() => handleDeleteOrder(order.id)}
+                                      className="text-red-500 hover:text-red-400 text-[10px] font-bold uppercase px-3 py-1.5 border border-red-500/30 rounded hover:bg-red-500/10 transition-all"
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button 
+                                      onClick={() => router.push("/cart")} 
+                                      className="bg-brand-purple text-white text-[10px] font-bold uppercase px-3 py-1.5 rounded hover:bg-white hover:text-black transition-all"
+                                    >
+                                      Pay Now
+                                    </button>
+                                </div>
                               )}
                            </div>
                         </div>
 
-                        {/* Progress Bar Mockup */}
+                        {/* Progress Bar (Visual Only) */}
                         <div className="mt-6 pt-4 border-t border-white/5">
                           <div className="flex justify-between text-[10px] uppercase text-[#A0A0A0] mb-2 tracking-wider">
                             <span className="text-white">Placed</span>
