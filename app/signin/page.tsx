@@ -6,12 +6,14 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { FcGoogle } from "react-icons/fc";
+import { FaEye, FaEyeSlash } from "react-icons/fa"; // Icons for toggle
 import { supabase } from "@/lib/supabaseClient"; 
 
 export default function SignInPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false); // Toggle state
   
   const [formData, setFormData] = useState({
     email: "",
@@ -24,7 +26,6 @@ export default function SignInPage() {
     setError("");
 
     try {
-      // REAL DB LOGIN
       const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
@@ -34,12 +35,11 @@ export default function SignInPage() {
 
       if (data.user) {
         console.log("Login Success:", data.user);
-        // FIX: Redirect to Home Page instead of Dashboard
         router.push("/"); 
       }
     } catch (err: any) {
       console.error("Login Failed:", err.message);
-      setError(err.message || "Invalid email or password.");
+      setError("Invalid credentials. Please check your email and password.");
     } finally {
       setLoading(false);
     }
@@ -53,7 +53,6 @@ export default function SignInPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          // FIX: Redirect to Home Page after Google Login
           redirectTo: `${window.location.origin}/`,
         },
       });
@@ -110,15 +109,24 @@ export default function SignInPage() {
                     <span className="text-xs text-[#4E2C8B] hover:text-white cursor-pointer transition-colors">Forgot Password?</span>
                 </Link>
               </div>
-              <input
-                type="password"
-                id="password"
-                required
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="w-full bg-[#121212] border border-white/10 rounded p-3 text-white focus:border-[#4E2C8B] outline-none transition-colors"
-                placeholder="••••••••"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"} // Toggles between text and password
+                  id="password"
+                  required
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="w-full bg-[#121212] border border-white/10 rounded p-3 text-white focus:border-[#4E2C8B] outline-none transition-colors pr-10"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A0A0A0] hover:text-white transition-colors"
+                >
+                  {showPassword ? <FaEyeSlash /> : <FaEye />}
+                </button>
+              </div>
             </div>
 
             <button 

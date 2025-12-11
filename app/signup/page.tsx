@@ -6,18 +6,24 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { FcGoogle } from "react-icons/fc";
+import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function SignUpPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  
+  // Toggle states
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [formData, setFormData] = useState({
-    fullName: "",
+    username: "", // Changed from fullName
     email: "",
     phone: "",
-    password: ""
+    password: "",
+    confirmPassword: "" // New field
   });
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -25,15 +31,21 @@ export default function SignUpPage() {
     setLoading(true);
     setError("");
 
+    // VALIDATION: Check if passwords match
+    if (formData.password !== formData.confirmPassword) {
+        setError("Passwords do not match.");
+        setLoading(false);
+        return;
+    }
+
     try {
-      // 1. REAL DB SIGN UP
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
           data: {
-            full_name: formData.fullName, // Saving the name to metadata
-            phone: formData.phone         // Saving the phone to metadata
+            full_name: formData.username, // Save username as full_name
+            phone: formData.phone
           },
         },
       });
@@ -41,7 +53,6 @@ export default function SignUpPage() {
       if (error) throw error;
 
       if (data.user) {
-        // Success!
         alert("Account Created Successfully! Please Log In.");
         router.push("/signin");
       }
@@ -60,7 +71,6 @@ export default function SignUpPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: { 
-            // FIX: Redirect to Home Page
             redirectTo: `${window.location.origin}/` 
         },
       });
@@ -72,14 +82,11 @@ export default function SignUpPage() {
   };
 
   return (
-    // FIX: Main wrapper set to flex-col and min-h-screen to handle scrolling & footer positioning
     <div className="bg-[#121212] min-h-screen text-white font-saira flex flex-col">
       <Navbar />
       
-      {/* FIX: Added pt-28 to push content below the fixed navbar. flex-grow pushes footer down. */}
       <div className="flex-grow pt-28 pb-12 px-6 flex items-center justify-center w-full relative z-10">
         
-        {/* Background Glow Effect */}
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-64 h-64 bg-[#4E2C8B]/20 blur-[100px] rounded-full pointer-events-none"></div>
 
         <div className="w-full max-w-md bg-[#1A1A1A] p-8 md:p-12 rounded-2xl border border-white/5 shadow-2xl relative z-20">
@@ -89,7 +96,6 @@ export default function SignUpPage() {
             <p className="text-[#A0A0A0] text-sm">Commission your masterpiece today.</p>
           </div>
 
-          {/* ERROR BOX */}
           {error && (
             <div className="mb-6 p-3 bg-red-900/50 border border-red-800 rounded text-red-300 text-sm text-center font-bold">
               {error}
@@ -97,18 +103,20 @@ export default function SignUpPage() {
           )}
 
           <form onSubmit={handleSignUp} className="space-y-4">
+            {/* Username */}
             <div>
-              <label className="block text-xs uppercase tracking-wider text-[#A0A0A0] mb-2">Full Name</label>
+              <label className="block text-xs uppercase tracking-wider text-[#A0A0A0] mb-2">Username</label>
               <input 
                 required 
                 type="text" 
                 className="w-full bg-[#121212] border border-white/10 rounded p-3 text-white focus:border-[#4E2C8B] outline-none transition-colors" 
-                placeholder="John Doe"
-                value={formData.fullName}
-                onChange={(e) => setFormData({...formData, fullName: e.target.value})}
+                placeholder="username"
+                value={formData.username}
+                onChange={(e) => setFormData({...formData, username: e.target.value})}
               />
             </div>
 
+            {/* Email */}
             <div>
               <label className="block text-xs uppercase tracking-wider text-[#A0A0A0] mb-2">Email Address</label>
               <input 
@@ -121,6 +129,7 @@ export default function SignUpPage() {
               />
             </div>
 
+            {/* Mobile */}
             <div>
               <label className="block text-xs uppercase tracking-wider text-[#A0A0A0] mb-2">Mobile Number</label>
               <div className="flex gap-3">
@@ -136,16 +145,48 @@ export default function SignUpPage() {
               </div>
             </div>
 
+            {/* Password */}
             <div>
               <label className="block text-xs uppercase tracking-wider text-[#A0A0A0] mb-2">Password</label>
-              <input 
-                required 
-                type="password" 
-                className="w-full bg-[#121212] border border-white/10 rounded p-3 text-white focus:border-[#4E2C8B] outline-none transition-colors" 
-                placeholder="Create a password" 
-                value={formData.password}
-                onChange={(e) => setFormData({...formData, password: e.target.value})}
-              />
+              <div className="relative">
+                <input 
+                    required 
+                    type={showPassword ? "text" : "password"}
+                    className="w-full bg-[#121212] border border-white/10 rounded p-3 text-white focus:border-[#4E2C8B] outline-none transition-colors pr-10" 
+                    placeholder="Create a password" 
+                    value={formData.password}
+                    onChange={(e) => setFormData({...formData, password: e.target.value})}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A0A0A0] hover:text-white transition-colors"
+                >
+                  {showPassword ? <FaEyeSlash /> : <FaEye />}
+                </button>
+              </div>
+            </div>
+
+            {/* Confirm Password */}
+            <div>
+              <label className="block text-xs uppercase tracking-wider text-[#A0A0A0] mb-2">Confirm Password</label>
+              <div className="relative">
+                <input 
+                    required 
+                    type={showConfirmPassword ? "text" : "password"}
+                    className="w-full bg-[#121212] border border-white/10 rounded p-3 text-white focus:border-[#4E2C8B] outline-none transition-colors pr-10" 
+                    placeholder="Confirm password" 
+                    value={formData.confirmPassword}
+                    onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A0A0A0] hover:text-white transition-colors"
+                >
+                  {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+                </button>
+              </div>
             </div>
 
             <div className="pt-4">
@@ -158,7 +199,6 @@ export default function SignUpPage() {
             </div>
           </form>
 
-          {/* Social Login */}
           <div className="relative my-8">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-white/10"></div>
@@ -183,7 +223,6 @@ export default function SignUpPage() {
         </div>
       </div>
       
-      {/* Footer Component */}
       <Footer />
     </div>
   );
