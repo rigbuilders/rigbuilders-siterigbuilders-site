@@ -159,11 +159,11 @@ export default function Navbar() {
         <div className="hidden lg:flex items-center h-full gap-12 text-[16px] font-medium tracking-wide text-white">
           
           {/* PRODUCTS (Mega Menu 1) */}
-          <div className="h-full flex items-center relative group cursor-pointer" onMouseEnter={() => setActiveMenu("products")}>
-            <span className="relative py-2">
+          <div className="h-full flex items-center relative group" onMouseEnter={() => setActiveMenu("products")}>
+            <Link href="/products" className="relative py-2 cursor-pointer">
               PRODUCTS
               <span className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[1px] bg-white transition-transform duration-300 origin-center ${activeMenu === "products" ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"}`}></span>
-            </span>
+            </Link>
           </div>
 
           {/* DESKTOPS (Mega Menu 2 - NEW) */}
@@ -193,12 +193,13 @@ export default function Navbar() {
 
         {/* RIGHT ICONS */}
         <div className="flex items-center justify-center h-full space-x-[37px]">
-          <button className="h-full flex items-center justify-center relative group">
+          {/* CART */}
+          <Link href="/cart" className="h-full flex items-center justify-center relative group">
             <div className="relative py-2">
               <Image src="/icons/navbar/cart.png" alt="Cart" width={24} height={24} className="group-hover:opacity-80 transition-opacity" />
               <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[1px] bg-white transition-transform duration-300 origin-center scale-x-0 group-hover:scale-x-100"></span>
             </div>
-          </button>
+          </Link>
 
           <div className="relative h-full flex items-center group" onMouseEnter={() => setActiveMenu("user")} onMouseLeave={() => setActiveMenu(null)}>
             <button className="h-full flex items-center justify-center relative py-2">
@@ -245,7 +246,7 @@ export default function Navbar() {
               <li><Link href="/products?category=motherboard" className="hover:text-white transition-colors">Motherboards</Link></li>
               <li><Link href="/products?category=storage" className="hover:text-white transition-colors">Storage</Link></li>
               <li><Link href="/products?category=psu" className="hover:text-white transition-colors">Power Supply</Link></li>
-              <li><Link href="/products?category=ram" className="hover:text-white transition-colors">RAM</Link></li>
+              <li><Link href="/products?category=ram" className="hover:text-white transition-colors">Memory</Link></li>
               <li><Link href="/products?category=cabinet" className="hover:text-white transition-colors">PC Cabinets</Link></li>
               <li><Link href="/products?category=cooler" className="hover:text-white transition-colors">Air/Liquid Cooler</Link></li>
             </ul>
