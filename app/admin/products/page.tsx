@@ -4,18 +4,23 @@ import Navbar from "@/components/Navbar";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import { allProducts } from "@/app/data/products"; 
 
 const CATEGORIES = [
   { id: "cpu", name: "Processor" },
   { id: "gpu", name: "Graphics Card" },
   { id: "motherboard", name: "Motherboard" },
-  { id: "memory", name: "RAM / Memory" },
+  { id: "ram", name: "Memory (RAM)" },
   { id: "storage", name: "Storage" },
   { id: "psu", name: "Power Supply" },
   { id: "cabinet", name: "Cabinet" },
-  { id: "cooler", name: "Cooler" }
+  { id: "cooler", name: "Cooling" },
+  { id: "os", name: "Operating System" }
 ];
+
+// Pre-defined options to ensure consistency (so "AM5" matches "AM5", not "am5 " or "Am5")
+const SOCKETS = ["AM5", "AM4", "LGA1700", "LGA1200", "TR4"];
+const MEMORY_TYPES = ["DDR5", "DDR4"];
+const FORM_FACTORS = ["ATX", "mATX", "E-ATX", "ITX"];
 
 export default function ProductManager() {
   const [products, setProducts] = useState<any[]>([]);
@@ -32,22 +37,26 @@ export default function ProductManager() {
     category: "cpu",
     brand: "",
     image_url: "",
-    in_stock: true, // NEW: Stock Status
-    specs_text: ""  // NEW: Manual Specs
+    in_stock: true,
+    // STRUCTURED SPECS
+    socket: "",
+    memory_type: "",
+    wattage: "", // Power consumption
+    capacity: "", // GB
+    form_factor: "",
+    speed: "" // MHz
   });
 
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      // UPDATE THIS TO YOUR EMAIL
       const ADMIN_EMAIL = "rigbuilders123@gmail.com"; 
 
       if (!user || user.email !== ADMIN_EMAIL) {
-        alert("Access Denied: You are not an admin.");
+        alert("Access Denied.");
         router.push("/");
         return;
       }
-
       setIsAdmin(true);
       fetchProducts();
     };
@@ -66,27 +75,51 @@ export default function ProductManager() {
     setLoading(true);
 
     try {
-      // Save specs as a simple "raw" key containing the pre-formatted text
+      // Construct the 'specs' JSON object based on category
+      const specs: any = {};
+      
+      // Common Power Field (except OS)
+      if (formData.category !== 'os' && formData.wattage) specs.wattage = parseInt(formData.wattage);
+
+      // Specific Fields
+      if (formData.category === 'cpu') {
+        specs.socket = formData.socket;
+      }
+      if (formData.category === 'motherboard') {
+        specs.socket = formData.socket;
+        specs.memory_type = formData.memory_type;
+        specs.form_factor = formData.form_factor;
+      }
+      if (formData.category === 'ram') {
+        specs.memory_type = formData.memory_type;
+        specs.capacity = formData.capacity; // e.g. "32GB"
+      }
+      if (formData.category === 'gpu') {
+        specs.vram = formData.capacity; // Using capacity field for VRAM
+      }
+      if (formData.category === 'storage') {
+        specs.capacity = formData.capacity;
+      }
+
       const payload = {
         name: formData.name,
         price: parseFloat(formData.price),
         category: formData.category,
         brand: formData.brand,
         image_url: formData.image_url,
-        in_stock: formData.in_stock, // Save Stock Status
-        specs: { raw: formData.specs_text } // Save Manual Specs
+        in_stock: formData.in_stock,
+        specs: specs 
       };
 
       if (activeTab === "edit" && formData.id) {
         const { error } = await supabase.from('products').update(payload).eq('id', formData.id);
         if (error) throw error;
-        alert("Product Updated Successfully!");
       } else {
         const { error } = await supabase.from('products').insert(payload);
         if (error) throw error;
-        alert("Product Created Successfully!");
       }
 
+      alert(activeTab === "edit" ? "Product Updated" : "Product Created");
       resetForm();
       fetchProducts();
 
@@ -97,34 +130,8 @@ export default function ProductManager() {
     }
   };
 
-  // Import existing mock data
-  const handleImport = async () => {
-    if (!confirm(`This will import ${allProducts.length} products. Continue?`)) return;
-    setLoading(true);
-    let count = 0;
-    for (const p of allProducts) {
-        // Create a simple text representation of old specs
-        let rawSpecs = "";
-        if ('socket' in p) rawSpecs += `Socket: ${(p as any).socket}\n`;
-        if ('vram' in p) rawSpecs += `VRAM: ${(p as any).vram}GB\n`;
-        if ('wattage' in p) rawSpecs += `Power: ${(p as any).wattage}W\n`;
-
-        const { error } = await supabase.from('products').insert({
-            name: p.name,
-            price: p.price,
-            category: p.category,
-            brand: p.brand,
-            image_url: p.image,
-            in_stock: p.inStock,
-            specs: { raw: rawSpecs.trim() }
-        });
-        if (!error) count++;
-    }
-    alert(`Imported ${count} products!`);
-    fetchProducts();
-  };
-
   const handleEditClick = (product: any) => {
+    const s = product.specs || {};
     setFormData({
       id: product.id,
       name: product.name,
@@ -132,9 +139,14 @@ export default function ProductManager() {
       category: product.category,
       brand: product.brand,
       image_url: product.image_url || "",
-      in_stock: product.in_stock ?? true, // Load Stock Status
-      // Load raw text OR fallback to empty if older format
-      specs_text: product.specs?.raw || "" 
+      in_stock: product.in_stock ?? true,
+      // Load Specs
+      socket: s.socket || "",
+      memory_type: s.memory_type || "",
+      wattage: s.wattage ? s.wattage.toString() : "",
+      capacity: s.capacity || s.vram || "",
+      form_factor: s.form_factor || "",
+      speed: s.speed || ""
     });
     setActiveTab("edit");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -149,7 +161,7 @@ export default function ProductManager() {
   const resetForm = () => {
     setFormData({
       id: "", name: "", price: "", category: "cpu", brand: "", image_url: "",
-      in_stock: true, specs_text: ""
+      in_stock: true, socket: "", memory_type: "", wattage: "", capacity: "", form_factor: "", speed: ""
     });
     setActiveTab("add");
   };
@@ -159,154 +171,118 @@ export default function ProductManager() {
   return (
     <div className="min-h-screen bg-[#121212] text-white font-saira pb-20">
       <Navbar />
-      
       <div className="pt-32 px-6 max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-            <h1 className="font-orbitron text-3xl font-bold text-brand-purple">ADMIN DASHBOARD</h1>
-            <div className="flex gap-4">
-                {products.length === 0 && (
-                    <button onClick={handleImport} className="px-6 py-2 rounded font-bold uppercase bg-green-600 hover:bg-green-500 text-white">Import Data</button>
-                )}
-                <button onClick={() => { resetForm(); setActiveTab("add"); }} className={`px-6 py-2 rounded font-bold uppercase transition-all ${activeTab === "add" ? "bg-white text-black" : "bg-white/10 text-white"}`}>Add New</button>
-                <button onClick={() => setActiveTab("edit")} className={`px-6 py-2 rounded font-bold uppercase transition-all ${activeTab === "edit" ? "bg-white text-black" : "bg-white/10 text-white"}`}>Edit Inventory</button>
-            </div>
-        </div>
-
+        <h1 className="font-orbitron text-3xl font-bold mb-8 text-brand-purple">ADMIN DASHBOARD</h1>
+        
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            {/* LEFT: FORM AREA */}
             <div className="lg:col-span-1">
                 <div className="bg-[#1A1A1A] p-6 rounded-xl border border-white/5 sticky top-28">
-                    <h2 className="font-bold text-xl mb-6 border-b border-white/10 pb-4">
-                        {activeTab === "edit" ? "Editing Product" : "Add New Product"}
-                    </h2>
+                    <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
+                        <h2 className="font-bold text-xl">{activeTab === "edit" ? "Edit Product" : "Add Product"}</h2>
+                        <button onClick={resetForm} className="text-xs text-brand-purple hover:underline">Reset</button>
+                    </div>
                     
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        <div>
-                            <label className="text-xs text-[#A0A0A0] uppercase">Product Name</label>
-                            <input required className="w-full bg-[#121212] p-2 rounded border border-white/10 focus:border-brand-purple outline-none" 
-                                value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                        <input required placeholder="Product Name" className="w-full bg-[#121212] p-2 rounded border border-white/10" 
+                            value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                            <input required type="number" placeholder="Price (₹)" className="w-full bg-[#121212] p-2 rounded border border-white/10" 
+                                value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} />
+                            <input required placeholder="Brand" className="w-full bg-[#121212] p-2 rounded border border-white/10" 
+                                value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})} />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="text-xs text-[#A0A0A0] uppercase">Price (₹)</label>
-                                <input required type="number" className="w-full bg-[#121212] p-2 rounded border border-white/10 focus:border-brand-purple outline-none" 
-                                    value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} />
-                            </div>
-                            <div>
-                                <label className="text-xs text-[#A0A0A0] uppercase">Brand</label>
-                                <input required className="w-full bg-[#121212] p-2 rounded border border-white/10 focus:border-brand-purple outline-none" 
-                                    value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})} />
-                            </div>
-                        </div>
+                        <select className="w-full bg-[#121212] p-2 rounded border border-white/10"
+                            value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+                            {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="text-xs text-[#A0A0A0] uppercase">Category</label>
-                                <select className="w-full bg-[#121212] p-2 rounded border border-white/10 focus:border-brand-purple outline-none"
-                                    value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
-                                    {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
-                            </div>
+                        <input placeholder="Image URL" className="w-full bg-[#121212] p-2 rounded border border-white/10 text-xs" 
+                            value={formData.image_url} onChange={e => setFormData({...formData, image_url: e.target.value})} />
+
+                        {/* --- DYNAMIC SPECS SECTION --- */}
+                        <div className="bg-[#121212] p-3 rounded border border-white/5 space-y-3">
+                            <label className="text-xs text-brand-purple uppercase font-bold block">Tech Specs</label>
                             
-                            {/* NEW: STOCK TOGGLE */}
-                            <div className="flex items-end pb-2">
-                                <label className="flex items-center gap-2 cursor-pointer select-none">
-                                    <input type="checkbox" className="w-5 h-5 accent-brand-purple"
-                                        checked={formData.in_stock} onChange={e => setFormData({...formData, in_stock: e.target.checked})} />
-                                    <span className={formData.in_stock ? "text-green-400 font-bold" : "text-red-500 font-bold"}>
-                                        {formData.in_stock ? "In Stock" : "Out of Stock"}
-                                    </span>
-                                </label>
-                            </div>
+                            {/* WATTAGE (For most items) */}
+                            {formData.category !== 'os' && (
+                                <input type="number" placeholder="Power Consumption (Watts)" className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs"
+                                    value={formData.wattage} onChange={e => setFormData({...formData, wattage: e.target.value})} />
+                            )}
+
+                            {/* SOCKET (CPU & MOBO) */}
+                            {(formData.category === 'cpu' || formData.category === 'motherboard') && (
+                                <select className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs"
+                                    value={formData.socket} onChange={e => setFormData({...formData, socket: e.target.value})}>
+                                    <option value="">Select Socket</option>
+                                    {SOCKETS.map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                            )}
+
+                            {/* MEMORY TYPE (RAM & MOBO) */}
+                            {(formData.category === 'ram' || formData.category === 'motherboard') && (
+                                <select className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs"
+                                    value={formData.memory_type} onChange={e => setFormData({...formData, memory_type: e.target.value})}>
+                                    <option value="">Select DDR Type</option>
+                                    {MEMORY_TYPES.map(m => <option key={m} value={m}>{m}</option>)}
+                                </select>
+                            )}
+
+                            {/* FORM FACTOR (MOBO & CASE) */}
+                            {(formData.category === 'motherboard' || formData.category === 'cabinet') && (
+                                <select className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs"
+                                    value={formData.form_factor} onChange={e => setFormData({...formData, form_factor: e.target.value})}>
+                                    <option value="">Select Form Factor</option>
+                                    {FORM_FACTORS.map(f => <option key={f} value={f}>{f}</option>)}
+                                </select>
+                            )}
+
+                            {/* CAPACITY (RAM, GPU VRAM, STORAGE) */}
+                            {(formData.category === 'ram' || formData.category === 'gpu' || formData.category === 'storage') && (
+                                <input placeholder={formData.category === 'gpu' ? "VRAM (e.g. 16GB)" : "Capacity (e.g. 1TB)"} className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs"
+                                    value={formData.capacity} onChange={e => setFormData({...formData, capacity: e.target.value})} />
+                            )}
                         </div>
 
-                        <div>
-                            <label className="text-xs text-[#A0A0A0] uppercase">Image Path</label>
-                            <input className="w-full bg-[#121212] p-2 rounded border border-white/10 focus:border-brand-purple outline-none text-xs" 
-                                placeholder="/images/products/example.png"
-                                value={formData.image_url} onChange={e => setFormData({...formData, image_url: e.target.value})} />
-                        </div>
+                        {/* Stock Toggle */}
+                        <label className="flex items-center gap-2 cursor-pointer pt-2">
+                            <input type="checkbox" className="w-4 h-4 accent-brand-purple"
+                                checked={formData.in_stock} onChange={e => setFormData({...formData, in_stock: e.target.checked})} />
+                            <span className="text-sm text-brand-silver">Available in Stock</span>
+                        </label>
 
-                        {/* NEW: MANUAL SPECS TEXTAREA */}
-                        <div>
-                            <label className="text-xs text-brand-purple uppercase font-bold mb-2 block">Specifications (Manual)</label>
-                            <p className="text-[10px] text-[#A0A0A0] mb-2">Write details line-by-line. It will appear exactly as typed.</p>
-                            <textarea 
-                                className="w-full bg-[#121212] p-3 rounded border border-white/10 focus:border-brand-purple outline-none font-mono text-sm h-32 leading-relaxed"
-                                placeholder={"Socket: AM5\nCores: 16\nThreads: 32\nBoost: 5.7GHz"}
-                                value={formData.specs_text} 
-                                onChange={e => setFormData({...formData, specs_text: e.target.value})} 
-                            />
-                        </div>
-
-                        <button disabled={loading} className="w-full bg-brand-purple py-3 rounded font-bold hover:bg-white hover:text-black transition-all mt-4">
+                        <button disabled={loading} className="w-full bg-brand-purple py-3 rounded font-bold hover:bg-white hover:text-black transition-all">
                             {loading ? "Processing..." : activeTab === "edit" ? "Update Product" : "Create Product"}
                         </button>
                     </form>
                 </div>
             </div>
 
-            {/* RIGHT: INVENTORY LIST */}
-            <div className="lg:col-span-2">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="font-bold text-xl">Current Listings</h2>
-                    <span className="text-sm text-[#A0A0A0]">{products.length} Products Found</span>
-                </div>
-
-                <div className="space-y-3">
-                    {products.map((p) => (
-                        <div key={p.id} className="bg-[#1A1A1A] p-4 rounded border border-white/5 hover:border-white/20 transition-all flex justify-between items-center group">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-black/50 rounded flex items-center justify-center text-[10px] text-[#A0A0A0] uppercase font-bold border border-white/5">
-                                    {p.category.substring(0,3)}
-                                </div>
-                                
-                                <div>
-                                    <h3 className="font-bold text-white group-hover:text-brand-purple transition-colors">{p.name}</h3>
-                                    <div className="flex gap-3 text-xs text-[#A0A0A0] items-center">
-                                        <span>{p.brand}</span>
-                                        <span>•</span>
-                                        <span>₹{p.price.toLocaleString("en-IN")}</span>
-                                        <span>•</span>
-                                        <span className={p.in_stock ? "text-green-500" : "text-red-500"}>
-                                            {p.in_stock ? "In Stock" : "Sold Out"}
-                                        </span>
-                                    </div>
-                                    {/* Preview Specs */}
-                                    <p className="text-[10px] text-white/40 mt-1 truncate max-w-md font-mono">
-                                        {p.specs?.raw || "No specs added"}
-                                    </p>
+            {/* RIGHT: LIST */}
+            <div className="lg:col-span-2 space-y-3">
+                {products.map((p) => (
+                    <div key={p.id} className="bg-[#1A1A1A] p-4 rounded border border-white/5 flex justify-between items-center group">
+                        <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-black/50 rounded flex items-center justify-center text-[10px] text-[#A0A0A0] uppercase font-bold border border-white/5">
+                                {p.category.substring(0,2)}
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-white text-sm">{p.name}</h3>
+                                <div className="text-xs text-[#A0A0A0] flex gap-2">
+                                    <span>₹{p.price}</span>
+                                    {p.specs?.socket && <span className="text-brand-purple">[{p.specs.socket}]</span>}
+                                    {p.specs?.wattage && <span>{p.specs.wattage}W</span>}
                                 </div>
                             </div>
-
-                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button 
-                                    onClick={() => handleEditClick(p)} 
-                                    className="px-3 py-1.5 bg-white/5 hover:bg-white hover:text-black rounded text-xs font-bold uppercase transition-all"
-                                >
-                                    Edit
-                                </button>
-                                <button 
-                                    onClick={() => handleDelete(p.id)} 
-                                    className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500 hover:text-white text-red-500 rounded text-xs font-bold uppercase transition-all border border-red-500/20"
-                                >
-                                    Delete
-                                </button>
-                            </div>
                         </div>
-                    ))}
-
-                    {products.length === 0 && (
-                        <div className="text-center py-12 border border-dashed border-white/10 rounded text-[#A0A0A0]">
-                            No products found in database. 
-                            <br/><span className="text-xs text-brand-purple">Click "Import Mock Data" to load your file.</span>
+                        <div className="flex gap-2">
+                            <button onClick={() => handleEditClick(p)} className="px-3 py-1 bg-white/5 hover:bg-white hover:text-black rounded text-[10px] font-bold uppercase">Edit</button>
+                            <button onClick={() => handleDelete(p.id)} className="px-3 py-1 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded text-[10px] font-bold uppercase">Del</button>
                         </div>
-                    )}
-                </div>
+                    </div>
+                ))}
             </div>
-
         </div>
       </div>
     </div>
