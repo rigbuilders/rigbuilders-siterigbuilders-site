@@ -66,8 +66,9 @@ const UserAccountMenu = ({ user }: { user: User | null }) => {
            </div>
         </div>
         <div className="py-2">
-          <Link href="/account" className="flex items-center gap-3 px-4 py-2 hover:bg-white/5 transition-colors text-sm"><span>→</span> Account</Link>
-          <Link href="/orders" className="flex items-center gap-3 px-4 py-2 hover:bg-white/5 transition-colors text-sm"><span>→</span> Orders</Link>
+          {/* UPDATED: Points to Dashboard now */}
+          <Link href="/dashboard" className="flex items-center gap-3 px-4 py-2 hover:bg-white/5 transition-colors text-sm"><span>→</span> Dashboard</Link>
+          <Link href="/dashboard" className="flex items-center gap-3 px-4 py-2 hover:bg-white/5 transition-colors text-sm"><span>→</span> Orders</Link>
           <Link href="/cart" className="flex items-center gap-3 px-4 py-2 hover:bg-white/5 transition-colors text-sm"><span>→</span> Cart</Link>
           <Link href="/support" className="flex items-center gap-3 px-4 py-2 hover:bg-white/5 transition-colors text-sm"><span>→</span> Support</Link>
           <button onClick={handleLogout} className="w-full text-left flex items-center gap-3 px-4 py-2 hover:bg-red-500/10 text-red-400 hover:text-red-300 transition-colors text-sm border-t border-white/10 mt-2"><span>→</span> Sign Out</button>
@@ -241,14 +242,15 @@ export default function Navbar() {
             </div>
             <h3 className="font-orbitron text-lg font-bold text-white mb-2">PC Components</h3>
             <ul className="space-y-3 text-sm font-saira text-brand-silver">
-              <li><Link href="/products?category=cpu" className="hover:text-white transition-colors">Processors</Link></li>
-              <li><Link href="/products?category=gpu" className="hover:text-white transition-colors">Graphics Card</Link></li>
-              <li><Link href="/products?category=motherboard" className="hover:text-white transition-colors">Motherboards</Link></li>
-              <li><Link href="/products?category=storage" className="hover:text-white transition-colors">Storage</Link></li>
-              <li><Link href="/products?category=psu" className="hover:text-white transition-colors">Power Supply</Link></li>
-              <li><Link href="/products?category=ram" className="hover:text-white transition-colors">Memory</Link></li>
-              <li><Link href="/products?category=cabinet" className="hover:text-white transition-colors">PC Cabinets</Link></li>
-              <li><Link href="/products?category=cooler" className="hover:text-white transition-colors">Air/Liquid Cooler</Link></li>
+              {/* FIX: Pointing to new Dynamic Routes */}
+              <li><Link href="/products/cpu" className="hover:text-white transition-colors">Processors</Link></li>
+              <li><Link href="/products/gpu" className="hover:text-white transition-colors">Graphics Card</Link></li>
+              <li><Link href="/products/motherboard" className="hover:text-white transition-colors">Motherboards</Link></li>
+              <li><Link href="/products/storage" className="hover:text-white transition-colors">Storage</Link></li>
+              <li><Link href="/products/psu" className="hover:text-white transition-colors">Power Supply</Link></li>
+              <li><Link href="/products/memory" className="hover:text-white transition-colors">Memory</Link></li>
+              <li><Link href="/products/cabinet" className="hover:text-white transition-colors">PC Cabinets</Link></li>
+              <li><Link href="/products/cooler" className="hover:text-white transition-colors">Air/Liquid Cooler</Link></li>
             </ul>
           </div>
           <div className="space-y-6">
@@ -309,8 +311,9 @@ export default function Navbar() {
                 <h3 className="font-orbitron text-lg font-bold text-white mb-4">Quick Links :</h3>
                 <ul className="space-y-2 text-sm font-saira text-brand-silver">
                     <li><Link href="/ascend" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> Ascend Series</Link></li>
-                    <li><Link href="/products?category=cpu" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> Processors</Link></li>
-                    <li><Link href="/products?category=gpu" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> Graphics Cards</Link></li>
+                    {/* FIX: Quick Links updated to new paths */}
+                    <li><Link href="/products/cpu" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> Processors</Link></li>
+                    <li><Link href="/products/gpu" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> Graphics Cards</Link></li>
                     <li><Link href="/accessories" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> Keyboard Mouse Combos</Link></li>
                     <li><Link href="/workpro" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> WorkPro Series</Link></li>
                     <li><Link href="/accessories" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> Displays</Link></li>
