@@ -27,6 +27,7 @@ export default function ConfiguratorPage() {
     osSecondary: null as any,
   });
 
+  // 1. FETCH LIVE DATA
   useEffect(() => {
     const fetchInventory = async () => {
       const { data, error } = await supabase.from('products').select('*');
@@ -40,11 +41,13 @@ export default function ConfiguratorPage() {
             brand: p.brand,
             image: p.image_url, 
             inStock: p.in_stock,
-            // CRITICAL: Pull specs to top level for filtering
+            // CRITICAL: Pull specs to top level for filtering & display
             socket: p.specs?.socket,
             memory_type: p.specs?.memory_type,
             wattage: p.specs?.wattage,
             form_factor: p.specs?.form_factor,
+            vram: p.specs?.vram,
+            storage_type: p.specs?.storage_type, // New: NVMe, SSD, HDD
             ...p.specs 
         })));
       }
@@ -53,7 +56,7 @@ export default function ConfiguratorPage() {
     fetchInventory();
   }, []);
 
-  // --- SMART FILTERING LOGIC ---
+  // 2. CATEGORIZE & FILTER DATA
   const data = useMemo(() => {
     const all = {
         cpus: inventory.filter(p => p.category === 'cpu'),
@@ -67,12 +70,12 @@ export default function ConfiguratorPage() {
         osList: inventory.filter(p => p.category === 'os'),
     };
 
-    // FILTER: Motherboards must match CPU Socket
+    // FILTER 1: Motherboards must match CPU Socket
     if (selections.cpu?.socket) {
         all.mobos = all.mobos.filter(m => m.socket === selections.cpu.socket);
     }
 
-    // FILTER: RAM must match Motherboard Type (DDR4/DDR5)
+    // FILTER 2: RAM must match Motherboard Type (DDR4 vs DDR5)
     if (selections.motherboard?.memory_type) {
         all.rams = all.rams.filter(r => r.memory_type === selections.motherboard.memory_type);
     }
@@ -80,10 +83,10 @@ export default function ConfiguratorPage() {
     return all;
   }, [inventory, selections.cpu, selections.motherboard]);
 
-  // Calculations
+  // 3. CALCULATIONS
   const totalPrice = Object.values(selections).reduce((acc, item) => acc + (item?.price || 0), 0);
   
-  // Power Calc: Sum of wattages + 100W buffer
+  // Power Calculation (Sum + 100W Buffer)
   const totalTDP = (selections.cpu?.wattage || 0) + 
                    (selections.gpu?.wattage || 0) + 
                    100; 
@@ -91,14 +94,16 @@ export default function ConfiguratorPage() {
   const psuWattage = selections.psu?.wattage || 0;
   const isPowerSufficient = selections.psu ? psuWattage >= totalTDP : true;
 
+  // 4. HANDLERS
   const handleSelect = (category: keyof typeof selections, item: any) => {
     setSelections(prev => {
-        // If changing CPU, clear Mobo if socket mismatches
+        // Toggle Logic: If clicking the same item, deselect it
         const newSel = { ...prev, [category]: prev[category]?.id === item.id ? null : item };
         
+        // Compatibility Reset: If changing CPU, reset Mobo if socket mismatches
         if (category === 'cpu' && prev.motherboard && prev.motherboard.socket !== item.socket) {
-            newSel.motherboard = null; // Reset incompatible board
-            newSel.ram = null; // Reset RAM cascade
+            newSel.motherboard = null; 
+            newSel.ram = null; 
         }
         return newSel;
     });
@@ -126,10 +131,10 @@ export default function ConfiguratorPage() {
       <div className="flex-grow pt-28 pb-12 px-4 md:px-8 2xl:px-[100px]">
         <div className="max-w-8xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
             
-            {/* LEFT SIDEBAR */}
+            {/* LEFT SIDEBAR: SUMMARY (Sticky) */}
             <div className="lg:col-span-4 lg:sticky lg:top-28 h-fit space-y-6">
                 
-                {/* Cabinet Preview */}
+                {/* CABINET PREVIEW */}
                 {selections.cabinet && (
                     <div className="bg-[#1A1A1A] border border-white/10 rounded-xl p-6 flex flex-col items-center justify-center min-h-[300px] relative overflow-hidden">
                         <div className="relative w-full h-[250px]">
@@ -142,7 +147,7 @@ export default function ConfiguratorPage() {
                     </div>
                 )}
 
-                {/* Build Summary */}
+                {/* BUILD SUMMARY */}
                 <div className="bg-[#1A1A1A] border border-white/10 rounded-xl p-6">
                     <h2 className="font-orbitron font-bold text-xl mb-6 text-white uppercase">Build Summary</h2>
                     
@@ -161,11 +166,13 @@ export default function ConfiguratorPage() {
                             ></div>
                         </div>
                         {!isPowerSufficient && selections.psu && (
-                            <p className="text-[10px] text-red-400 mt-2 flex items-center gap-2"><FaInfoCircle /> PSU wattage too low!</p>
+                            <p className="text-[10px] text-red-400 mt-2 flex items-center gap-2">
+                                <FaInfoCircle /> PSU wattage too low!
+                            </p>
                         )}
                     </div>
 
-                    {/* Summary List */}
+                    {/* List */}
                     <div className="space-y-3 mb-6 text-sm">
                         <SummaryRow label="Processor" item={selections.cpu} />
                         <SummaryRow label="Motherboard" item={selections.motherboard} />
@@ -195,7 +202,7 @@ export default function ConfiguratorPage() {
                 </div>
             </div>
 
-            {/* RIGHT COLUMN */}
+            {/* RIGHT COLUMN: SELECTION ACCORDIONS */}
             <div className="lg:col-span-8 space-y-4">
                 <CollapsibleSection title="1. Processor" selected={selections.cpu?.name}>
                     <Grid items={data.cpus} selectedId={selections.cpu?.id} onSelect={(i: any) => handleSelect('cpu', i)} />
@@ -231,7 +238,6 @@ export default function ConfiguratorPage() {
                     <Grid items={data.cabinets} selectedId={selections.cabinet?.id} onSelect={(i: any) => handleSelect('cabinet', i)} />
                 </CollapsibleSection>
 
-                {/* ADVANCED OS SECTION */}
                 <CollapsibleSection title="9. Operating System" selected={selections.osPrimary?.name}>
                     <OperatingSystemSelector 
                         allOs={data.osList}
@@ -250,7 +256,8 @@ export default function ConfiguratorPage() {
   );
 }
 
-// --- REUSED SUB-COMPONENTS ---
+// --- SUB-COMPONENTS (Expanded for readability) ---
+
 const SummaryRow = ({ label, item }: any) => (
     <div className="flex justify-between items-start text-xs">
         <span className="text-brand-silver w-1/3">{label}</span>
@@ -264,9 +271,17 @@ const CollapsibleSection = ({ title, selected, children }: any) => {
     const [isOpen, setIsOpen] = useState(true);
     return (
         <div className="bg-[#1A1A1A] border border-white/5 rounded-xl overflow-hidden">
-            <button onClick={() => setIsOpen(!isOpen)} className="w-full px-6 py-5 flex justify-between items-center bg-[#151515] hover:bg-[#1A1A1A] transition-colors border-b border-white/5">
-                <div className="text-left"><h3 className="font-orbitron font-bold text-white uppercase text-sm md:text-base">{title}</h3>{selected && <p className="text-xs text-brand-purple mt-1 truncate max-w-[200px] md:max-w-md">{selected}</p>}</div>
-                <div className="text-brand-silver">{isOpen ? <FaChevronUp /> : <FaChevronDown />}</div>
+            <button 
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full px-6 py-5 flex justify-between items-center bg-[#151515] hover:bg-[#1A1A1A] transition-colors border-b border-white/5"
+            >
+                <div className="text-left">
+                    <h3 className="font-orbitron font-bold text-white uppercase text-sm md:text-base">{title}</h3>
+                    {selected && <p className="text-xs text-brand-purple mt-1 truncate max-w-[200px] md:max-w-md">{selected}</p>}
+                </div>
+                <div className="text-brand-silver">
+                    {isOpen ? <FaChevronUp /> : <FaChevronDown />}
+                </div>
             </button>
             {isOpen && <div className="p-6">{children}</div>}
         </div>
@@ -288,15 +303,30 @@ const OperatingSystemSelector = ({ allOs, primaryOs, secondaryOs, setPrimaryOs, 
         <div className="space-y-6">
             <div className="flex border-b border-white/10">
                 {["windows", "linux", "dual"].map((t) => (
-                    <button key={t} onClick={() => setTab(t as any)} className={`px-6 py-3 text-sm font-bold uppercase tracking-wider transition-all border-b-2 ${tab === t ? "border-brand-purple text-white" : "border-transparent text-brand-silver hover:text-white"}`}>{t === "dual" ? "Dual Boot" : t}</button>
+                    <button key={t} onClick={() => setTab(t as any)} 
+                        className={`px-6 py-3 text-sm font-bold uppercase tracking-wider transition-all border-b-2 
+                        ${tab === t ? "border-brand-purple text-white" : "border-transparent text-brand-silver hover:text-white"}`}
+                    >
+                        {t === "dual" ? "Dual Boot" : t}
+                    </button>
                 ))}
             </div>
             {tab === "windows" && <Grid items={winOs} selectedId={primaryOs?.id} onSelect={handleSingleSelect} />}
             {tab === "linux" && <Grid items={linuxOs} selectedId={primaryOs?.id} onSelect={handleSingleSelect} />}
             {tab === "dual" && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-2"><h4 className="text-brand-purple font-bold text-xs uppercase flex items-center gap-2"><FaWindows /> Primary Slot</h4><div className="h-60 overflow-y-auto custom-scrollbar border border-white/10 rounded p-2">{winOs.map((os: any) => (<MiniOsCard key={os.id} item={os} isSelected={primaryOs?.id === os.id} onClick={() => setPrimaryOs(primaryOs?.id === os.id ? null : os)} />))}</div></div>
-                    <div className="space-y-2"><h4 className="text-orange-400 font-bold text-xs uppercase flex items-center gap-2"><FaLinux /> Secondary Slot</h4><div className="h-60 overflow-y-auto custom-scrollbar border border-white/10 rounded p-2">{linuxOs.map((os: any) => (<MiniOsCard key={os.id} item={os} isSelected={secondaryOs?.id === os.id} onClick={() => setSecondaryOs(secondaryOs?.id === os.id ? null : os)} />))}</div></div>
+                    <div className="space-y-2">
+                        <h4 className="text-brand-purple font-bold text-xs uppercase flex items-center gap-2"><FaWindows /> Primary Slot</h4>
+                        <div className="h-60 overflow-y-auto custom-scrollbar border border-white/10 rounded p-2">
+                            {winOs.map((os: any) => (<MiniOsCard key={os.id} item={os} isSelected={primaryOs?.id === os.id} onClick={() => setPrimaryOs(primaryOs?.id === os.id ? null : os)} />))}
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <h4 className="text-orange-400 font-bold text-xs uppercase flex items-center gap-2"><FaLinux /> Secondary Slot</h4>
+                        <div className="h-60 overflow-y-auto custom-scrollbar border border-white/10 rounded p-2">
+                            {linuxOs.map((os: any) => (<MiniOsCard key={os.id} item={os} isSelected={secondaryOs?.id === os.id} onClick={() => setSecondaryOs(secondaryOs?.id === os.id ? null : os)} />))}
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
@@ -305,7 +335,8 @@ const OperatingSystemSelector = ({ allOs, primaryOs, secondaryOs, setPrimaryOs, 
 
 const MiniOsCard = ({ item, isSelected, onClick }: any) => (
     <div onClick={onClick} className={`cursor-pointer p-3 rounded flex justify-between items-center transition-all border mb-2 ${isSelected ? "bg-brand-purple text-white border-brand-purple" : "bg-white/5 text-brand-silver border-transparent hover:bg-white/10"}`}>
-        <span className="text-xs font-saira">{item.name}</span><span className="text-xs font-bold opacity-70">₹{item.price.toLocaleString("en-IN")}</span>
+        <span className="text-xs font-saira">{item.name}</span>
+        <span className="text-xs font-bold opacity-70">₹{item.price.toLocaleString("en-IN")}</span>
     </div>
 );
 
@@ -314,12 +345,33 @@ const Grid = ({ items, selectedId, onSelect }: any) => {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {items.map((item: any) => (
-                <div key={item.id} onClick={() => { if (item.category === 'os' || item.inStock) { onSelect(item); } }} className={`relative p-4 rounded-lg border cursor-pointer transition-all flex flex-col justify-between min-h-[140px] group ${selectedId === item.id ? "bg-brand-purple/10 border-brand-purple" : (item.category !== 'os' && !item.inStock) ? "bg-black/20 border-white/5 opacity-50 cursor-not-allowed" : "bg-[#121212] border-white/10 hover:border-white/30 hover:bg-[#151515]"}`}>
-                    <div className="flex justify-between items-start mb-2"><span className="text-[10px] font-bold text-brand-silver uppercase tracking-wider">{item.brand || "Software"}</span>{selectedId === item.id && <div className="text-brand-purple"><FaCheck /></div>}</div>
-                    <div><h4 className="font-bold text-sm text-white mb-1 leading-tight">{item.name}</h4><div className="text-[10px] text-brand-silver mb-3">
-                        {item.socket ? `Socket: ${item.socket}` : item.wattage ? `Power: ${item.wattage}W` : item.category === 'os' ? "License Key" : ""}
-                    </div></div>
-                    <div className="flex justify-between items-center pt-3 border-t border-white/5"><span className="font-bold text-white">{item.price === 0 ? "FREE" : `₹${item.price.toLocaleString("en-IN")}`}</span>{item.category !== 'os' && !item.inStock && (<span className="text-[9px] font-bold text-red-500 uppercase px-2 py-1 bg-red-500/10 rounded">Out of Stock</span>)}</div>
+                <div key={item.id} onClick={() => { if (item.category === 'os' || item.inStock) { onSelect(item); } }} 
+                    className={`relative p-4 rounded-lg border cursor-pointer transition-all flex flex-col justify-between min-h-[140px] group 
+                    ${selectedId === item.id 
+                        ? "bg-brand-purple/10 border-brand-purple" 
+                        : (item.category !== 'os' && !item.inStock) 
+                            ? "bg-black/20 border-white/5 opacity-50 cursor-not-allowed" 
+                            : "bg-[#121212] border-white/10 hover:border-white/30 hover:bg-[#151515]"
+                    }`}
+                >
+                    <div className="flex justify-between items-start mb-2">
+                        <span className="text-[10px] font-bold text-brand-silver uppercase tracking-wider">{item.brand || "Part"}</span>
+                        {selectedId === item.id && <div className="text-brand-purple"><FaCheck /></div>}
+                    </div>
+                    <div>
+                        <h4 className="font-bold text-sm text-white mb-1 leading-tight">{item.name}</h4>
+                        <div className="text-[10px] text-brand-silver mb-3">
+                            {/* SMART SPEC DISPLAY */}
+                            {item.socket ? `Socket: ${item.socket}` : 
+                             item.wattage ? `Power: ${item.wattage}W` : 
+                             item.storage_type ? `${item.storage_type}` : 
+                             item.category === 'os' ? "License Key" : ""}
+                        </div>
+                    </div>
+                    <div className="flex justify-between items-center pt-3 border-t border-white/5">
+                        <span className="font-bold text-white">{item.price === 0 ? "FREE" : `₹${item.price.toLocaleString("en-IN")}`}</span>
+                        {item.category !== 'os' && !item.inStock && (<span className="text-[9px] font-bold text-red-500 uppercase px-2 py-1 bg-red-500/10 rounded">Out of Stock</span>)}
+                    </div>
                 </div>
             ))}
         </div>
