@@ -1,76 +1,69 @@
+"use client";
+
 import Link from "next/link";
+import { Reveal, StaggerGrid, StaggerItem } from "@/components/ui/MotionWrappers";
+import Image from "next/image";
 
 export default function CreatorSeries() {
   return (
-    <section className="w-full bg-brand-black py-12 md:py-20 px-6" id="creator">
-      <div className="max-w-6xl mx-auto">
+    <section className="relative py-24 bg-[#121212] overflow-hidden border-t border-white/5">
+      
+      {/* 1. CINEMATIC BACKGROUND IMAGE (Fixed Link) */}
+      <div className="absolute inset-0 opacity-20 pointer-events-none">
+         <Image 
+            // Reliable Unsplash ID for a Neon/Streamer setup
+            src="https://images.unsplash.com/photo-1616588589676-60b30c3c1681?q=80&w=2070&auto=format&fit=crop" 
+            alt="Creator Studio Background" 
+            fill 
+            className="object-cover"
+         />
+      </div>
 
-        {/* SECTION TITLE */}
-        <h2 className="text-2xl md:text-3xl font-orbitron font-bold text-white text-center">
-          Creator Series
-        </h2>
-        <p className="text-brand-silver/70 text-sm font-saira text-center mt-2 px-4">
-          Rigs tuned for editors, streamers, designers and content creators.
-        </p>
+      {/* 2. GRADIENT FADE (The "WorkPro" Effect) */}
+      <div className="absolute inset-0 bg-gradient-to-b from-[#121212] via-[#121212]/40 to-[#121212]" />
+      <div className="absolute inset-0 bg-gradient-to-r from-[#121212] via-transparent to-[#121212]/50" />
 
-        {/* GRID */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-10 mt-12">
+      <div className="max-w-7xl mx-auto px-6 relative z-10">
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            {/* Text Content */}
+            <div>
+                <Reveal>
+                    <p className="font-saira text-purple-400 tracking-[0.2em] text-sm font-bold mb-2">STREAM. RENDER. CREATE.</p>
+                    <h2 className="font-orbitron text-5xl md:text-6xl font-bold text-white mb-6">
+                    CREATOR <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">SERIES</span>
+                    </h2>
+                    <p className="text-brand-silver text-lg mb-8 leading-relaxed max-w-xl">
+                    Stop compromising. The Creator Series is engineered to handle 4K video editing and 1080p60 streaming simultaneously. 
+                    Zero dropped frames. Zero render bottlenecks.
+                    </p>
 
-          {/* CARD 1: Creator Lite */}
-          <div className="bg-white/5 rounded-xl p-6 border border-white/5 hover:border-brand-purple/40 transition shadow-lg group">
-            <div className="w-full h-40 rounded-lg bg-gradient-to-br from-brand-purple to-brand-blue opacity-80 mb-4 group-hover:opacity-100 transition-opacity"></div>
-            
-            <h3 className="text-white text-lg font-orbitron font-bold">
-              Creator Lite
-            </h3>
-            <p className="text-brand-silver/60 text-sm font-saira mt-1">
-              Perfect for YouTube editing, thumbnails and light motion graphics.
-            </p>
-            
-            <Link href="/creator">
-              <button className="mt-4 px-6 py-2 bg-brand-purple text-white text-xs rounded-full uppercase tracking-wide hover:bg-white hover:text-black transition-colors">
-                View Build
-              </button>
-            </Link>
-          </div>
+                    <StaggerGrid className="grid grid-cols-2 gap-4 mb-10 max-w-md">
+                        <StaggerItem className="rb-card p-4 text-center border-white/5 bg-black/50 backdrop-blur-md">
+                            <span className="block font-bold text-white text-xl">NVENC</span>
+                            <span className="text-xs text-gray-400">Stream Encoding</span>
+                        </StaggerItem>
+                        <StaggerItem className="rb-card p-4 text-center border-white/5 bg-black/50 backdrop-blur-md">
+                            <span className="block font-bold text-white text-xl">STUDIO</span>
+                            <span className="text-xs text-gray-400">Drivers Pre-Installed</span>
+                        </StaggerItem>
+                    </StaggerGrid>
 
-          {/* CARD 2: Creator Studio */}
-          <div className="bg-white/5 rounded-xl p-6 border border-white/5 hover:border-brand-purple/40 transition shadow-lg group">
-            <div className="w-full h-40 rounded-lg bg-gradient-to-br from-brand-purple to-brand-silver opacity-80 mb-4 group-hover:opacity-100 transition-opacity"></div>
-            
-            <h3 className="text-white text-lg font-orbitron font-bold">
-              Creator Studio
-            </h3>
-            <p className="text-brand-silver/60 text-sm font-saira mt-1">
-              Tuned for Premiere Pro, After Effects, Photoshop and multitasking.
-            </p>
-            
-            <Link href="/creator">
-              <button className="mt-4 px-6 py-2 bg-brand-purple text-white text-xs rounded-full uppercase tracking-wide hover:bg-white hover:text-black transition-colors">
-                View Build
-              </button>
-            </Link>
-          </div>
+                    <Link href="/creator">
+                        <button className="rb-btn-primary px-8 py-4 rounded font-bold uppercase tracking-wider text-sm shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:shadow-purple-500/40">
+                            VIEW Series
+                        </button>
+                    </Link>
+                </Reveal>
+            </div>
 
-          {/* CARD 3: Creator Max */}
-          <div className="bg-white/5 rounded-xl p-6 border border-white/5 hover:border-brand-purple/40 transition shadow-lg group">
-            <div className="w-full h-40 rounded-lg bg-gradient-to-br from-brand-purple to-brand-burgundy opacity-80 mb-4 group-hover:opacity-100 transition-opacity"></div>
-            
-            <h3 className="text-white text-lg font-orbitron font-bold">
-              Creator Max
-            </h3>
-            <p className="text-brand-silver/60 text-sm font-saira mt-1">
-              For heavy timelines, 4K+ workflows, streaming and complex projects.
-            </p>
-            
-            <Link href="/creator">
-              <button className="mt-4 px-6 py-2 bg-brand-purple text-white text-xs rounded-full uppercase tracking-wide hover:bg-white hover:text-black transition-colors">
-                View Build
-              </button>
-            </Link>
-          </div>
-
+            {/* Right Side: Abstract Visual / Clean Space */}
+            <div className="hidden lg:block">
+                {/* We leave this empty to let the background image shine through, 
+                    or add a floating 3D element here later. */}
+            </div>
         </div>
+
       </div>
     </section>
   );

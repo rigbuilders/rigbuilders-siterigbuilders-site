@@ -3,10 +3,11 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { User } from "@supabase/supabase-js";
 import { allProducts } from "@/app/data/products"; 
+import { FaBars, FaTimes, FaSearch, FaShoppingCart, FaUser } from "react-icons/fa";
 
 // --- SEARCH HOOK ---
 const useGlobalSearch = () => {
@@ -19,7 +20,8 @@ const useGlobalSearch = () => {
       const lowerQuery = query.toLowerCase();
       const matches = allProducts.filter(p => 
         p.name.toLowerCase().includes(lowerQuery) || 
-        p.brand.toLowerCase().includes(lowerQuery)
+        p.brand.toLowerCase().includes(lowerQuery) ||
+        p.category.toLowerCase().includes(lowerQuery)
       ).slice(0, 5); 
       setSuggestions(matches);
     } else {
@@ -40,78 +42,79 @@ const useGlobalSearch = () => {
   return { query, setQuery, suggestions, handleSearch };
 };
 
-// --- USER MENU ---
-const UserAccountMenu = ({ user }: { user: User | null }) => {
-  const router = useRouter();
+// --- SUB-COMPONENTS ---
 
+// 1. User Menu (Fixed to match image_ac573a.png)
+const UserAccountMenu = ({ user }: { user: User | null }) => {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     window.location.reload(); 
   };
 
-  const menuWrapperClasses = "absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-[#121212] border border-white/10 shadow-2xl font-saira text-white z-50 cursor-default";
-  const Bridge = () => <div className="absolute -top-6 left-0 w-full h-6 bg-transparent" />;
+  const menuWrapperClasses = "absolute top-full mt-0 right-0 bg-[#121212] border border-white/10 shadow-2xl font-saira text-white z-50 cursor-default w-64 pt-2";
 
   if (user) {
     return (
-      <div className={`${menuWrapperClasses} w-64`}>
-        <Bridge />
-        <div className="p-4 border-b border-white/10 flex items-center gap-3">
-           <div className="w-8 h-8 rounded-full border border-white/30 flex items-center justify-center">
-              <Image src="/icons/navbar/User Account.svg" alt="User" width={16} height={16} />
-           </div>
-           <div className="overflow-hidden">
-              <p className="text-sm font-bold text-white truncate">{user.user_metadata.full_name || "User"}</p>
-              <p className="text-[10px] text-brand-silver truncate">{user.email}</p>
+      <div className={menuWrapperClasses}>
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-white/10">
+           <div className="flex items-center gap-3">
+               <div className="w-8 h-8 rounded-full border border-white/30 flex items-center justify-center bg-white/5">
+                  <FaUser className="text-sm" />
+               </div>
+               <div className="overflow-hidden">
+                  <p className="text-sm font-bold text-white truncate font-orbitron">{user.user_metadata.full_name || "RigBuilder"}</p>
+                  <p className="text-[10px] text-brand-silver truncate">{user.email}</p>
+               </div>
            </div>
         </div>
+        {/* Links List */}
         <div className="py-2">
-          {/* UPDATED: Points to Dashboard now */}
-          <Link href="/dashboard" className="flex items-center gap-3 px-4 py-2 hover:bg-white/5 transition-colors text-sm"><span>→</span> Dashboard</Link>
-          <Link href="/dashboard" className="flex items-center gap-3 px-4 py-2 hover:bg-white/5 transition-colors text-sm"><span>→</span> Orders</Link>
-          <Link href="/cart" className="flex items-center gap-3 px-4 py-2 hover:bg-white/5 transition-colors text-sm"><span>→</span> Cart</Link>
-          <Link href="/support" className="flex items-center gap-3 px-4 py-2 hover:bg-white/5 transition-colors text-sm"><span>→</span> Support</Link>
-          <button onClick={handleLogout} className="w-full text-left flex items-center gap-3 px-4 py-2 hover:bg-red-500/10 text-red-400 hover:text-red-300 transition-colors text-sm border-t border-white/10 mt-2"><span>→</span> Sign Out</button>
+          <Link href="/dashboard" className="flex items-center gap-3 px-6 py-3 hover:bg-white/5 transition-colors text-sm text-brand-silver hover:text-white"><span>→</span> Dashboard</Link>
+          <Link href="/admin/orders" className="flex items-center gap-3 px-6 py-3 hover:bg-white/5 transition-colors text-sm text-brand-silver hover:text-white"><span>→</span> Orders</Link>
+          <Link href="/cart" className="flex items-center gap-3 px-6 py-3 hover:bg-white/5 transition-colors text-sm text-brand-silver hover:text-white"><span>→</span> Cart</Link>
+          <Link href="/support" className="flex items-center gap-3 px-6 py-3 hover:bg-white/5 transition-colors text-sm text-brand-silver hover:text-white"><span>→</span> Support</Link>
+          
+          <button onClick={handleLogout} className="w-full text-left flex items-center gap-3 px-6 py-4 hover:bg-red-500/10 text-red-500 hover:text-red-400 transition-colors text-sm border-t border-white/10 mt-2 font-bold">
+            <span>→</span> Sign Out
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`${menuWrapperClasses} w-48 p-2 text-white/90`}>
-      <Bridge />
-      <p className="text-sm font-bold p-2 mb-1 text-center">Guest Mode</p>
-      <Link href="/signin" className="block text-center w-full py-2 bg-brand-charcoal hover:bg-white/10 transition-colors text-sm">Log In</Link>
-      <Link href="/signup" className="block text-center w-full py-2 mt-1 bg-brand-purple hover:bg-brand-purple/80 transition-colors text-sm font-bold">Sign Up</Link>
+    <div className={`${menuWrapperClasses} p-6 text-center`}>
+      <p className="text-sm font-bold mb-4 font-orbitron">WELCOME</p>
+      <div className="space-y-3">
+        <Link href="/signin" className="block w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-xs uppercase font-bold tracking-wider transition-all">Log In</Link>
+        <Link href="/signup" className="block w-full py-3 bg-brand-purple hover:bg-white hover:text-black text-white text-xs uppercase font-bold tracking-wider transition-all">Sign Up</Link>
+      </div>
     </div>
   );
 };
 
-// --- SEARCH MENU ---
+// 2. Search Menu (Top Right Hover)
 const SearchMenu = () => {
   const { query, setQuery, suggestions, handleSearch } = useGlobalSearch();
 
   return (
-    <div className="absolute top-full mt-2 right-0 w-[400px] bg-[#121212] border border-white/10 shadow-2xl p-6 font-saira text-white z-50">
-       <div className="absolute -top-6 right-0 w-20 h-6 bg-transparent" />
+    <div className="absolute top-full mt-0 right-0 w-[400px] bg-[#121212] border border-white/10 shadow-2xl p-6 font-saira text-white z-50">
        <div className="relative mb-6">
-          <Image src="/icons/navbar/search.svg" alt="Search" width={16} height={16} className="absolute left-3 top-1/2 -translate-y-1/2" />
+          <Image src="/icons/navbar/search.svg" alt="Search" width={16} height={16} className="absolute left-4 top-1/2 -translate-y-1/2 opacity-70" />
           <input 
             type="text" 
             placeholder="Search rigbuilders.in..." 
-            className="w-full bg-transparent border border-white/30 text-white text-sm py-2 pl-10 focus:outline-none focus:border-white transition-colors"
+            className="w-full bg-[#1A1A1A] border border-white/20 text-white text-sm py-3 pl-12 focus:outline-none focus:border-brand-purple transition-colors rounded-sm"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => handleSearch(e)}
+            autoFocus
           />
           {suggestions.length > 0 && (
             <div className="absolute top-full left-0 w-full bg-[#1A1A1A] border border-white/10 mt-1 rounded shadow-xl z-[60]">
                 {suggestions.map((product) => (
-                    <div 
-                        key={product.id}
-                        onClick={() => handleSearch(product.name)}
-                        className="px-4 py-2 hover:bg-white/5 cursor-pointer flex justify-between items-center text-xs"
-                    >
+                    <div key={product.id} onClick={() => handleSearch(product.name)} className="px-4 py-3 hover:bg-white/5 cursor-pointer flex justify-between items-center text-xs border-b border-white/5 last:border-0">
                         <span className="text-white truncate">{product.name}</span>
                         <span className="text-brand-purple font-bold">₹{product.price.toLocaleString("en-IN")}</span>
                     </div>
@@ -120,21 +123,38 @@ const SearchMenu = () => {
           )}
        </div>
        <div>
-          <h4 className="font-bold text-sm text-white mb-3">Quick links</h4>
-          <ul className="space-y-2 text-sm text-brand-silver">
-             <li><Link href="/ascend" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> Desktops</Link></li>
-             <li><Link href="/products" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> All Products</Link></li>
-             <li><Link href="/configure" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> Build your own rig</Link></li>
+          <h4 className="font-orbitron font-bold text-xs text-white mb-4 uppercase tracking-widest">Quick Navigate</h4>
+          <ul className="space-y-3 text-sm text-brand-silver">
+             <li><Link href="/ascend" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> Ascend Series</Link></li>
+             <li><Link href="/products" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> All Components</Link></li>
+             <li><Link href="/configure" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> System Configurator</Link></li>
           </ul>
        </div>
     </div>
   )
 }
 
+// 3. Quick Link Item
+const QuickLinkItem = ({ href, label }: { href: string, label: string }) => (
+    <li className="group/item">
+        <Link href={href} className="flex items-center gap-2 hover:text-white transition-colors">
+            <span className="relative w-3 h-3 opacity-50 group-hover/item:opacity-100 transition-opacity">
+                <Image src="/icons/navbar/products/arrow.svg" alt="->" fill className="object-contain" />
+            </span>
+            {label}
+        </Link>
+    </li>
+);
+
 // --- MAIN NAVBAR ---
 export default function Navbar() {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  
+  // Two search instances: One for main/mobile, one for the mega menu
+  const search = useGlobalSearch(); 
   const megaMenuSearch = useGlobalSearch(); 
 
   useEffect(() => {
@@ -146,247 +166,268 @@ export default function Navbar() {
   }, []);
 
   return (
+    <>
     <nav className="fixed top-0 left-0 w-full z-50 bg-[#121212] border-b border-white/10 font-orbitron" onMouseLeave={() => setActiveMenu(null)}>
-      <div className="h-[80px] px-[80px] 2xl:px-[100px] flex items-center justify-between relative">
+      <div className="h-[80px] px-6 lg:px-[80px] 2xl:px-[100px] flex items-center justify-between relative bg-[#121212] z-50">
         
-        {/* LOGO */}
-        <Link href="/" className="flex-shrink-0 flex items-center">
-           <div className="relative h-10 w-40">
-             <Image src="/icons/navbar/logo.png" alt="Rig Builders" fill className="object-contain object-left" priority />
-           </div>
-        </Link>
-
-        {/* CENTER NAVIGATION */}
-        <div className="hidden lg:flex items-center h-full gap-12 text-[16px] font-medium tracking-wide text-white">
-          
-          {/* PRODUCTS (Mega Menu 1) */}
-          <div className="h-full flex items-center relative group" onMouseEnter={() => setActiveMenu("products")}>
-            <Link href="/products" className="relative py-2 cursor-pointer">
-              PRODUCTS
-              <span className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[1px] bg-white transition-transform duration-300 origin-center ${activeMenu === "products" ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"}`}></span>
-            </Link>
-          </div>
-
-          {/* DESKTOPS (Mega Menu 2 - NEW) */}
-          <Link href="/desktops" className="h-full flex items-center relative group" onMouseEnter={() => setActiveMenu("desktops")}>
-            <span className="relative py-2">
-              DESKTOPS
-              <span className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[1px] bg-white transition-transform duration-300 origin-center ${activeMenu === "desktops" ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"}`}></span>
-            </span>
-          </Link>
-
-          {/* ACCESSORIES */}
-          <Link href="/accessories" className="h-full flex items-center relative group" onMouseEnter={() => setActiveMenu(null)}>
-            <span className="relative py-2">
-              ACCESSORIES
-              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[1px] bg-white transition-transform duration-300 origin-center scale-x-0 group-hover:scale-x-100"></span>
-            </span>
-          </Link>
-
-          {/* SUPPORT */}
-          <Link href="/support" className="h-full flex items-center relative group" onMouseEnter={() => setActiveMenu(null)}>
-            <span className="relative py-2">
-              SUPPORT
-              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[1px] bg-white transition-transform duration-300 origin-center scale-x-0 group-hover:scale-x-100"></span>
-            </span>
-          </Link>
+        {/* MOBILE HAMBURGER */}
+        <div className="lg:hidden flex items-center">
+            <button onClick={() => setMobileMenuOpen(true)} className="text-white text-2xl p-2"><FaBars /></button>
         </div>
 
-        {/* RIGHT ICONS */}
-        <div className="flex items-center justify-center h-full space-x-[37px]">
-          {/* CART */}
-          <Link href="/cart" className="h-full flex items-center justify-center relative group">
-            <div className="relative py-2">
-              <Image src="/icons/navbar/cart.png" alt="Cart" width={24} height={24} className="group-hover:opacity-80 transition-opacity" />
-              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[1px] bg-white transition-transform duration-300 origin-center scale-x-0 group-hover:scale-x-100"></span>
-            </div>
-          </Link>
+        {/* LOGO */}
+        <Link href="/" className="flex-shrink-0 flex items-center justify-center">
+           <div className="hidden lg:block relative h-10 w-40"><Image src="/icons/navbar/logo.png" alt="Rig Builders" fill className="object-contain object-left" priority /></div>
+           <div className="lg:hidden relative h-10 w-10"><Image src="/icons/navbar/white logo icon.svg" alt="Rig Builders" fill className="object-contain" priority /></div>
+        </Link>
 
+        {/* MOBILE SEARCH */}
+        <div className="lg:hidden flex items-center">
+            <button onClick={() => setMobileSearchOpen(true)} className="text-white text-xl p-2"><FaSearch /></button>
+        </div>
+
+        {/* DESKTOP NAV LINKS */}
+        <div className="hidden lg:flex items-center h-full gap-12 text-[15px] font-bold tracking-widest text-white">
+          {["products", "desktops", "accessories", "support"].map((menu) => (
+              <div key={menu} className="h-full flex items-center relative group" onMouseEnter={() => setActiveMenu(menu)}>
+                <Link href={`/${menu}`} className="flex items-center h-full px-2 cursor-pointer uppercase hover:text-brand-purple transition-colors">{menu}</Link>
+                {/* Underline attached to bottom */}
+                <span className={`absolute bottom-0 left-0 w-full h-[3px] bg-brand-purple transition-transform duration-200 origin-center ${activeMenu === menu ? "scale-x-100" : "scale-x-0"}`}></span>
+              </div>
+          ))}
+        </div>
+
+        {/* DESKTOP RIGHT ICONS */}
+        <div className="hidden lg:flex items-center justify-center h-full space-x-[30px]">
+          <Link href="/cart" className="relative group p-2 hover:opacity-80"><Image src="/icons/navbar/cart.png" alt="Cart" width={24} height={24} /></Link>
+
+          {/* User Icon */}
           <div className="relative h-full flex items-center group" onMouseEnter={() => setActiveMenu("user")} onMouseLeave={() => setActiveMenu(null)}>
-            <button className="h-full flex items-center justify-center relative py-2">
-              <Image src="/icons/navbar/User Account.svg" alt="Account" width={24} height={24} className="group-hover:opacity-80 transition-opacity" />
-              <span className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[1px] bg-white transition-transform duration-300 origin-center ${activeMenu === "user" ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"}`}></span>
-            </button>
+            <button className="p-2 hover:opacity-80"><Image src="/icons/navbar/User Account.svg" alt="Account" width={24} height={24} /></button>
             {activeMenu === "user" && <UserAccountMenu user={user} />}
           </div>
 
+          {/* Search Icon */}
           <div className="relative h-full flex items-center group" onMouseEnter={() => setActiveMenu("search")} onMouseLeave={() => setActiveMenu(null)}>
-             <button className="h-full flex items-center justify-center relative py-2">
-                <Image src="/icons/navbar/search.svg" alt="Search" width={24} height={24} className="group-hover:opacity-80 transition-opacity" />
-                <span className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[1px] bg-white transition-transform duration-300 origin-center ${activeMenu === "search" ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"}`}></span>
-             </button>
+             <button className="p-2 hover:opacity-80"><Image src="/icons/navbar/search.svg" alt="Search" width={24} height={24} /></button>
              {activeMenu === "search" && <SearchMenu />}
           </div>
           
-          <Link href="/configure" className="h-full flex items-center">
-            <button className="border border-white text-white px-[20px] py-[8px] text-xs font-medium tracking-wider hover:bg-white hover:text-[#121212] transition-all uppercase leading-none" style={{ width: '153px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              BUILD YOURS
-            </button>
+          <Link href="/configure">
+            <button className="border border-white text-white w-[150px] h-[36px] text-[11px] font-bold tracking-[0.15em] hover:bg-white hover:text-[#121212] transition-all uppercase flex items-center justify-center">BUILD YOURS</button>
           </Link>
         </div>
       </div>
 
       {/* --- MEGA MENUS --- */}
-      
-      {/* 1. PRODUCTS MENU (Original) */}
-      <div 
-        className={`absolute top-[80px] left-0 w-full bg-[#121212]/90 backdrop-blur-md border-t border-white/10 transition-all duration-300 overflow-hidden ${activeMenu === "products" ? "opacity-100 visible max-h-[600px]" : "opacity-0 invisible max-h-0"}`}
-        onMouseEnter={() => setActiveMenu("products")}
-        onMouseLeave={() => setActiveMenu(null)}
-      >
-        <div className="mx-[312px] py-12 grid grid-cols-4 gap-8 text-white">
-          <div className="space-y-6">
-            <div className="flex items-center gap-4 mb-4">
-               <Image src="/icons/navbar/products/PC Components 2.png" alt="Chip Icon" width={32} height={32} className="object-contain"/>
-               <Image src="/icons/navbar/products/PC Components.svg" alt="Fan Icon" width={32} height={32} className="object-contain"/>
-            </div>
-            <h3 className="font-orbitron text-lg font-bold text-white mb-2">PC Components</h3>
-            <ul className="space-y-3 text-sm font-saira text-brand-silver">
-              {/* FIX: Pointing to new Dynamic Routes */}
-              <li><Link href="/products/cpu" className="hover:text-white transition-colors">Processors</Link></li>
-              <li><Link href="/products/gpu" className="hover:text-white transition-colors">Graphics Card</Link></li>
-              <li><Link href="/products/motherboard" className="hover:text-white transition-colors">Motherboards</Link></li>
-              <li><Link href="/products/storage" className="hover:text-white transition-colors">Storage</Link></li>
-              <li><Link href="/products/psu" className="hover:text-white transition-colors">Power Supply</Link></li>
-              <li><Link href="/products/memory" className="hover:text-white transition-colors">Memory</Link></li>
-              <li><Link href="/products/cabinet" className="hover:text-white transition-colors">PC Cabinets</Link></li>
-              <li><Link href="/products/cooler" className="hover:text-white transition-colors">Air/Liquid Cooler</Link></li>
-            </ul>
-          </div>
-          <div className="space-y-6">
-            <div className="mb-4 h-[32px] flex items-center">
-               <Image src="/icons/navbar/products/Desktops.png" alt="Desktops" width={32} height={32} className="object-contain"/>
-            </div>
-            <h3 className="font-orbitron text-lg font-bold text-white mb-2">Desktops</h3>
-            <ul className="space-y-3 text-sm font-saira text-brand-silver">
-              <li><Link href="/ascend" className="hover:text-white transition-colors">Ascend Series</Link></li>
-              <li><Link href="/workpro" className="hover:text-white transition-colors">WorkPro Series</Link></li>
-              <li><Link href="/creator" className="hover:text-white transition-colors">Creator Series</Link></li>
-              <li><Link href="/signature" className="hover:text-white transition-colors">Signature Series</Link></li>
-            </ul>
-          </div>
-          <div className="space-y-6">
-            <div className="mb-4 h-[32px] flex items-center">
-               <Image src="/icons/navbar/products/Accessories.png" alt="Accessories" width={32} height={32} className="object-contain"/>
-            </div>
-            <h3 className="font-orbitron text-lg font-bold text-white mb-2">Accessories</h3>
-            <ul className="space-y-3 text-sm font-saira text-brand-silver">
-              <li><Link href="/accessories" className="hover:text-white transition-colors">Displays</Link></li>
-              <li><Link href="/accessories" className="hover:text-white transition-colors">Keyboards</Link></li>
-              <li><Link href="/accessories" className="hover:text-white transition-colors">Mouse</Link></li>
-              <li><Link href="/accessories" className="hover:text-white transition-colors">Keyboard Mouse Combos</Link></li>
-              <li><Link href="/accessories" className="hover:text-white transition-colors">Mouse pads</Link></li>
-              <li><Link href="/accessories" className="hover:text-white transition-colors">USB Drives</Link></li>
-            </ul>
-          </div>
-          <div className="space-y-8 pl-8 border-l border-white/10">
-            <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2">
-                    <Image src="/icons/navbar/search.svg" alt="Search" width={16} height={16} />
-                </div>
-                <input 
-                  type="text" 
-                  placeholder="search rigbuilders.in" 
-                  className="w-full bg-transparent border border-white text-white placeholder-brand-silver/70 px-4 py-2 pl-10 text-sm focus:outline-none focus:bg-white/5 transition-colors font-saira" 
-                  value={megaMenuSearch.query}
-                  onChange={(e) => megaMenuSearch.setQuery(e.target.value)}
-                  onKeyDown={(e) => megaMenuSearch.handleSearch(e)}
-                />
-                {megaMenuSearch.suggestions.length > 0 && (
-                    <div className="absolute top-full left-0 w-full bg-[#1A1A1A] border border-white/10 mt-1 rounded shadow-xl z-[60]">
-                        {megaMenuSearch.suggestions.map((product) => (
-                            <div 
-                                key={product.id}
-                                onClick={() => megaMenuSearch.handleSearch(product.name)}
-                                className="px-4 py-2 hover:bg-white/5 cursor-pointer flex justify-between items-center text-xs"
-                            >
-                                <span className="text-white truncate">{product.name}</span>
-                                <span className="text-brand-purple font-bold">₹{product.price.toLocaleString("en-IN")}</span>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
+
+      {/* 1. PRODUCTS HOVER */}
+      <div className={`hidden lg:block absolute top-[80px] left-0 w-full bg-[#121212]/98 border-t border-white/10 transition-all duration-300 overflow-hidden ${activeMenu === "products" ? "max-h-[600px] opacity-100 visible" : "max-h-0 opacity-0 invisible"}`}
+           onMouseEnter={() => setActiveMenu("products")} onMouseLeave={() => setActiveMenu(null)}>
+        <div className="max-w-[1400px] mx-auto py-12 px-8 grid grid-cols-4 gap-12 text-white font-saira">
+            {/* PC Components */}
             <div>
-                <h3 className="font-orbitron text-lg font-bold text-white mb-4">Quick Links :</h3>
-                <ul className="space-y-2 text-sm font-saira text-brand-silver">
-                    <li><Link href="/ascend" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> Ascend Series</Link></li>
-                    {/* FIX: Quick Links updated to new paths */}
-                    <li><Link href="/products/cpu" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> Processors</Link></li>
-                    <li><Link href="/products/gpu" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> Graphics Cards</Link></li>
-                    <li><Link href="/accessories" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> Keyboard Mouse Combos</Link></li>
-                    <li><Link href="/workpro" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> WorkPro Series</Link></li>
-                    <li><Link href="/accessories" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> Displays</Link></li>
+                <div className="flex gap-4 mb-6"><Image src="/icons/navbar/products/PC Components.svg" alt="Icon" width={32} height={32} /><Image src="/icons/navbar/products/PC Components 2.png" alt="Icon" width={32} height={32} /></div>
+                <h3 className="font-orbitron text-lg font-bold mb-4 text-white uppercase tracking-wider">PC Components</h3>
+                <ul className="space-y-2 text-sm text-brand-silver">
+                    <li><Link href="/products/cpu" className="hover:text-brand-purple transition-colors">Processors</Link></li>
+                    <li><Link href="/products/gpu" className="hover:text-brand-purple transition-colors">Graphics Cards</Link></li>
+                    <li><Link href="/products/motherboard" className="hover:text-brand-purple transition-colors">Motherboards</Link></li>
+                    <li><Link href="/products/ram" className="hover:text-brand-purple transition-colors">Memory (RAM)</Link></li>
+                    <li><Link href="/products/storage" className="hover:text-brand-purple transition-colors">Storage</Link></li>
+                    <li><Link href="/products/psu" className="hover:text-brand-purple transition-colors">Power Supply</Link></li>
+                    <li><Link href="/products/cabinet" className="hover:text-brand-purple transition-colors">PC Cabinets</Link></li>
+                    <li><Link href="/products/cooler" className="hover:text-brand-purple transition-colors">Cooling</Link></li>
                 </ul>
             </div>
-          </div>
+            {/* Desktops */}
+            <div>
+                <div className="mb-6"><Image src="/icons/navbar/products/Desktops.png" alt="Desktops" width={40} height={40} /></div>
+                <h3 className="font-orbitron text-lg font-bold mb-4 text-white uppercase tracking-wider">Desktops</h3>
+                <ul className="space-y-2 text-sm text-brand-silver">
+                    <li><Link href="/ascend" className="hover:text-brand-purple">Ascend Series</Link></li>
+                    <li><Link href="/workpro" className="hover:text-brand-purple">WorkPro Series</Link></li>
+                    <li><Link href="/creator" className="hover:text-brand-purple">Creator Series</Link></li>
+                    <li><Link href="/signature" className="hover:text-brand-purple">Signature Series</Link></li>
+                </ul>
+            </div>
+            {/* Accessories */}
+            <div>
+                <div className="mb-6"><Image src="/icons/navbar/products/Accessories.png" alt="Accessories" width={40} height={40} /></div>
+                <h3 className="font-orbitron text-lg font-bold mb-4 text-white uppercase tracking-wider">Accessories</h3>
+                <ul className="space-y-2 text-sm text-brand-silver">
+                    <li><Link href="/products/monitor" className="hover:text-brand-purple">Displays</Link></li>
+                    <li><Link href="/products/keyboard" className="hover:text-brand-purple">Keyboards</Link></li>
+                    <li><Link href="/products/mouse" className="hover:text-brand-purple">Mouse</Link></li>
+                    <li><Link href="/products/combo" className="hover:text-brand-purple">Combos</Link></li>
+                    <li><Link href="/products/mousepad" className="hover:text-brand-purple">Mouse Pads</Link></li>
+                    <li><Link href="/products/usb" className="hover:text-brand-purple">USB Drives</Link></li>
+                </ul>
+            </div>
+            {/* Quick Links + Search */}
+            <div className="border-l border-white/10 pl-10">
+                <div className="relative mb-8">
+                    <Image src="/icons/navbar/search.svg" alt="Search" width={14} height={14} className="absolute left-4 top-1/2 -translate-y-1/2 opacity-50" />
+                    <input type="text" placeholder="Search..." className="w-full bg-white/5 border border-white/10 text-white text-sm py-2 pl-10 focus:outline-none focus:border-brand-purple rounded-sm"
+                        value={megaMenuSearch.query} onChange={(e) => megaMenuSearch.setQuery(e.target.value)} onKeyDown={megaMenuSearch.handleSearch} />
+                </div>
+                <h3 className="font-orbitron text-lg font-bold mb-4 text-white uppercase tracking-wider">Quick Links</h3>
+                <ul className="space-y-3 text-sm text-brand-silver">
+                    <QuickLinkItem href="/ascend" label="Ascend Series" />
+                    <QuickLinkItem href="/products/cpu" label="Processors" />
+                    <QuickLinkItem href="/products/gpu" label="Graphics Cards" />
+                    <QuickLinkItem href="/products/monitor" label="Displays" />
+                </ul>
+            </div>
         </div>
       </div>
 
-      {/* 2. DESKTOPS MEGA MENU (NEW DESIGN) */}
-      <div 
-        className={`absolute top-[80px] left-0 w-full bg-[#121212]/90 backdrop-blur-md border-t border-white/10 transition-all duration-300 overflow-hidden ${activeMenu === "desktops" ? "opacity-100 visible max-h-[600px]" : "opacity-0 invisible max-h-0"}`}
-        onMouseEnter={() => setActiveMenu("desktops")}
-        onMouseLeave={() => setActiveMenu(null)}
-      >
-        {/* Adjusted grid: Removed gap-8, added divide-x for clean vertical lines */}
-        <div className="mx-[100px] py-16 grid grid-cols-4 divide-x divide-white/10 text-white">
-          
-          {/* COL 1: ASCEND */}
-          <div className="flex flex-col items-center px-8">
-             <div className="text-center">
-               <h2 className="text-[40px] uppercase leading-none font-orbitron" style={{ fontFamily: 'Android Assassin, Orbitron, sans-serif' }}>ASCEND</h2>
-               <h3 className="text-[22px] font-medium font-orbitron uppercase tracking-widest text-brand-silver mt-[13px] leading-none">SERIES</h3>
-             </div>
-             <Link href="/ascend" className="w-full mt-[21px]">
-                <div className="border border-white/30 py-3 text-center hover:bg-white hover:text-black transition-all cursor-pointer">
-                   <span className="font-orbitron font-medium text-[18px] uppercase">GAMING</span>
-                </div>
-             </Link>
-          </div>
+      {/* 2. DESKTOPS HOVER */}
+      <div className={`hidden lg:block absolute top-[80px] left-0 w-full bg-[#121212]/98 border-t border-white/10 transition-all duration-300 overflow-hidden ${activeMenu === "desktops" ? "max-h-[600px] opacity-100 visible" : "max-h-0 opacity-0 invisible"}`}
+           onMouseEnter={() => setActiveMenu("desktops")} onMouseLeave={() => setActiveMenu(null)}>
+        <div className="max-w-[1400px] mx-auto py-20 grid grid-cols-4 divide-x divide-white/10 text-white text-center">
+            <div className="px-4 flex flex-col items-center group">
+                <h2 className="text-[40px] leading-tight mb-8 group-hover:text-brand-purple transition-colors" style={{ fontFamily: '"Android Assassin", "Orbitron", sans-serif' }}>ASCEND</h2>
+                <Link href="/ascend" className="border border-white/30 py-3 px-8 text-[10px] font-bold tracking-[0.2em] font-orbitron hover:bg-white hover:text-black transition-all">VIEW SERIES</Link>
+            </div>
+            <div className="px-4 flex flex-col items-center group">
+                <h2 className="text-[40px] font-semibold leading-tight mb-8 group-hover:text-brand-purple transition-colors" style={{ fontFamily: '"Montserrat", sans-serif' }}><span className="uppercase">W</span>ork<span className="uppercase">P</span>ro</h2>
+                <Link href="/workpro" className="border border-white/30 py-3 px-8 text-[10px] font-bold tracking-[0.2em] font-orbitron hover:bg-white hover:text-black transition-all">VIEW SERIES</Link>
+            </div>
+            <div className="px-4 flex flex-col items-center group">
+                <h2 className="text-[40px] font-semibold leading-tight mb-8 uppercase group-hover:text-brand-purple transition-colors" style={{ fontFamily: '"Saira", sans-serif', fontStretch: 'expanded' }}>CREATOR</h2>
+                <Link href="/creator" className="border border-white/30 py-3 px-8 text-[10px] font-bold tracking-[0.2em] font-orbitron hover:bg-white hover:text-black transition-all">VIEW SERIES</Link>
+            </div>
+            <div className="px-4 flex flex-col items-center group">
+                <h2 className="text-[40px] font-bold leading-tight mb-8 uppercase group-hover:text-brand-purple transition-colors font-orbitron">SIGNATURE</h2>
+                <Link href="/signature" className="border border-white/30 py-3 px-8 text-[10px] font-bold tracking-[0.2em] font-orbitron hover:bg-white hover:text-black transition-all">VIEW SERIES</Link>
+            </div>
+        </div>
+      </div>
 
-          {/* COL 2: WORKPRO */}
-          <div className="flex flex-col items-center px-8">
-             <div className="text-center">
-               <h2 className="text-[40px] font-semibold leading-none font-montserrat">WorkPro</h2>
-               <h3 className="text-[22px] font-medium font-orbitron uppercase tracking-widest text-brand-silver mt-[13px] leading-none">SERIES</h3>
-             </div>
-             <Link href="/workpro" className="w-full mt-[21px]">
-                <div className="border border-white/30 py-3 text-center hover:bg-white hover:text-black transition-all cursor-pointer">
-                   <span className="font-orbitron font-medium text-[18px] uppercase">WORKSTATIONS</span>
-                </div>
-             </Link>
-          </div>
-
-          {/* COL 3: CREATOR */}
-          <div className="flex flex-col items-center px-8">
-             <div className="text-center">
-               <h2 className="text-[40px] font-medium leading-none font-saira uppercase">CREATOR</h2>
-               <h3 className="text-[22px] font-medium font-orbitron uppercase tracking-widest text-brand-silver mt-[13px] leading-none">SERIES</h3>
-             </div>
-             <Link href="/creator" className="w-full mt-[21px]">
-                <div className="border border-white/30 py-3 text-center hover:bg-white hover:text-black transition-all cursor-pointer">
-                   <span className="font-orbitron font-medium text-[18px] uppercase">STUDIO</span>
-                </div>
-             </Link>
-          </div>
-
-          {/* COL 4: SIGNATURE */}
-          <div className="flex flex-col items-center px-8">
-             <div className="text-center">
-               <h2 className="text-[40px] font-bold leading-none font-orbitron uppercase">SIGNATURE</h2>
-               <h3 className="text-[22px] font-medium font-orbitron uppercase tracking-widest text-brand-silver mt-[13px] leading-none">SERIES</h3>
-             </div>
-             <Link href="/signature" className="w-full mt-[21px]">
-                <div className="border border-white/30 py-3 text-center hover:bg-white hover:text-black transition-all cursor-pointer">
-                   <span className="font-orbitron font-medium text-[18px] uppercase">FLAGSHIP</span>
-                </div>
-             </Link>
-          </div>
-
+      {/* 3. ACCESSORIES HOVER */}
+      <div className={`hidden lg:block absolute top-[80px] left-0 w-full bg-[#121212]/98 border-t border-white/10 transition-all duration-300 overflow-hidden ${activeMenu === "accessories" ? "max-h-[600px] opacity-100 visible" : "max-h-0 opacity-0 invisible"}`}
+           onMouseEnter={() => setActiveMenu("accessories")} onMouseLeave={() => setActiveMenu(null)}>
+        <div className="max-w-[1200px] mx-auto py-16 px-8 flex gap-16">
+            <div className="flex-shrink-0 w-1/4 border-r border-white/10 pr-12">
+                <div className="mb-6"><Image src="/icons/navbar/products/Accessories.png" alt="Accessories" width={64} height={64} /></div>
+                <h3 className="font-orbitron text-2xl font-bold text-white mb-2 uppercase">Accessories</h3>
+                <p className="text-brand-silver text-sm font-saira leading-relaxed">Upgrade your battle station with premium peripherals and displays.</p>
+            </div>
+            <div className="flex-grow grid grid-cols-2 gap-y-6 gap-x-12 text-sm font-saira">
+                {[
+                    { name: "Displays", link: "/products/monitor" },
+                    { name: "Keyboards", link: "/products/keyboard" },
+                    { name: "Mouse", link: "/products/mouse" },
+                    { name: "Keyboard & Mouse Combos", link: "/products/combo" },
+                    { name: "Mouse Pads", link: "/products/mousepad" },
+                    { name: "USB Drives", link: "/products/usb" },
+                ].map((item) => (
+                    <Link key={item.name} href={item.link} className="flex items-center gap-4 hover:text-brand-purple transition-colors group">
+                        <span className="w-1.5 h-1.5 bg-white/30 rounded-full group-hover:bg-brand-purple transition-colors"></span>
+                        <span className="text-lg uppercase tracking-wide font-medium">{item.name}</span>
+                    </Link>
+                ))}
+            </div>
         </div>
       </div>
 
     </nav>
+
+    {/* ==============================
+        MOBILE DRAWERS 
+       ============================== */}
+
+    {/* MOBILE SEARCH */}
+    {mobileSearchOpen && (
+        <div className="fixed inset-0 z-[100] bg-[#121212] p-6 animate-in slide-in-from-top-10 duration-200 flex flex-col">
+            <div className="flex justify-between items-center mb-8">
+                <h2 className="text-xl font-orbitron text-white">Search</h2>
+                <button onClick={() => setMobileSearchOpen(false)} className="text-white text-2xl"><FaTimes /></button>
+            </div>
+            <div className="relative">
+                <input 
+                    type="text" 
+                    placeholder="Search anything..." 
+                    className="w-full bg-[#1A1A1A] border border-white/20 p-4 text-white font-saira focus:border-brand-purple outline-none rounded"
+                    value={search.query}
+                    onChange={(e) => search.setQuery(e.target.value)}
+                    autoFocus
+                />
+                <button className="absolute right-4 top-1/2 -translate-y-1/2 text-brand-purple">
+                    <FaSearch />
+                </button>
+            </div>
+            {/* Mobile Results */}
+            {search.suggestions.length > 0 && (
+                <div className="mt-4 bg-[#1A1A1A] border border-white/10 rounded flex-grow overflow-y-auto">
+                    {search.suggestions.map((p) => (
+                        <div key={p.id} onClick={() => { search.handleSearch(p.name); setMobileSearchOpen(false); }} className="p-4 border-b border-white/5 text-white flex justify-between">
+                            <span className="truncate pr-4">{p.name}</span>
+                            <span className="text-brand-purple font-bold">₹{p.price.toLocaleString("en-IN")}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    )}
+
+    {/* MOBILE MENU DRAWER */}
+    <div className={`fixed inset-0 z-[90] bg-black/80 backdrop-blur-sm transition-opacity duration-300 ${mobileMenuOpen ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"}`} onClick={() => setMobileMenuOpen(false)}>
+        <div 
+            className={`absolute top-0 left-0 h-full w-[85%] max-w-[320px] bg-[#121212] border-r border-white/10 shadow-2xl p-6 transition-transform duration-300 flex flex-col ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}
+            onClick={(e) => e.stopPropagation()} 
+        >
+            <div className="flex justify-between items-center mb-8 border-b border-white/10 pb-4">
+                <div className="relative h-10 w-10">
+                    <Image src="/icons/navbar/white logo icon.svg" alt="Logo" fill className="object-contain" />
+                </div>
+                <button onClick={() => setMobileMenuOpen(false)} className="text-white text-2xl"><FaTimes /></button>
+            </div>
+
+            {/* ACTION GRID (Top Priority) */}
+            <div className="grid grid-cols-3 gap-3 mb-8">
+                <Link href={user ? "/dashboard" : "/signin"} onClick={() => setMobileMenuOpen(false)} className="flex flex-col items-center justify-center bg-[#1A1A1A] p-3 rounded border border-white/5 hover:border-brand-purple/50">
+                    <FaUser className="text-white mb-2" />
+                    <span className="text-[10px] text-brand-silver uppercase font-bold">{user ? "Account" : "Login"}</span>
+                </Link>
+                <Link href="/cart" onClick={() => setMobileMenuOpen(false)} className="flex flex-col items-center justify-center bg-[#1A1A1A] p-3 rounded border border-white/5 hover:border-brand-purple/50">
+                    <FaShoppingCart className="text-white mb-2" />
+                    <span className="text-[10px] text-brand-silver uppercase font-bold">Cart</span>
+                </Link>
+                <Link href="/configure" onClick={() => setMobileMenuOpen(false)} className="flex flex-col items-center justify-center bg-brand-purple p-3 rounded text-white">
+                    <span className="font-bold text-lg leading-none mb-1">+</span>
+                    <span className="text-[10px] uppercase font-bold">Build</span>
+                </Link>
+            </div>
+
+            {/* LINKS LIST */}
+            <div className="space-y-8 overflow-y-auto font-orbitron flex-grow pr-2">
+                <div>
+                    <h3 className="text-brand-purple text-xs font-bold uppercase tracking-widest mb-4 border-b border-white/5 pb-2">Main Menu</h3>
+                    <ul className="space-y-4 text-white text-lg">
+                        <li><Link href="/products" onClick={() => setMobileMenuOpen(false)}>Products</Link></li>
+                        <li><Link href="/accessories" onClick={() => setMobileMenuOpen(false)}>Accessories</Link></li>
+                        <li><Link href="/support" onClick={() => setMobileMenuOpen(false)}>Support</Link></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 className="text-brand-purple text-xs font-bold uppercase tracking-widest mb-4 border-b border-white/5 pb-2">Desktops</h3>
+                    <ul className="space-y-4 text-white text-lg">
+                        <li><Link href="/ascend" onClick={() => setMobileMenuOpen(false)}>Ascend Series</Link></li>
+                        <li><Link href="/workpro" onClick={() => setMobileMenuOpen(false)}>WorkPro Series</Link></li>
+                        <li><Link href="/creator" onClick={() => setMobileMenuOpen(false)}>Creator Series</Link></li>
+                        <li><Link href="/signature" onClick={() => setMobileMenuOpen(false)}>Signature Edition</Link></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div className="mt-auto pt-6 text-center text-xs text-brand-silver/50 border-t border-white/10 font-saira">
+                &copy; 2024 Rig Builders.
+            </div>
+        </div>
+    </div>
+    </>
   );
 }

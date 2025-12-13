@@ -1,29 +1,84 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@theme {
-  /* Define your custom colors here to match your brand */
-  --color-brand-black: #121212;
-  --color-brand-charcoal: #1A1A1A;
-  --color-brand-purple: #4E2C8B;
-  --color-brand-blue: #265DAB;
-  --color-brand-silver: #A0A0A0;
-  --color-brand-text: #D0D0D0;
-  --color-brand-burgundy: #8C2F39;
-  
-  /* Link the Tailwind utility class to the CSS variable from layout.tsx */
-  --font-saira: var(--font-saira);
-  --font-orbitron: var(--font-orbitron);
-}
-
-/* Optional: Reset base styles */
 :root {
   --background: #121212;
-  --foreground: #D0D0D0;
+  --foreground: #ededed;
+  
+  /* RIG BUILDERS PALETTE */
+  --rb-bg-dark: #121212;
+  --rb-bg-card: #1A1A1A;
+  --rb-purple: #4E2C8B;
+  --rb-blue: #265DAB;
 }
 
 body {
-  background: var(--background);
   color: var(--foreground);
-  /* Force the default font to be Saira */
-  font-family: var(--font-saira), sans-serif; 
+  background: var(--background);
+  font-family: 'Saira', sans-serif;
+  overflow-x: hidden; 
+}
+
+/* --- PREMIUM GRADIENTS & UTILITIES --- */
+
+/* 1. Ambient Hero Glow */
+.rb-hero-glow {
+  background: 
+    radial-gradient(800px circle at 30% 20%, rgba(78,44,139,0.25), transparent 55%),
+    radial-gradient(700px circle at 70% 30%, rgba(38,93,171,0.15), transparent 55%);
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+/* 2. Premium Card */
+.rb-card {
+  position: relative;
+  background: 
+    linear-gradient(#1A1A1A, #1A1A1A) padding-box, 
+    linear-gradient(135deg, rgba(78,44,139,0.5), rgba(38,93,171,0.5)) border-box; 
+  border: 1px solid transparent;
+  border-radius: 12px; 
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.rb-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 30px -10px rgba(78, 44, 139, 0.3); 
+  background: 
+    linear-gradient(#1A1A1A, #1A1A1A) padding-box,
+    linear-gradient(135deg, rgba(78,44,139,0.9), rgba(38,93,171,0.9)) border-box;
+}
+
+/* 3. Premium Button */
+.rb-btn-primary {
+  background: linear-gradient(135deg, #4E2C8B 0%, #265DAB 100%);
+  color: white;
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.rb-btn-primary:hover {
+  box-shadow: 0 0 20px rgba(78, 44, 139, 0.5);
+  transform: scale(1.02);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #121212;
+}
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #4E2C8B;
 }
