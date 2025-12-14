@@ -4,6 +4,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
 import Image from "next/image";
+import { Reveal } from "@/components/ui/MotionWrappers";
 
 // Map of categories to their display details
 const categories = [
@@ -19,6 +20,7 @@ const categories = [
 
 export default function ProductHubPage() {
   return (
+    <Reveal>
     <div className="min-h-screen bg-[#121212] text-white font-saira flex flex-col">
       <Navbar />
       
@@ -33,6 +35,7 @@ export default function ProductHubPage() {
       </section>
 
       {/* CATEGORY GRID */}
+      <Reveal>
       <div className="flex-grow max-w-7xl mx-auto px-6 py-16 w-full">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {categories.map((cat) => (
@@ -55,6 +58,7 @@ export default function ProductHubPage() {
                       />
                    </div>
                 </div>
+                
 
                 {/* Fake 'Button' Look */}
                 <div className="mt-auto w-full border border-white/30 text-center py-3 text-sm font-orbitron font-bold uppercase tracking-wider group-hover:bg-white group-hover:text-black transition-all">
@@ -66,8 +70,10 @@ export default function ProductHubPage() {
           ))}
         </div>
       </div>
+      </Reveal>
 
       <Footer />
     </div>
+    </Reveal>
   );
 }

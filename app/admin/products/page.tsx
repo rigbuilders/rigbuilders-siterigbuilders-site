@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 
 // --- CONSTANTS ---
-// These are the defaults. The system will learn new ones from your database.
 const BASE_CATEGORIES = [
   { id: "prebuilt", name: "Pre-built Desktop" },
   { id: "cpu", name: "Processor" },
@@ -33,7 +32,6 @@ const TIER_OPTS = ["5", "7", "9"];
 const BASE_SOCKETS = ["AM5", "AM4", "LGA1700", "LGA1851", "LGA1200", "TR4"];
 const BASE_MEMORY_TYPES = ["DDR5", "DDR4", "GDDR6", "GDDR6X", "GDDR7"];
 const STORAGE_TYPES = ["NVMe M.2 Gen4", "NVMe M.2 Gen3", "SATA SSD", "HDD (7200RPM)"];
-const FORM_FACTORS = ["ATX", "mATX", "E-ATX", "ITX"];
 
 export default function ProductManager() {
   const [products, setProducts] = useState<any[]>([]);
@@ -60,6 +58,8 @@ export default function ProductManager() {
     image_url: "", in_stock: true, description: "", features_text: "", gallery_text: "",
     // SPECS
     socket: "", memory_type: "", wattage: "", capacity: "", form_factor: "", speed: "", storage_type: "",
+    length_mm: "",         // NEW: For GPU Length
+    max_gpu_length_mm: "", // NEW: For Cabinet Clearance
     // RECIPE (Pre-builts)
     recipe_cpu: "", recipe_gpu: "", recipe_mobo: "", recipe_ram: "", recipe_storage: "", 
     recipe_psu: "", recipe_cooler: "", recipe_cabinet: "", recipe_os: ""
@@ -105,7 +105,7 @@ export default function ProductManager() {
         const allCats = [...BASE_CATEGORIES];
         dbCats.forEach(c => {
             if (!allCats.find(base => base.id === c)) {
-                allCats.push({ id: c, name: c.charAt(0).toUpperCase() + c.slice(1) }); // Capitalize display name
+                allCats.push({ id: c, name: c.charAt(0).toUpperCase() + c.slice(1) });
             }
         });
         setExistingCategories(allCats);
@@ -115,13 +115,12 @@ export default function ProductManager() {
 
   const getOptionsFor = (cat: string) => inventory.filter(p => p.category === cat);
 
-  // --- AUTO-FIX IMAGE PATHS ---
   const cleanPath = (path: string) => {
     if (!path) return "";
-    let clean = path.replace(/\\/g, "/"); // Convert backslashes
-    clean = clean.replace(/^\/?public\/?/i, ""); // Remove 'public' prefix
-    clean = clean.replace(/^"|"$/g, ""); // Remove quotes
-    if (!clean.startsWith("/")) clean = "/" + clean; // Ensure leading slash
+    let clean = path.replace(/\\/g, "/");
+    clean = clean.replace(/^\/?public\/?/i, "");
+    clean = clean.replace(/^"|"$/g, "");
+    if (!clean.startsWith("/")) clean = "/" + clean;
     return clean;
   };
 
@@ -149,30 +148,35 @@ export default function ProductManager() {
          if (formData.category === 'cpu') {
              specs.socket = formData.socket;
          }
-         // GPU (Added Memory Type)
+         // GPU
          if (formData.category === 'gpu') {
              specs.vram = formData.capacity;
-             specs.memory_type = formData.memory_type; 
+             specs.memory_type = formData.memory_type;
+             if (formData.length_mm) specs.length_mm = parseInt(formData.length_mm); // SAVE LENGTH
          }
-         // Motherboard (Addable Socket/DDR)
+         // Motherboard
          if (formData.category === 'motherboard') { 
              specs.socket = formData.socket; 
              specs.memory_type = formData.memory_type; 
              specs.form_factor = formData.form_factor; 
          }
-         // RAM (Addable DDR)
+         // RAM
          if (formData.category === 'ram') { 
              specs.memory_type = formData.memory_type; 
              specs.capacity = formData.capacity; 
          }
-         // Storage (Added Type)
+         // Storage
          if (formData.category === 'storage') { 
              specs.capacity = formData.capacity; 
              specs.storage_type = formData.storage_type; 
          }
+         // Cabinet
+         if (formData.category === 'cabinet') {
+             if (formData.max_gpu_length_mm) specs.max_gpu_length_mm = parseInt(formData.max_gpu_length_mm); // SAVE CLEARANCE
+         }
       }
 
-      // Process Images with Auto-Fix
+      // Process Images
       const finalMainImage = cleanPath(formData.image_url);
       const galleryArray = formData.gallery_text.split(',').map(url => cleanPath(url.trim())).filter(url => url !== "" && url !== "/");
       const featuresArray = formData.features_text.split('\n').filter(line => line.trim() !== "");
@@ -180,13 +184,16 @@ export default function ProductManager() {
       const payload = {
         name: formData.name,
         price: parseFloat(formData.price),
-        category: formData.category, // Saves whatever string is in here (Custom or Select)
+        category: formData.category, 
         series: formData.series || null,
         tier: formData.tier ? parseInt(formData.tier) : null,
         brand: formData.brand,
         image_url: finalMainImage,
         in_stock: formData.in_stock,
         specs: specs,
+        // Save dimensions to root columns if they exist in DB, else specs handles it
+        length_mm: specs.length_mm || 0,
+        max_gpu_length_mm: specs.max_gpu_length_mm || 0,
         description: formData.description,
         features: featuresArray,
         gallery_urls: galleryArray
@@ -212,7 +219,7 @@ export default function ProductManager() {
   const handleEditClick = (product: any) => {
     const s = product.specs || {};
     
-    // Check if values are custom (not in base lists)
+    // Check if values are custom
     const isBaseCat = BASE_CATEGORIES.some(c => c.id === product.category);
     setIsCustomCategory(!isBaseCat);
 
@@ -230,6 +237,10 @@ export default function ProductManager() {
       
       socket: s.socket || "", memory_type: s.memory_type || "", wattage: s.wattage ? s.wattage.toString() : "",
       capacity: s.capacity || s.vram || "", form_factor: s.form_factor || "", speed: s.speed || "", storage_type: s.storage_type || "",
+      
+      // NEW FIELDS PRE-FILL
+      length_mm: s.length_mm ? s.length_mm.toString() : "",
+      max_gpu_length_mm: s.max_gpu_length_mm ? s.max_gpu_length_mm.toString() : "",
       
       recipe_cpu: s["Processor"] || "", recipe_gpu: s["Graphics Card"] || "", recipe_mobo: s["Motherboard"] || "",
       recipe_ram: s["Memory"] || "", recipe_storage: s["Storage"] || "", recipe_psu: s["Power Supply"] || "",
@@ -250,6 +261,7 @@ export default function ProductManager() {
       id: "", name: "", price: "", category: "cpu", series: "", tier: "", brand: "", image_url: "", in_stock: true,
       description: "", features_text: "", gallery_text: "",
       socket: "", memory_type: "", wattage: "", capacity: "", form_factor: "", speed: "", storage_type: "",
+      length_mm: "", max_gpu_length_mm: "",
       recipe_cpu: "", recipe_gpu: "", recipe_mobo: "", recipe_ram: "", recipe_storage: "", 
       recipe_psu: "", recipe_cooler: "", recipe_cabinet: "", recipe_os: ""
     });
@@ -358,7 +370,7 @@ export default function ProductManager() {
                             <p className="text-[9px] text-brand-purple mt-1 ml-1">Paste full Windows path. We will auto-fix it.</p>
                         </div>
 
-                        {/* DETAILS */}
+                        {/* --- RESTORED SECTION: PAGE DETAILS --- */}
                         <div className="bg-[#121212] p-3 rounded border border-white/5 space-y-3">
                             <label className="text-xs text-brand-purple uppercase font-bold block">Page Details</label>
                             <textarea placeholder="Description" className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs h-16"
@@ -395,6 +407,24 @@ export default function ProductManager() {
                                 <label className="text-xs text-brand-purple uppercase font-bold block">Tech Specs</label>
                                 {formData.category !== 'os' && <input type="number" placeholder="Watts" className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs" value={formData.wattage} onChange={e => setFormData({...formData, wattage: e.target.value})} />}
                                 
+                                {/* NEW: GPU LENGTH INPUT */}
+                                {formData.category === 'gpu' && (
+                                    <div className="bg-brand-purple/10 p-2 rounded border border-brand-purple/30">
+                                        <label className="text-[10px] text-brand-purple font-bold">GPU Length (mm)</label>
+                                        <input type="number" placeholder="e.g. 320" className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs mt-1"
+                                            value={formData.length_mm} onChange={e => setFormData({...formData, length_mm: e.target.value})} />
+                                    </div>
+                                )}
+
+                                {/* NEW: CABINET CLEARANCE INPUT */}
+                                {formData.category === 'cabinet' && (
+                                    <div className="bg-brand-purple/10 p-2 rounded border border-brand-purple/30">
+                                        <label className="text-[10px] text-brand-purple font-bold">Max GPU Clearance (mm)</label>
+                                        <input type="number" placeholder="e.g. 340" className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs mt-1"
+                                            value={formData.max_gpu_length_mm} onChange={e => setFormData({...formData, max_gpu_length_mm: e.target.value})} />
+                                    </div>
+                                )}
+
                                 {(formData.category === 'cpu' || formData.category === 'motherboard') && (
                                     isCustomSocket ? (
                                         <div className="flex gap-2">

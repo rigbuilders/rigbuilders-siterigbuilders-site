@@ -2,10 +2,13 @@
 
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import Image from "next/image";
 import { useCart } from "../context/CartContext";
 import { supabase } from "@/lib/supabaseClient";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import CouponCode from "@/components/cart/CouponCode"; // Import Coupon Component
+import { Reveal } from "@/components/ui/MotionWrappers"; // Import Motions
 
 // --- CONSTANTS ---
 const INDIAN_STATES = [
@@ -35,19 +38,56 @@ export default function CheckoutPage() {
   const [pincodeStatus, setPincodeStatus] = useState<null | "checking" | "valid" | "invalid">(null);
   const router = useRouter();
   
+  // --- STATES ---
+  const [discount, setDiscount] = useState(0);
+  const [activeCoupon, setActiveCoupon] = useState("");
+  const [shippingCost, setShippingCost] = useState(0); 
+
   const [formData, setFormData] = useState({
     fullName: "",
     phone: "",
-    email: "", // Read-only from auth
+    email: "", 
     addressLine1: "",
     addressLine2: "",
     landmark: "",
     pincode: "",
     city: "",
     state: "",
-    country: "India",
+    country: "India", // Default
     billingSame: true
   });
+
+  // --- LOGIC 1: SHIPPING CHARGE CALCULATION ---
+  // Checks if cart contains Desktops, Custom Rigs, or Displays
+  useEffect(() => {
+    const heavyItemKeywords = [
+        "Desktop", "System", "Custom", "Rig", "Workstation", // PCs
+        "Ascend", "WorkPro", "Creator", "Signature",         // Series Names
+        "Display", "Monitor", "Screen"                       // Displays
+    ];
+    
+    // Check if ANY item in the cart matches the keywords
+    const needsHeavyShipping = cart.some(item => {
+    const category = item.category || ""; // Fallback to empty string if undefined
+    return heavyItemKeywords.some(keyword => category.toLowerCase().includes(keyword.toLowerCase()));
+});
+
+    // Set Shipping Cost
+    if (needsHeavyShipping) {
+        setShippingCost(1200); // ₹1200 for Rigs & Displays
+    } else {
+        setShippingCost(0); // Free for small components
+    }
+  }, [cart]);
+
+  // --- LOGIC 2: TOTAL CALCULATION ---
+  // Assuming cartTotal is Inclusive of 18% GST
+  const subtotalInclusive = cartTotal;
+  const baseAmount = Math.round(subtotalInclusive / 1.18);
+  const gstAmount = subtotalInclusive - baseAmount;
+  
+  // Final Total = (Subtotal + Shipping) - Coupon
+  const finalTotal = subtotalInclusive + shippingCost - discount;
 
   // 1. Initialize User Data
   useEffect(() => {
@@ -78,20 +118,29 @@ export default function CheckoutPage() {
       }
       setPincodeStatus("checking");
       
-      // TODO: Replace this timeout with a fetch call to your backend API that queries Delhivery
-      // Example: const res = await fetch(`/api/delhivery/check-pin?pin=${pincode}`);
+      // Simulating API check
       setTimeout(() => {
-          setPincodeStatus("valid"); // Simulating success for valid format
+          setPincodeStatus("valid"); 
       }, 800);
   };
 
   const handlePincodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const pin = e.target.value.replace(/\D/g, '').slice(0, 6); // Allow only 6 digits
+      const pin = e.target.value.replace(/\D/g, '').slice(0, 6);
       setFormData({ ...formData, pincode: pin });
       if (pin.length === 6) checkServiceability(pin);
       else setPincodeStatus(null);
   };
 
+  // 3. Coupon Usage Tracking
+  const trackCouponUsage = async (couponUsed: string) => {
+    if (couponUsed) {
+      const { error } = await supabase.rpc('increment_coupon_usage', { coupon_code: couponUsed });
+      if (error) console.error("Failed to track coupon usage:", error);
+      else console.log("Coupon usage tracked +1");
+    }
+  };
+
+  // 4. Handle Payment
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -112,15 +161,19 @@ export default function CheckoutPage() {
       return;
     }
 
+    
+
     const options = {
       key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_PLACEHOLDER",
-      amount: cartTotal * 100, 
+      amount: finalTotal * 100, // Sends Final Calculated Amount
       currency: "INR",
       name: "Rig Builders",
-      description: "Custom PC Order",
+      description: `Order for ${cart.length} Items`,
       image: "/icons/navbar/logo.png",
       handler: async function (response: any) {
-        await createOrder(user, response.razorpay_payment_id);
+        // Payment Success!
+        await trackCouponUsage(activeCoupon); // Track Coupon
+        await createOrder(user, response.razorpay_payment_id); // Create DB Order
       },
       prefill: {
         name: formData.fullName,
@@ -137,7 +190,6 @@ export default function CheckoutPage() {
 
   const createOrder = async (user: any, paymentId: string) => {
     try {
-        // Construct full address string for storage
         const fullAddress = `
           ${formData.addressLine1}, ${formData.addressLine2}
           ${formData.landmark ? `(Landmark: ${formData.landmark})` : ""}
@@ -152,8 +204,11 @@ export default function CheckoutPage() {
             email: formData.email,
             phone: `+91 ${formData.phone}`,
             address: fullAddress,
-            total_amount: cartTotal,
-            status: 'Processing' 
+            total_amount: finalTotal, // Save the discounted total
+            coupon_used: activeCoupon || null, // Save the coupon code
+            shipping_cost: shippingCost, // Save shipping cost to DB
+            status: 'Processing',
+            payment_id: paymentId
         })
         .select()
         .single();
@@ -179,144 +234,231 @@ export default function CheckoutPage() {
     }
   };
 
+  if (cart.length === 0) return null; // Or loading state
+
   return (
-    <div className="bg-[#121212] min-h-screen text-white font-saira flex flex-col">
+    <div className="bg-[#121212] min-h-screen text-white font-saira flex flex-col relative overflow-hidden">
+      
+      {/* Background Ambience */}
+      <div className="fixed top-0 left-0 w-full h-[500px] bg-brand-purple/5 blur-[120px] pointer-events-none z-0" />
+
       <Navbar />
-      <div className="flex-grow pt-32 pb-12 px-[40px] lg:px-[80px] 2xl:px-[100px]">
-        <h1 className="font-orbitron text-3xl font-bold mb-8 text-white uppercase">Secure Checkout</h1>
+      
+      <div className="flex-grow pt-32 pb-12 px-[20px] md:px-[40px] lg:px-[80px] 2xl:px-[100px] relative z-10">
+        <Reveal>
+          <h1 className="font-orbitron text-4xl font-bold mb-12 text-white uppercase tracking-wide">
+             SECURE <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-purple to-brand-blue">CHECKOUT</span>
+          </h1>
+        </Reveal>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-24">
             
-            {/* LEFT: ADDRESS FORM */}
+            {/* --- LEFT: ADDRESS FORM --- */}
             <div className="lg:col-span-2">
-                <form id="checkout-form" onSubmit={handlePayment} className="space-y-6">
-                    <div className="bg-[#1A1A1A] p-8 border border-white/5 rounded-lg">
-                        <h2 className="font-orbitron text-xl font-bold mb-6 text-brand-silver">Shipping Details</h2>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Full Name */}
-                            <div className="md:col-span-2">
-                                <label className="block text-xs uppercase tracking-wider text-[#A0A0A0] mb-2">Full Name</label>
-                                <input required type="text" className="w-full bg-[#121212] border border-white/10 rounded p-3 text-white focus:border-[#4E2C8B] outline-none" 
-                                    value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} />
-                            </div>
-
-                            {/* Phone & Email */}
-                            <div>
-                                <label className="block text-xs uppercase tracking-wider text-[#A0A0A0] mb-2">Phone Number</label>
-                                <div className="flex">
-                                    <span className="bg-[#121212] border border-white/10 border-r-0 rounded-l p-3 text-[#A0A0A0] select-none">+91</span>
-                                    <input required type="tel" className="w-full bg-[#121212] border border-white/10 rounded-r p-3 text-white focus:border-[#4E2C8B] outline-none" 
-                                        value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value.replace(/\D/g,'').slice(0,10)})} placeholder="99999 XXXXX" />
+                <form id="checkout-form" onSubmit={handlePayment} className="space-y-8">
+                    
+                    {/* Shipping Details Block */}
+                    <Reveal delay={0.1}>
+                        <div className="bg-[#1A1A1A] p-8 border border-white/5 rounded-lg relative overflow-hidden">
+                            {/* Decorative Line */}
+                            <div className="absolute top-0 left-0 w-1 h-full bg-brand-purple" />
+                            
+                            <h2 className="font-orbitron text-xl font-bold mb-8 text-white flex items-center gap-3">
+                                <span className="w-8 h-8 rounded-full bg-brand-purple flex items-center justify-center text-sm">1</span>
+                                Shipping Details
+                            </h2>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Full Name */}
+                                <div className="md:col-span-2">
+                                    <label className="block text-xs uppercase tracking-wider text-brand-silver mb-2 font-bold">Full Name</label>
+                                    <input required type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none transition-colors" 
+                                        value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} placeholder="John Doe" />
                                 </div>
-                            </div>
-                            <div>
-                                <label className="block text-xs uppercase tracking-wider text-[#A0A0A0] mb-2">Email Address</label>
-                                <input readOnly type="email" className="w-full bg-[#121212]/50 border border-white/5 rounded p-3 text-white/50 cursor-not-allowed" 
-                                    value={formData.email} />
-                            </div>
 
-                            {/* Address Lines */}
-                            <div className="md:col-span-2">
-                                <label className="block text-xs uppercase tracking-wider text-[#A0A0A0] mb-2">Address Line 1 (House / Flat / Building)</label>
-                                <input required type="text" className="w-full bg-[#121212] border border-white/10 rounded p-3 text-white focus:border-[#4E2C8B] outline-none" 
-                                    value={formData.addressLine1} onChange={e => setFormData({...formData, addressLine1: e.target.value})} />
-                            </div>
-                            <div className="md:col-span-2">
-                                <label className="block text-xs uppercase tracking-wider text-[#A0A0A0] mb-2">Address Line 2 (Street / Area)</label>
-                                <input required type="text" className="w-full bg-[#121212] border border-white/10 rounded p-3 text-white focus:border-[#4E2C8B] outline-none" 
-                                    value={formData.addressLine2} onChange={e => setFormData({...formData, addressLine2: e.target.value})} />
-                            </div>
-
-                            {/* Landmark & Pincode */}
-                            <div>
-                                <label className="block text-xs uppercase tracking-wider text-[#A0A0A0] mb-2">Landmark (Optional)</label>
-                                <input type="text" className="w-full bg-[#121212] border border-white/10 rounded p-3 text-white focus:border-[#4E2C8B] outline-none" 
-                                    value={formData.landmark} onChange={e => setFormData({...formData, landmark: e.target.value})} />
-                            </div>
-                            <div>
-                                <label className="block text-xs uppercase tracking-wider text-[#A0A0A0] mb-2">Pincode</label>
-                                <div className="relative">
-                                    <input required type="text" className="w-full bg-[#121212] border border-white/10 rounded p-3 text-white focus:border-[#4E2C8B] outline-none" 
-                                        value={formData.pincode} onChange={handlePincodeChange} placeholder="110001" />
-                                    {pincodeStatus === "checking" && <span className="absolute right-3 top-3 text-xs text-yellow-500">Checking...</span>}
-                                    {pincodeStatus === "valid" && <span className="absolute right-3 top-3 text-xs text-green-500">Serviceable ✓</span>}
-                                    {pincodeStatus === "invalid" && <span className="absolute right-3 top-3 text-xs text-red-500">Invalid</span>}
+                                {/* Phone */}
+                                <div>
+                                    <label className="block text-xs uppercase tracking-wider text-brand-silver mb-2 font-bold">Phone Number</label>
+                                    <div className="flex">
+                                        <span className="bg-white/5 border border-white/10 border-r-0 rounded-l p-4 text-brand-silver select-none font-bold">+91</span>
+                                        <input required type="tel" className="w-full bg-black/40 border border-white/10 rounded-r p-4 text-white focus:border-brand-purple outline-none transition-colors" 
+                                            value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value.replace(/\D/g,'').slice(0,10)})} placeholder="99999 XXXXX" />
+                                    </div>
                                 </div>
-                            </div>
 
-                            {/* City & State */}
-                            <div>
-                                <label className="block text-xs uppercase tracking-wider text-[#A0A0A0] mb-2">City</label>
-                                <input required type="text" className="w-full bg-[#121212] border border-white/10 rounded p-3 text-white focus:border-[#4E2C8B] outline-none" 
-                                    value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} />
-                            </div>
-                            <div>
-                                <label className="block text-xs uppercase tracking-wider text-[#A0A0A0] mb-2">State</label>
-                                <select required className="w-full bg-[#121212] border border-white/10 rounded p-3 text-white focus:border-[#4E2C8B] outline-none appearance-none"
-                                    value={formData.state} onChange={e => setFormData({...formData, state: e.target.value})}>
-                                    <option value="" disabled>Select State</option>
-                                    {INDIAN_STATES.map(st => <option key={st} value={st}>{st}</option>)}
-                                </select>
-                            </div>
+                                {/* Email */}
+                                <div>
+                                    <label className="block text-xs uppercase tracking-wider text-brand-silver mb-2 font-bold">Email Address</label>
+                                    <input readOnly type="email" className="w-full bg-white/5 border border-white/5 rounded p-4 text-white/50 cursor-not-allowed" 
+                                        value={formData.email} />
+                                </div>
 
-                            {/* Country (Read-Only) */}
-                            <div>
-                                <label className="block text-xs uppercase tracking-wider text-[#A0A0A0] mb-2">Country</label>
-                                <input readOnly type="text" className="w-full bg-[#121212]/50 border border-white/5 rounded p-3 text-white/50 cursor-not-allowed" 
-                                    value="India" />
+                                {/* Address */}
+                                <div className="md:col-span-2">
+                                    <label className="block text-xs uppercase tracking-wider text-brand-silver mb-2 font-bold">Address Line 1</label>
+                                    <input required type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none transition-colors" 
+                                        value={formData.addressLine1} onChange={e => setFormData({...formData, addressLine1: e.target.value})} placeholder="House / Flat / Building" />
+                                </div>
+                                <div className="md:col-span-2">
+                                    <label className="block text-xs uppercase tracking-wider text-brand-silver mb-2 font-bold">Address Line 2</label>
+                                    <input required type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none transition-colors" 
+                                        value={formData.addressLine2} onChange={e => setFormData({...formData, addressLine2: e.target.value})} placeholder="Street / Area" />
+                                </div>
+
+                                {/* Pincode Logic */}
+                                <div>
+                                    <label className="block text-xs uppercase tracking-wider text-brand-silver mb-2 font-bold">Pincode</label>
+                                    <div className="relative">
+                                        <input required type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none transition-colors" 
+                                            value={formData.pincode} onChange={handlePincodeChange} placeholder="110001" />
+                                        
+                                        {/* Status Indicators */}
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                                            {pincodeStatus === "checking" && <span className="text-xs text-yellow-500 font-bold animate-pulse">Checking...</span>}
+                                            {pincodeStatus === "valid" && <span className="text-xs text-green-500 font-bold">Serviceable ✓</span>}
+                                            {pincodeStatus === "invalid" && <span className="text-xs text-red-500 font-bold">Invalid</span>}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Landmark */}
+                                <div>
+                                    <label className="block text-xs uppercase tracking-wider text-brand-silver mb-2 font-bold">Landmark</label>
+                                    <input type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none transition-colors" 
+                                        value={formData.landmark} onChange={e => setFormData({...formData, landmark: e.target.value})} placeholder="Near..." />
+                                </div>
+
+                                {/* City */}
+                                <div>
+                                    <label className="block text-xs uppercase tracking-wider text-brand-silver mb-2 font-bold">City</label>
+                                    <input required type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none transition-colors" 
+                                        value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} />
+                                </div>
+
+                                {/* State Dropdown */}
+                                <div>
+                                    <label className="block text-xs uppercase tracking-wider text-brand-silver mb-2 font-bold">State</label>
+                                    <div className="relative">
+                                        <select required className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none appearance-none cursor-pointer"
+                                            value={formData.state} onChange={e => setFormData({...formData, state: e.target.value})}>
+                                            <option value="" disabled>Select State</option>
+                                            {INDIAN_STATES.map(st => <option key={st} value={st} className="bg-[#1A1A1A]">{st}</option>)}
+                                        </select>
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-xs text-brand-silver">▼</div>
+                                    </div>
+                                </div>
+                                
+                                {/* ADDED: Country Field (Read Only) */}
+                                <div>
+                                    <label className="block text-xs uppercase tracking-wider text-brand-silver mb-2 font-bold">Country</label>
+                                    <input readOnly type="text" className="w-full bg-white/5 border border-white/5 rounded p-4 text-white/50 cursor-not-allowed font-bold" 
+                                        value={formData.country} />
+                                </div>
+
                             </div>
                         </div>
-
-                        {/* Billing Checkbox */}
-                        <div className="mt-6 flex items-center gap-3">
-                            <input type="checkbox" id="billing" checked={formData.billingSame} onChange={() => setFormData({...formData, billingSame: !formData.billingSame})} 
-                                className="w-4 h-4 accent-[#4E2C8B]" />
-                            <label htmlFor="billing" className="text-sm text-brand-silver select-none">Billing address is same as shipping address</label>
-                        </div>
-                    </div>
+                    </Reveal>
                 </form>
             </div>
 
-            {/* RIGHT: ORDER SUMMARY */}
+            {/* --- RIGHT: ORDER SUMMARY (Sticky) --- */}
             <div className="h-fit">
-                <div className="bg-[#1A1A1A] p-8 border border-white/5 rounded-lg sticky top-32">
-                    <h3 className="font-orbitron text-xl font-bold mb-6 border-b border-white/10 pb-4">Order Summary</h3>
-                    
-                    <div className="space-y-4 mb-6">
-                        {cart.map(item => (
-                            <div key={item.id} className="flex justify-between text-sm">
-                                <span className="text-white/80">{item.name} <span className="text-brand-purple">x{item.quantity}</span></span>
-                                <span className="text-white">₹{(item.price * item.quantity).toLocaleString("en-IN")}</span>
+                <Reveal delay={0.2} className="sticky top-32">
+                    <div className="bg-[#1A1A1A]/80 backdrop-blur-md p-8 border border-white/10 rounded-lg shadow-2xl relative">
+                        
+                        {/* Summary Header */}
+                        <h3 className="font-orbitron text-xl font-bold mb-6 text-white border-b border-white/10 pb-4 flex justify-between items-center">
+                            Order Summary
+                            <span className="text-xs font-saira text-brand-silver bg-white/5 px-2 py-1 rounded">{cart.length} Items</span>
+                        </h3>
+                        
+                        {/* Items List (Scrollable) */}
+                        <div className="mb-6 space-y-4 max-h-[250px] overflow-y-auto custom-scrollbar pr-2">
+                            {cart.map(item => (
+                                <div key={item.id} className="flex justify-between items-start text-sm group">
+                                    <div className="flex gap-3">
+                                         {/* Quantity Badge */}
+                                         <span className="w-6 h-6 bg-brand-purple/20 text-brand-purple rounded flex items-center justify-center text-[10px] font-bold border border-brand-purple/30 shrink-0">
+                                            {item.quantity}x
+                                         </span>
+                                         <div>
+                                            <span className="text-white block group-hover:text-brand-purple transition-colors">{item.name}</span>
+                                            <span className="text-[10px] text-brand-silver uppercase tracking-wider">{item.category}</span>
+                                         </div>
+                                    </div>
+                                    <span className="text-white font-bold">₹{(item.price * item.quantity).toLocaleString("en-IN")}</span>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* --- COUPON INPUT --- */}
+                        <div className="mb-8">
+                             <CouponCode 
+                                subtotal={subtotalInclusive} 
+                                onApply={(amount, code) => {
+                                    setDiscount(amount);
+                                    setActiveCoupon(code);
+                                }} 
+                             />
+                        </div>
+
+                        {/* Price Breakdown */}
+                        <div className="border-t border-white/10 pt-6 space-y-3 text-sm font-saira">
+                            <div className="flex justify-between text-brand-silver/70">
+                                <span>Base Amount</span>
+                                <span>₹{baseAmount.toLocaleString("en-IN")}</span>
                             </div>
-                        ))}
-                    </div>
+                            <div className="flex justify-between text-brand-silver/70">
+                                <span>Tax (18% GST)</span>
+                                <span>₹{gstAmount.toLocaleString("en-IN")}</span>
+                            </div>
+                            
+                            {/* SHIPPING CHARGE DISPLAY */}
+                            <div className="flex justify-between text-brand-silver">
+                                <span>Shipping Charge</span>
+                                {shippingCost === 0 ? (
+                                    <span className="text-green-400 font-bold uppercase text-xs bg-green-500/10 px-2 py-1 rounded">Free</span>
+                                ) : (
+                                    // Shows ₹1200 if heavy items are present
+                                    <span>₹{shippingCost.toLocaleString("en-IN")}</span>
+                                )}
+                            </div>
 
-                    <div className="border-t border-white/10 pt-4 space-y-2 text-sm text-brand-silver">
-                        <div className="flex justify-between"><span>Subtotal</span><span>₹{cartTotal.toLocaleString("en-IN")}</span></div>
-                        <div className="flex justify-between"><span>Shipping</span><span className="text-green-400">Free</span></div>
-                        <div className="flex justify-between"><span>Tax (18% GST Included)</span><span>₹{(cartTotal * 0.18).toFixed(0)}</span></div>
-                    </div>
+                            {/* DISCOUNT DISPLAY */}
+                            {discount > 0 && (
+                                <div className="flex justify-between text-brand-purple font-bold animate-pulse">
+                                    <span>Coupon ({activeCoupon})</span>
+                                    <span>- ₹{discount.toLocaleString("en-IN")}</span>
+                                </div>
+                            )}
 
-                    <div className="flex justify-between text-xl font-bold text-white mb-8 pt-6 border-t border-white/10">
-                        <span>Total</span>
-                        <span>₹{cartTotal.toLocaleString("en-IN")}</span>
-                    </div>
+                            {/* FINAL TOTAL */}
+                            <div className="flex justify-between text-2xl font-black text-white pt-4 mt-2 border-t border-white/10 font-orbitron">
+                                <span>TOTAL</span>
+                                <span>₹{finalTotal.toLocaleString("en-IN")}</span>
+                            </div>
+                        </div>
 
-                    <button 
-                        type="submit"
-                        form="checkout-form"
-                        disabled={loading || pincodeStatus === "invalid"}
-                        className="w-full bg-white text-black py-4 font-orbitron font-bold uppercase tracking-widest hover:bg-brand-purple hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {loading ? "Initializing..." : "Pay Now"}
-                    </button>
-                    
-                    <p className="text-[10px] text-center text-[#A0A0A0] mt-4 flex items-center justify-center gap-2">
-                        <span className="w-2 h-2 bg-green-500 rounded-full"></span> 
-                        Secure Payments by Razorpay
-                    </p>
-                </div>
+                        {/* PAY BUTTON */}
+                        <button 
+                            type="submit"
+                            form="checkout-form"
+                            disabled={loading || pincodeStatus === "invalid"}
+                            className="w-full bg-white text-black py-4 mt-8 font-orbitron font-bold uppercase tracking-[0.15em] hover:bg-brand-purple hover:text-white transition-all duration-300 rounded shadow-lg hover:shadow-brand-purple/50 clip-path-slant flex justify-center items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {loading ? (
+                                <span className="animate-pulse">Processing...</span>
+                            ) : (
+                                <>Pay Securely <span className="text-lg">→</span></>
+                            )}
+                        </button>
+                        
+                        <p className="text-[10px] text-center text-[#555] mt-4 flex items-center justify-center gap-2">
+                             <Image src="/icons/payment/upi.svg" alt="UPI" width={16} height={16} className="opacity-50" />
+                             Secure 256-bit SSL Encrypted Payment by Razorpay.
+                        </p>
+                    </div>
+                </Reveal>
             </div>
 
         </div>

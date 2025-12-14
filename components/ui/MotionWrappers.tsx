@@ -60,3 +60,24 @@ export function StaggerItem({ children, className = "" }: { children: React.Reac
     </motion.div>
   );
 }
+// 4. Hover Scale Effect (Wraps any card/image to expand on hover)
+export function HoverScale({ 
+  children, 
+  scale = 1.05, // Default expansion amount (1.05 is subtle/premium)
+  className = "" 
+}: { 
+  children: React.ReactNode; 
+  scale?: number; 
+  className?: string 
+}) {
+  return (
+    <motion.div
+      whileHover={{ scale: scale, zIndex: 10 }} // zIndex ensures it pops ON TOP of neighbors
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      className={className}
+      style={{ transformOrigin: "center center" }} // Expands from center
+    >
+      {children}
+    </motion.div>
+  );
+}

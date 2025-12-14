@@ -4,6 +4,8 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
 import { useState, useMemo } from "react";
+import { Reveal } from "@/components/ui/MotionWrappers";
+import { HoverScale } from "@/components/ui/MotionWrappers";
 
 // --- MOCK DATA FOR DESKTOPS ---
 // Note: Signature Edition is marked with isWide: true for layout logic
@@ -20,6 +22,7 @@ const FilterGroup = ({ title, options, selected, onChange }: any) => {
   const [isOpen, setIsOpen] = useState(true);
 
   return (
+    <Reveal>
     <div className="mb-6 border-b border-white/10 pb-4">
       <div 
         className="flex justify-between items-center cursor-pointer mb-3"
@@ -50,6 +53,7 @@ const FilterGroup = ({ title, options, selected, onChange }: any) => {
         </div>
       )}
     </div>
+    </Reveal>
   );
 };
 
@@ -139,6 +143,7 @@ export default function DesktopsPage() {
              </div>
 
              {/* Grid Container */}
+          
              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                 {filteredDesktops.map((pc) => (
                    <div 
@@ -177,7 +182,7 @@ export default function DesktopsPage() {
                    </div>
                 ))}
              </div>
-
+             
              {filteredDesktops.length === 0 && (
                 <div className="w-full py-20 text-center border border-dashed border-white/10 text-brand-silver">
                    No desktops match your filters.

@@ -29,7 +29,8 @@ export default function Hero() {
       <div className="rb-hero-glow opacity-40 z-10 mix-blend-overlay" />
 
       {/* 3. Content */}
-      <div className="relative z-20 text-center px-6 max-w-5xl mx-auto mt-16">
+      
+      <div className="relative z-20 text-center px-6 max-w-5xl mx-auto mt-10">
         <Reveal>
           <div className="inline-block mb-6 border border-white/10 bg-white/5 backdrop-blur-md px-4 py-2 rounded-full">
              <p className="font-saira text-brand-silver tracking-[0.2em] text-[10px] md:text-xs font-bold uppercase">
