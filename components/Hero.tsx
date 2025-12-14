@@ -16,7 +16,7 @@ export default function Hero() {
             loop 
             muted 
             playsInline 
-            poster="https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=2070&auto=format&fit=crop"
+            poster="/images/homepage/hero/1.jpg"
             className="w-full h-full object-cover opacity-60"
         >
             {/* I'm using a placeholder tech video link here. 
@@ -32,13 +32,13 @@ export default function Hero() {
       <div className="relative z-20 text-center px-6 max-w-5xl mx-auto mt-16">
         <Reveal>
           <div className="inline-block mb-6 border border-white/10 bg-white/5 backdrop-blur-md px-4 py-2 rounded-full">
-             <p className="font-saira text-brand-purple tracking-[0.2em] text-[10px] md:text-xs font-bold uppercase">
+             <p className="font-saira text-brand-silver tracking-[0.2em] text-[10px] md:text-xs font-bold uppercase">
                 New: RTX 50-Series Configurations Available
              </p>
           </div>
           
           <h1 className="font-orbitron font-black text-5xl md:text-7xl lg:text-8xl text-white mb-8 leading-none drop-shadow-2xl">
-            COMMISIONED. <br />
+            COMMISSIONED. <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#4E2C8B] to-[#924dbf]">
               NOT
             </span>

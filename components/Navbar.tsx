@@ -44,52 +44,61 @@ const useGlobalSearch = () => {
 
 // --- SUB-COMPONENTS ---
 
-// 1. User Menu (Fixed to match image_ac573a.png)
+// 1. User Menu (Fixed Hover Gap & Spacing)
 const UserAccountMenu = ({ user }: { user: User | null }) => {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     window.location.reload(); 
   };
 
-  const menuWrapperClasses = "absolute top-full mt-0 right-0 bg-[#121212] border border-white/10 shadow-2xl font-saira text-white z-50 cursor-default w-64 pt-2";
+  // FIX: Wrapper now uses 'pt-2' instead of 'mt-2'. 
+  // This transparent padding acts as a bridge so the mouse doesn't "fall" through the gap.
+  const wrapperClasses = "absolute top-full right-0 w-64 pt-2 z-50 cursor-default";
+  
+  // Inner visible box handles the background and borders
+  const innerClasses = "bg-[#121212] border border-white/10 shadow-2xl font-saira text-white";
 
   if (user) {
     return (
-      <div className={menuWrapperClasses}>
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-white/10">
-           <div className="flex items-center gap-3">
-               <div className="w-8 h-8 rounded-full border border-white/30 flex items-center justify-center bg-white/5">
-                  <FaUser className="text-sm" />
-               </div>
-               <div className="overflow-hidden">
-                  <p className="text-sm font-bold text-white truncate font-orbitron">{user.user_metadata.full_name || "RigBuilder"}</p>
-                  <p className="text-[10px] text-brand-silver truncate">{user.email}</p>
-               </div>
-           </div>
-        </div>
-        {/* Links List */}
-        <div className="py-2">
-          <Link href="/dashboard" className="flex items-center gap-3 px-6 py-3 hover:bg-white/5 transition-colors text-sm text-brand-silver hover:text-white"><span>→</span> Dashboard</Link>
-          <Link href="/admin/orders" className="flex items-center gap-3 px-6 py-3 hover:bg-white/5 transition-colors text-sm text-brand-silver hover:text-white"><span>→</span> Orders</Link>
-          <Link href="/cart" className="flex items-center gap-3 px-6 py-3 hover:bg-white/5 transition-colors text-sm text-brand-silver hover:text-white"><span>→</span> Cart</Link>
-          <Link href="/support" className="flex items-center gap-3 px-6 py-3 hover:bg-white/5 transition-colors text-sm text-brand-silver hover:text-white"><span>→</span> Support</Link>
-          
-          <button onClick={handleLogout} className="w-full text-left flex items-center gap-3 px-6 py-4 hover:bg-red-500/10 text-red-500 hover:text-red-400 transition-colors text-sm border-t border-white/10 mt-2 font-bold">
-            <span>→</span> Sign Out
-          </button>
+      <div className={wrapperClasses}>
+        <div className={innerClasses}>
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-white/10">
+            <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full border border-white/30 flex items-center justify-center bg-white/5">
+                    <FaUser className="text-sm" />
+                </div>
+                <div className="overflow-hidden">
+                    <p className="text-sm font-bold text-white truncate font-orbitron">{user.user_metadata.full_name || "RigBuilder"}</p>
+                    <p className="text-[10px] text-brand-silver truncate">{user.email}</p>
+                </div>
+            </div>
+            </div>
+            {/* Links List */}
+            <div className="py-2">
+            <Link href="/dashboard" className="flex items-center gap-3 px-6 py-3 hover:bg-white/5 transition-colors text-sm text-brand-silver hover:text-white"><span>→</span> Dashboard</Link>
+            <Link href="/dashboard" className="flex items-center gap-3 px-6 py-3 hover:bg-white/5 transition-colors text-sm text-brand-silver hover:text-white"><span>→</span> Orders</Link>
+            <Link href="/cart" className="flex items-center gap-3 px-6 py-3 hover:bg-white/5 transition-colors text-sm text-brand-silver hover:text-white"><span>→</span> Cart</Link>
+            <Link href="/support" className="flex items-center gap-3 px-6 py-3 hover:bg-white/5 transition-colors text-sm text-brand-silver hover:text-white"><span>→</span> Support</Link>
+            
+            <button onClick={handleLogout} className="w-full text-left flex items-center gap-3 px-6 py-4 hover:bg-red-500/10 text-red-500 hover:text-red-400 transition-colors text-sm border-t border-white/10 mt-2 font-bold">
+                <span>→</span> Sign Out
+            </button>
+            </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`${menuWrapperClasses} p-6 text-center`}>
-      <p className="text-sm font-bold mb-4 font-orbitron">WELCOME</p>
-      <div className="space-y-3">
-        <Link href="/signin" className="block w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-xs uppercase font-bold tracking-wider transition-all">Log In</Link>
-        <Link href="/signup" className="block w-full py-3 bg-brand-purple hover:bg-white hover:text-black text-white text-xs uppercase font-bold tracking-wider transition-all">Sign Up</Link>
-      </div>
+    <div className={wrapperClasses}>
+        <div className={`${innerClasses} p-6 text-center`}>
+            <p className="text-sm font-bold mb-4 font-orbitron">WELCOME</p>
+            <div className="space-y-4">
+                <Link href="/signin" className="block w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-xs uppercase font-bold tracking-wider transition-all">Log In</Link>
+                <Link href="/signup" className="block w-full py-3 bg-brand-purple hover:bg-white hover:text-black text-white text-xs uppercase font-bold tracking-wider transition-all">Sign Up</Link>
+            </div>
+        </div>
     </div>
   );
 };
@@ -99,37 +108,40 @@ const SearchMenu = () => {
   const { query, setQuery, suggestions, handleSearch } = useGlobalSearch();
 
   return (
-    <div className="absolute top-full mt-0 right-0 w-[400px] bg-[#121212] border border-white/10 shadow-2xl p-6 font-saira text-white z-50">
-       <div className="relative mb-6">
-          <Image src="/icons/navbar/search.svg" alt="Search" width={16} height={16} className="absolute left-4 top-1/2 -translate-y-1/2 opacity-70" />
-          <input 
-            type="text" 
-            placeholder="Search rigbuilders.in..." 
-            className="w-full bg-[#1A1A1A] border border-white/20 text-white text-sm py-3 pl-12 focus:outline-none focus:border-brand-purple transition-colors rounded-sm"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => handleSearch(e)}
-            autoFocus
-          />
-          {suggestions.length > 0 && (
-            <div className="absolute top-full left-0 w-full bg-[#1A1A1A] border border-white/10 mt-1 rounded shadow-xl z-[60]">
-                {suggestions.map((product) => (
-                    <div key={product.id} onClick={() => handleSearch(product.name)} className="px-4 py-3 hover:bg-white/5 cursor-pointer flex justify-between items-center text-xs border-b border-white/5 last:border-0">
-                        <span className="text-white truncate">{product.name}</span>
-                        <span className="text-brand-purple font-bold">₹{product.price.toLocaleString("en-IN")}</span>
+    // Added 'pt-2' here as well to fix the gap issue for search too
+    <div className="absolute top-full right-0 w-[400px] pt-2 z-50"> 
+        <div className="bg-[#121212] border border-white/10 shadow-2xl p-6 font-saira text-white">
+            <div className="relative mb-6">
+                <Image src="/icons/navbar/search.svg" alt="Search" width={16} height={16} className="absolute left-4 top-1/2 -translate-y-1/2 opacity-70" />
+                <input 
+                    type="text" 
+                    placeholder="Search rigbuilders.in..." 
+                    className="w-full bg-[#1A1A1A] border border-white/20 text-white text-sm py-3 pl-12 focus:outline-none focus:border-brand-purple transition-colors rounded-sm"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) => handleSearch(e)}
+                    autoFocus
+                />
+                {suggestions.length > 0 && (
+                    <div className="absolute top-full left-0 w-full bg-[#1A1A1A] border border-white/10 mt-1 rounded shadow-xl z-[60]">
+                        {suggestions.map((product) => (
+                            <div key={product.id} onClick={() => handleSearch(product.name)} className="px-4 py-3 hover:bg-white/5 cursor-pointer flex justify-between items-center text-xs border-b border-white/5 last:border-0">
+                                <span className="text-white truncate">{product.name}</span>
+                                <span className="text-brand-purple font-bold">₹{product.price.toLocaleString("en-IN")}</span>
+                            </div>
+                        ))}
                     </div>
-                ))}
+                )}
             </div>
-          )}
-       </div>
-       <div>
-          <h4 className="font-orbitron font-bold text-xs text-white mb-4 uppercase tracking-widest">Quick Navigate</h4>
-          <ul className="space-y-3 text-sm text-brand-silver">
-             <li><Link href="/ascend" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> Ascend Series</Link></li>
-             <li><Link href="/products" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> All Components</Link></li>
-             <li><Link href="/configure" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> System Configurator</Link></li>
-          </ul>
-       </div>
+            <div>
+                <h4 className="font-orbitron font-bold text-xs text-white mb-4 uppercase tracking-widest">Quick Navigate</h4>
+                <ul className="space-y-3 text-sm text-brand-silver">
+                    <li><Link href="/ascend" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> Ascend Series</Link></li>
+                    <li><Link href="/products" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> All Components</Link></li>
+                    <li><Link href="/configure" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> System Configurator</Link></li>
+                </ul>
+            </div>
+        </div>
     </div>
   )
 }
@@ -153,7 +165,6 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   
-  // Two search instances: One for main/mobile, one for the mega menu
   const search = useGlobalSearch(); 
   const megaMenuSearch = useGlobalSearch(); 
 
@@ -222,11 +233,14 @@ export default function Navbar() {
       {/* --- MEGA MENUS --- */}
 
       {/* 1. PRODUCTS HOVER */}
-      <div className={`hidden lg:block absolute top-[80px] left-0 w-full bg-[#121212]/98 border-t border-white/10 transition-all duration-300 overflow-hidden ${activeMenu === "products" ? "max-h-[600px] opacity-100 visible" : "max-h-0 opacity-0 invisible"}`}
+      <div className={`hidden lg:block absolute top-[80px] left-0 w-full bg-[#121212] border-t border-white/10 transition-all duration-300 overflow-hidden z-40 ${activeMenu === "products" ? "max-h-[600px] opacity-100 visible" : "max-h-0 opacity-0 invisible"}`}
            onMouseEnter={() => setActiveMenu("products")} onMouseLeave={() => setActiveMenu(null)}>
-        <div className="max-w-[1400px] mx-auto py-12 px-8 grid grid-cols-4 gap-12 text-white font-saira">
+        
+        {/* FIXED: Removed wide gap, added 'divide-x' for vertical lines, brought columns closer */}
+        <div className="max-w-[1400px] mx-auto py-12 px-8 grid grid-cols-4 divide-x divide-white/10 text-white font-saira">
+            
             {/* PC Components */}
-            <div>
+            <div className="px-8"> {/* Added padding inside column instead of gap */}
                 <div className="flex gap-4 mb-6"><Image src="/icons/navbar/products/PC Components.svg" alt="Icon" width={32} height={32} /><Image src="/icons/navbar/products/PC Components 2.png" alt="Icon" width={32} height={32} /></div>
                 <h3 className="font-orbitron text-lg font-bold mb-4 text-white uppercase tracking-wider">PC Components</h3>
                 <ul className="space-y-2 text-sm text-brand-silver">
@@ -240,8 +254,9 @@ export default function Navbar() {
                     <li><Link href="/products/cooler" className="hover:text-brand-purple transition-colors">Cooling</Link></li>
                 </ul>
             </div>
+
             {/* Desktops */}
-            <div>
+            <div className="px-8">
                 <div className="mb-6"><Image src="/icons/navbar/products/Desktops.png" alt="Desktops" width={40} height={40} /></div>
                 <h3 className="font-orbitron text-lg font-bold mb-4 text-white uppercase tracking-wider">Desktops</h3>
                 <ul className="space-y-2 text-sm text-brand-silver">
@@ -251,8 +266,9 @@ export default function Navbar() {
                     <li><Link href="/signature" className="hover:text-brand-purple">Signature Series</Link></li>
                 </ul>
             </div>
+
             {/* Accessories */}
-            <div>
+            <div className="px-8">
                 <div className="mb-6"><Image src="/icons/navbar/products/Accessories.png" alt="Accessories" width={40} height={40} /></div>
                 <h3 className="font-orbitron text-lg font-bold mb-4 text-white uppercase tracking-wider">Accessories</h3>
                 <ul className="space-y-2 text-sm text-brand-silver">
@@ -264,8 +280,9 @@ export default function Navbar() {
                     <li><Link href="/products/usb" className="hover:text-brand-purple">USB Drives</Link></li>
                 </ul>
             </div>
+
             {/* Quick Links + Search */}
-            <div className="border-l border-white/10 pl-10">
+            <div className="px-8">
                 <div className="relative mb-8">
                     <Image src="/icons/navbar/search.svg" alt="Search" width={14} height={14} className="absolute left-4 top-1/2 -translate-y-1/2 opacity-50" />
                     <input type="text" placeholder="Search..." className="w-full bg-white/5 border border-white/10 text-white text-sm py-2 pl-10 focus:outline-none focus:border-brand-purple rounded-sm"
@@ -283,7 +300,7 @@ export default function Navbar() {
       </div>
 
       {/* 2. DESKTOPS HOVER */}
-      <div className={`hidden lg:block absolute top-[80px] left-0 w-full bg-[#121212]/98 border-t border-white/10 transition-all duration-300 overflow-hidden ${activeMenu === "desktops" ? "max-h-[600px] opacity-100 visible" : "max-h-0 opacity-0 invisible"}`}
+      <div className={`hidden lg:block absolute top-[80px] left-0 w-full bg-[#121212] border-t border-white/10 transition-all duration-300 overflow-hidden z-40 ${activeMenu === "desktops" ? "max-h-[600px] opacity-100 visible" : "max-h-0 opacity-0 invisible"}`}
            onMouseEnter={() => setActiveMenu("desktops")} onMouseLeave={() => setActiveMenu(null)}>
         <div className="max-w-[1400px] mx-auto py-20 grid grid-cols-4 divide-x divide-white/10 text-white text-center">
             <div className="px-4 flex flex-col items-center group">
@@ -306,7 +323,7 @@ export default function Navbar() {
       </div>
 
       {/* 3. ACCESSORIES HOVER */}
-      <div className={`hidden lg:block absolute top-[80px] left-0 w-full bg-[#121212]/98 border-t border-white/10 transition-all duration-300 overflow-hidden ${activeMenu === "accessories" ? "max-h-[600px] opacity-100 visible" : "max-h-0 opacity-0 invisible"}`}
+      <div className={`hidden lg:block absolute top-[80px] left-0 w-full bg-[#121212] border-t border-white/10 transition-all duration-300 overflow-hidden z-40 ${activeMenu === "accessories" ? "max-h-[600px] opacity-100 visible" : "max-h-0 opacity-0 invisible"}`}
            onMouseEnter={() => setActiveMenu("accessories")} onMouseLeave={() => setActiveMenu(null)}>
         <div className="max-w-[1200px] mx-auto py-16 px-8 flex gap-16">
             <div className="flex-shrink-0 w-1/4 border-r border-white/10 pr-12">

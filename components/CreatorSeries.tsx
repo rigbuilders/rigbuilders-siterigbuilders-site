@@ -8,25 +8,30 @@ export default function CreatorSeries() {
   return (
     <section className="relative py-24 bg-[#121212] overflow-hidden border-t border-white/5">
       
-      {/* 1. CINEMATIC BACKGROUND IMAGE (Fixed Link) */}
-      <div className="absolute inset-0 opacity-20 pointer-events-none">
+      {/* 1. CINEMATIC BACKGROUND IMAGE (Local File) */}
+      <div className="absolute inset-0 pointer-events-none">
          <Image 
-            // Reliable Unsplash ID for a Neon/Streamer setup
-            src="https://images.unsplash.com/photo-1616588589676-60b30c3c1681?q=80&w=2070&auto=format&fit=crop" 
+            src="/images/homepage/creator series/3.jpg" 
             alt="Creator Studio Background" 
             fill 
-            className="object-cover"
+            // 'object-right' keeps the focus on the right side of the image
+            className="object-cover object-right opacity-60"
+            priority
          />
       </div>
 
-      {/* 2. GRADIENT FADE (The "WorkPro" Effect) */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#121212] via-[#121212]/40 to-[#121212]" />
-      <div className="absolute inset-0 bg-gradient-to-r from-[#121212] via-transparent to-[#121212]/50" />
+      {/* 2. PHOTOSHOP-STYLE MASKING (Gradients) */}
+      
+      {/* Left-to-Right Fade: Solid black on left (under text), transparent on right */}
+      <div className="absolute inset-0 bg-gradient-to-r from-[#121212] via-[#121212] to-transparent lg:via-[#121212]/80" />
+      
+      {/* Bottom Fade: Blends the image into the footer/next section */}
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#121212]" />
 
       <div className="max-w-7xl mx-auto px-6 relative z-10">
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            {/* Text Content */}
+            {/* Text Content (Left Side - Sitting on top of the solid gradient) */}
             <div>
                 <Reveal>
                     <p className="font-saira text-purple-400 tracking-[0.2em] text-sm font-bold mb-2">STREAM. RENDER. CREATE.</p>
@@ -57,11 +62,8 @@ export default function CreatorSeries() {
                 </Reveal>
             </div>
 
-            {/* Right Side: Abstract Visual / Clean Space */}
-            <div className="hidden lg:block">
-                {/* We leave this empty to let the background image shine through, 
-                    or add a floating 3D element here later. */}
-            </div>
+            {/* Right Side: Empty to let the image shine through */}
+            <div className="hidden lg:block"></div>
         </div>
 
       </div>
