@@ -54,7 +54,7 @@ export default function ProductManager() {
   const [isCustomMemory, setIsCustomMemory] = useState(false);
 
   const [formData, setFormData] = useState({
-    id: "", name: "", price: "", category: "cpu", series: "", tier: "", brand: "", 
+    id: "", name: "", breadcrumb_name: "", price: "", category: "cpu", series: "", tier: "", brand: "", 
     image_url: "", in_stock: true, description: "", features_text: "", gallery_text: "",
     // SPECS
     socket: "", memory_type: "", wattage: "", capacity: "", form_factor: "", speed: "", storage_type: "",
@@ -183,6 +183,7 @@ export default function ProductManager() {
 
       const payload = {
         name: formData.name,
+        breadcrumb_name: formData.breadcrumb_name || null,
         price: parseFloat(formData.price),
         category: formData.category, 
         series: formData.series || null,
@@ -228,7 +229,7 @@ export default function ProductManager() {
     setIsCustomMemory(s.memory_type && !BASE_MEMORY_TYPES.includes(s.memory_type) && !existingMemory.includes(s.memory_type));
 
     setFormData({
-      id: product.id, name: product.name, price: product.price.toString(), category: product.category,
+      id: product.id, name: product.name, breadcrumb_name: product.breadcrumb_name || "", price: product.price.toString(), category: product.category,
       series: product.series || "", tier: product.tier ? product.tier.toString() : "",
       brand: product.brand, image_url: product.image_url || "", in_stock: product.in_stock ?? true,
       description: product.description || "",
@@ -258,7 +259,7 @@ export default function ProductManager() {
 
   const resetForm = () => {
     setFormData({
-      id: "", name: "", price: "", category: "cpu", series: "", tier: "", brand: "", image_url: "", in_stock: true,
+      id: "", name: "", breadcrumb_name: "", price: "", category: "cpu", series: "", tier: "", brand: "", image_url: "", in_stock: true,
       description: "", features_text: "", gallery_text: "",
       socket: "", memory_type: "", wattage: "", capacity: "", form_factor: "", speed: "", storage_type: "",
       length_mm: "", max_gpu_length_mm: "",
@@ -322,6 +323,13 @@ export default function ProductManager() {
 
                         <input required placeholder="Product Name" className="w-full bg-[#121212] p-2 rounded border border-white/10" 
                             value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                        
+                        {/* NEW: BREADCRUMB NAME FIELD */}
+                        <div className="relative">
+                             <input placeholder="Breadcrumb Display Name (Optional)" className="w-full bg-[#1A1A1A] p-2 rounded border border-brand-purple/50 text-xs focus:border-brand-purple" 
+                                value={formData.breadcrumb_name} onChange={e => setFormData({...formData, breadcrumb_name: e.target.value})} />
+                             <p className="text-[9px] text-brand-silver mt-1 text-right">e.g. "Ascend 5 As001an"</p>
+                        </div>
                         
                         {/* PRE-BUILT SERIES SELECTOR */}
                         {formData.category === 'prebuilt' && (

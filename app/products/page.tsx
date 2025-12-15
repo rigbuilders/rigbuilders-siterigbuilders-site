@@ -12,7 +12,7 @@ const categories = [
   { 
     id: "cpu", 
     name: "PROCESSORS", 
-    desc: "Intel Core & AMD Ryzen",
+    desc: "Intel Core Ultra & AMD Ryzen",
     image: "/images/Products/cpu.jpg" 
   },
   { 
@@ -24,7 +24,7 @@ const categories = [
   { 
     id: "motherboard", 
     name: "MOTHERBOARDS", 
-    desc: "Z790, X670 & B-Series",
+    desc: "Performance-Class Motherboards",
     image: "/images/Products/mobo.jpg" 
   },
   { 
@@ -48,7 +48,7 @@ const categories = [
   { 
     id: "psu", 
     name: "POWER SUPPLY", 
-    desc: "Gold & Platinum Rated Units",
+    desc: "Silver, Gold & Platinum Rated Units",
     image: "/images/Products/psu.jpg" 
   },
   { 
