@@ -283,9 +283,9 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
             <Reveal>
                 <div className="text-center mb-10">
                     <h2 className="text-2xl font-orbitron font-bold text-white uppercase tracking-wider">
-                        Visual <span className="text-brand-purple">Showcase</span>
+                        PRODUCT <span className="text-brand-purple">GALLERY</span>
                     </h2>
-                    <p className="text-brand-silver text-sm mt-2"> immersive details </p>
+                    
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-[500px] md:h-[600px]">
