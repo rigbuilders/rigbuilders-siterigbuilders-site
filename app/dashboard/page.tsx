@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import { FaBoxOpen, FaSave, FaTicketAlt, FaMicrochip, FaTrash } from "react-icons/fa"; 
+import { FaBoxOpen, FaSave, FaTicketAlt, FaMicrochip, FaTrash, FaMapMarkerAlt } from "react-icons/fa";
+
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("orders");
@@ -100,7 +101,7 @@ export default function DashboardPage() {
     <main className="min-h-screen bg-[#121212] text-white font-saira">
       <Navbar />
 
-      <div className="max-w-7xl mx-auto px-6 py-12 pt-32 grid grid-cols-1 lg:grid-cols-4 gap-8">
+      <div className="max-w-7xl mx-auto px-6 py-12 pt-24 grid grid-cols-1 lg:grid-cols-4 gap-8">
         
         {/* SIDEBAR */}
         <div className="lg:col-span-1 space-y-2">
@@ -114,6 +115,15 @@ export default function DashboardPage() {
           <nav className="space-y-2">
             <SidebarBtn icon={<FaBoxOpen />} label="My Orders" isActive={activeTab === "orders"} onClick={() => setActiveTab("orders")} />
             <SidebarBtn icon={<FaSave />} label="Saved Configs" isActive={activeTab === "saved"} onClick={() => setActiveTab("saved")} />
+            
+            {/* NEW ADDRESS BOOK LINK */}
+            <Link href="/account/addresses">
+              <div className="w-full text-left px-6 py-4 rounded-lg flex items-center gap-3 text-[#A0A0A0] hover:bg-white/5 hover:text-white transition-colors cursor-pointer">
+                <span className="text-lg"><FaMapMarkerAlt /></span>
+                <span>Address Book</span>
+              </div>
+            </Link>
+
             <button onClick={handleSignOut} className="w-full text-left px-6 py-4 rounded-lg text-[#A0A0A0] hover:bg-white/5 hover:text-white transition-colors flex items-center gap-3">
                <span>Sign Out</span>
             </button>

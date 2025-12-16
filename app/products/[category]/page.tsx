@@ -9,7 +9,7 @@ import { notFound, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient"; 
 import Link from "next/link";
 import { Reveal, StaggerGrid, StaggerItem } from "@/components/ui/MotionWrappers";
-import { FaFilter, FaShoppingCart, FaBolt, FaCheck, FaChevronDown, FaChevronUp } from "react-icons/fa";
+import { FaShoppingCart, FaArrowRight, FaChevronDown, FaChevronUp } from "react-icons/fa";
 
 // Valid categories list
 const validCategories = [
@@ -17,7 +17,46 @@ const validCategories = [
   "monitor", "keyboard", "mouse", "combo", "mousepad", "usb"
 ];
 
+// --- REUSABLE FILTER COMPONENT ---
+const FilterGroup = ({ title, options, selected, onChange }: any) => {
+  const [isOpen, setIsOpen] = useState(true);
+
+  return (
+    <div className="mb-8 border-b border-white/10 pb-6">
+      <div 
+        className="flex justify-between items-center cursor-pointer mb-4 hover:text-brand-purple transition-colors"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <h3 className="font-orbitron text-sm font-bold text-white uppercase tracking-[0.2em]">{title}</h3>
+        <span className="text-brand-purple font-light text-xl">{isOpen ? "−" : "+"}</span>
+      </div>
+      
+      {isOpen && (
+        <div className="space-y-3">
+          {options.map((opt: string) => (
+            <label key={opt} className="flex items-center gap-3 cursor-pointer group hover:pl-1 transition-all">
+              <div className={`w-3 h-3 border border-white/30 flex items-center justify-center transition-all ${selected.includes(opt) ? "bg-brand-purple border-brand-purple" : "group-hover:border-white"}`}>
+                 {selected.includes(opt) && <div className="w-1.5 h-1.5 bg-white" />}
+              </div>
+              <input 
+                type="checkbox" 
+                className="hidden"
+                checked={selected.includes(opt)}
+                onChange={() => onChange(opt)}
+              />
+              <span className={`text-xs font-saira uppercase tracking-wider ${selected.includes(opt) ? "text-white" : "text-brand-silver group-hover:text-white"}`}>
+                {opt}
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function CategoryPage({ params }: { params: Promise<{ category: string }> }) {
+  // 1. Unwrapping Params
   const resolvedParams = use(params);
   const router = useRouter();
   const { addToCart } = useCart();
@@ -30,13 +69,14 @@ export default function CategoryPage({ params }: { params: Promise<{ category: s
     return notFound();
   }
 
+  // 2. State Management
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedBrand, setSelectedBrand] = useState<string[]>([]);
   const [selectedPrice, setSelectedPrice] = useState<string[]>([]);
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false); // NEW: Toggle State
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
-  // --- 1. DATA FETCHING (Unchanged Logic) ---
+  // 3. Data Fetching
   useEffect(() => {
     const fetchProducts = async () => {
       setLoading(true);
@@ -54,7 +94,7 @@ export default function CategoryPage({ params }: { params: Promise<{ category: s
     fetchProducts();
   }, [dbCategory]);
 
-  // --- 2. FILTERING LOGIC (Unchanged Logic) ---
+  // 4. Filtering Logic
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
       if (selectedBrand.length > 0 && !selectedBrand.includes(product.brand)) return false;
@@ -73,6 +113,7 @@ export default function CategoryPage({ params }: { params: Promise<{ category: s
     });
   }, [products, selectedBrand, selectedPrice]);
 
+  // 5. Handlers
   const handleAction = async (product: any, isBuyNow: boolean) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -101,164 +142,165 @@ export default function CategoryPage({ params }: { params: Promise<{ category: s
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
 
       {/* HEADER SECTION */}
-      <Reveal>
-        <div className="pt-12 pb-8 px-[20px] lg:px-[80px] 2xl:px-[100px] border-b border-white/5 bg-gradient-to-b from-[#121212] to-[#1A1A1A] relative z-10">
-            <h1 className="font-orbitron text-4xl md:text-5xl font-black uppercase text-white tracking-wide">
-                {categoryParam === "cpu" ? "PROCESSORS" : categoryParam.toUpperCase()}
-            </h1>
-            <p className="text-brand-silver mt-2 text-sm tracking-wider">
-                Showing {filteredProducts.length} Premium Components
-            </p>
-        </div>
-      </Reveal>
+      <section className="pt-[50px] pb-12 px-[20px] lg:px-[80px] 2xl:px-[100px] border-b border-white/5 relative z-10 bg-[#121212]">
+        <h1 className="font-orbitron text-4xl md:text-5xl font-bold uppercase tracking-tighter mb-2">
+            {categoryParam === "cpu" ? "Processors" : categoryParam.toUpperCase()}
+        </h1>
+        <p className="text-brand-silver font-saira tracking-wide">
+             High-Performance Components. Precision Engineering.
+        </p>
+      </section>
 
-      <div className="flex-grow py-12 px-[20px] lg:px-[80px] 2xl:px-[100px] relative z-10">
-        <div className="flex flex-col lg:flex-row gap-12">
+      <div className="flex flex-col lg:flex-row min-h-screen relative z-10">
           
-          {/* --- SIDEBAR FILTERS --- */}
-          {/* --- SIDEBAR FILTERS --- */}
-          <aside className="w-full lg:w-1/4 h-fit lg:sticky lg:top-32 space-y-8">
-            <Reveal delay={0.1}>
-                <div className="bg-[#1A1A1A]/80 backdrop-blur-md border border-white/5 rounded-xl p-6 shadow-2xl transition-all duration-300">
-                    
-                    {/* Header: Clickable on Mobile to Toggle */}
-                    <div 
-                        onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
-                        className="flex items-center justify-between mb-2 lg:mb-6 text-brand-purple border-b border-white/10 pb-4 cursor-pointer lg:cursor-default"
-                    >
-                        <div className="flex items-center gap-2">
-                            <FaFilter />
-                            <h3 className="font-orbitron font-bold uppercase tracking-wider">Filters</h3>
-                        </div>
-                        {/* Show Chevron only on Mobile */}
-                        <div className="lg:hidden text-white">
-                            {mobileFiltersOpen ? <FaChevronUp /> : <FaChevronDown />}
-                        </div>
-                    </div>
-
-                    {/* Filter Content Wrapper: Toggles on Mobile, Always Visible on Desktop */}
-                    <div className={`${mobileFiltersOpen ? "block" : "hidden"} lg:block`}>
-                        
-                        {/* Brand Filter */}
-                        <div className="mb-8 pt-4 lg:pt-0">
-                            <h4 className="font-bold text-white text-sm uppercase mb-4 tracking-wide">Brands</h4>
-                            {loading ? <p className="text-xs text-brand-silver animate-pulse">Loading brands...</p> : (
-                                <div className="space-y-3">
-                                    {availableBrands.map((brand) => (
-                                        <label key={brand} className="flex items-center gap-3 cursor-pointer group hover:bg-white/5 p-2 rounded transition-colors">
-                                            <div className={`w-4 h-4 rounded-sm flex items-center justify-center border transition-all ${selectedBrand.includes(brand) ? "bg-brand-purple border-brand-purple" : "border-white/30 group-hover:border-white"}`}>
-                                                {selectedBrand.includes(brand) && <FaCheck size={10} />}
-                                            </div>
-                                            <input type="checkbox" className="hidden" onChange={() => toggleFilter(brand, selectedBrand, setSelectedBrand)} />
-                                            <span className={`text-sm transition-colors ${selectedBrand.includes(brand) ? "text-white font-bold" : "text-brand-silver group-hover:text-white"}`}>{brand}</span>
-                                        </label>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Price Filter */}
-                        <div>
-                            <h4 className="font-bold text-white text-sm uppercase mb-4 tracking-wide">Price Range</h4>
-                            <div className="space-y-3">
-                                {["Under ₹10K", "₹10K - ₹30K", "₹30K - ₹80K", "Above ₹80K"].map((range) => (
-                                    <label key={range} className="flex items-center gap-3 cursor-pointer group hover:bg-white/5 p-2 rounded transition-colors">
-                                        <div className={`w-4 h-4 rounded-sm flex items-center justify-center border transition-all ${selectedPrice.includes(range) ? "bg-brand-purple border-brand-purple" : "border-white/30 group-hover:border-white"}`}>
-                                            {selectedPrice.includes(range) && <FaCheck size={10} />}
-                                        </div>
-                                        <input type="checkbox" className="hidden" onChange={() => toggleFilter(range, selectedPrice, setSelectedPrice)} />
-                                        <span className={`text-sm transition-colors ${selectedPrice.includes(range) ? "text-white font-bold" : "text-brand-silver group-hover:text-white"}`}>{range}</span>
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
-
-                    </div> 
-                    {/* End of Filter Content Wrapper */}
-
+        {/* --- LEFT SIDEBAR (STICKY & CINEMATIC) --- */}
+        <aside className="w-full lg:w-[300px] xl:w-[350px] border-r border-white/5 p-8 lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto bg-[#0A0A0A]">
+            
+            {/* Mobile Toggle */}
+            <div 
+                className="lg:hidden flex items-center justify-between mb-6 cursor-pointer text-brand-purple border-b border-white/10 pb-4"
+                onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
+            >
+                <div className="flex items-center gap-2">
+                    <span className="font-orbitron font-bold uppercase tracking-wider">Show Filters</span>
                 </div>
-            </Reveal>
-          </aside>
+                {mobileFiltersOpen ? <FaChevronUp /> : <FaChevronDown />}
+            </div>
+
+            <div className={`${mobileFiltersOpen ? "block" : "hidden"} lg:block`}>
+                <div className="mb-10 pt-4 hidden lg:block">
+                    <span className="text-[10px] text-brand-purple font-bold tracking-[0.2em] uppercase block mb-2">Refine Results</span>
+                    <h2 className="font-orbitron text-2xl text-white">SPECS</h2>
+                </div>
+
+                {loading ? (
+                    <p className="text-xs text-brand-silver animate-pulse">Scanning database...</p>
+                ) : (
+                    <>
+                        <FilterGroup 
+                            title="Brands" 
+                            options={availableBrands} 
+                            selected={selectedBrand}
+                            onChange={(val: string) => toggleFilter(val, selectedBrand, setSelectedBrand)}
+                        />
+
+                        <FilterGroup 
+                            title="Budget" 
+                            options={["Under ₹10K", "₹10K - ₹30K", "₹30K - ₹80K", "Above ₹80K"]} 
+                            selected={selectedPrice}
+                            onChange={(val: string) => toggleFilter(val, selectedPrice, setSelectedPrice)}
+                        />
+                    </>
+                )}
+            </div>
+        </aside>
           
-          {/* --- PRODUCT GRID --- */}
-          <div className="w-full lg:w-3/4">
+        {/* --- RIGHT PRODUCT GRID --- */}
+        <div className="flex-1 bg-[#121212] p-4 lg:p-0">
+             
+             {/* Mobile Result Count */}
+             <div className="py-4 px-8 border-b border-white/5 bg-[#121212]/90 backdrop-blur sticky top-0 z-10 lg:hidden">
+                <span className="text-brand-silver text-xs font-bold uppercase tracking-widest">Found: {filteredProducts.length} Items</span>
+             </div>
+
              {loading ? (
-                <div className="py-20 flex flex-col items-center justify-center text-brand-purple animate-pulse">
-                    <div className="text-xl font-orbitron mb-2">LOADING HARDWARE</div>
-                    <div className="h-1 w-24 bg-brand-purple rounded-full"></div>
+                <div className="h-[50vh] flex flex-col items-center justify-center text-brand-purple animate-pulse">
+                    <div className="text-xl font-orbitron mb-2 tracking-widest">LOADING INVENTORY</div>
+                    <div className="h-[1px] w-24 bg-brand-purple"></div>
                 </div>
              ) : (
-               <StaggerGrid className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+               <StaggerGrid className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 border-l border-white/5">
                   {filteredProducts.map((product) => (
                     <StaggerItem key={product.id}>
-                        <div className="bg-[#1A1A1A] border border-white/5 rounded-xl overflow-hidden flex flex-col group relative hover:border-brand-purple/50 hover:shadow-[0_0_20px_rgba(78,44,139,0.2)] transition-all duration-300 h-full">
+                        {/* --- CINEMATIC CARD --- */}
+                        <div className="group relative border-b border-r border-white/5 bg-[#121212] hover:bg-[#151515] transition-colors duration-300 flex flex-col h-full min-h-[500px]">
                             
-                            {/* Sold Out Badge */}
                             {!product.in_stock && (
-                              <div className="absolute top-4 right-4 z-20 bg-red-500/90 backdrop-blur text-white text-[10px] font-bold px-3 py-1 rounded uppercase tracking-wider shadow-lg">
-                                  Sold Out
+                              <div className="absolute top-0 right-0 z-20 bg-red-500 text-white text-[9px] font-bold px-3 py-1 uppercase tracking-widest">
+                                  Out of Stock
                               </div>
                             )}
 
                             {/* Image Section */}
-                            <Link href={`/product/${product.id}`} className="relative h-56 bg-gradient-to-b from-white/5 to-transparent overflow-hidden block">
-                               {/* Hover Glow */}
-                               <div className="absolute inset-0 bg-brand-purple/20 blur-[50px] opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-0" />
+                            <Link href={`/product/${product.id}`} className="relative h-64 overflow-hidden block w-full p-8 flex items-center justify-center bg-gradient-to-b from-[#1A1A1A] to-transparent">
+                               <div className="absolute inset-0 bg-brand-purple/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-3xl z-0" />
                                
                                {product.image ? (
-                                 <img src={product.image} alt={product.name} className="w-full h-full object-cover relative z-10 transform group-hover:scale-110 transition-transform duration-500 drop-shadow-xl" />
+                                 <img src={product.image} alt={product.name} className="max-h-full max-w-full object-contain relative z-10 transform group-hover:scale-110 transition-transform duration-700" />
                                ) : (
                                  <span className="text-brand-silver/20 font-orbitron text-2xl font-bold -rotate-12 select-none">{product.name}</span>
                                )}
                             </Link>
                             
                             {/* Content Section */}
-                            <div className="p-6 flex flex-col flex-grow bg-[#151515] group-hover:bg-[#181818] transition-colors relative z-10">
+                            <div className="p-8 flex flex-col flex-grow relative z-10 border-t border-white/5">
                                 
-                                <div className="mb-2 flex justify-between items-start">
-                                    <span className="text-[10px] font-bold text-brand-purple tracking-widest uppercase bg-brand-purple/10 px-2 py-1 rounded">
-                                        {product.brand}
-                                    </span>
-                                    {/* Wattage Badge (if exists) */}
-                                    {product.wattage && (
-                                        <span className="text-[10px] text-brand-silver flex items-center gap-1">
-                                            <FaBolt size={8} className="text-yellow-400" /> {product.wattage}W
-                                        </span>
+                                <span className="text-[10px] font-bold text-brand-purple tracking-[0.2em] uppercase mb-2 block">
+                                    {product.brand}
+                                </span>
+
+                                <Link href={`/product/${product.id}`} className="block mb-4">
+                                   <h4 className="text-white font-orbitron text-lg leading-tight group-hover:text-brand-purple transition-colors line-clamp-2 uppercase">
+                                       {product.name}
+                                   </h4>
+                                </Link>
+
+                                {/* DYNAMIC SPECS (No Wattage) */}
+                                <div className="grid grid-cols-2 gap-y-2 gap-x-4 mb-8 mt-2">
+                                    {product.core_count && (
+                                        <div className="border-l border-white/10 pl-2">
+                                            <span className="block text-white/40 text-[9px] uppercase tracking-wider">Cores</span>
+                                            <span className="text-brand-silver text-xs font-bold">{product.core_count}</span>
+                                        </div>
+                                    )}
+                                    {product.boost_clock && (
+                                        <div className="border-l border-white/10 pl-2">
+                                            <span className="block text-white/40 text-[9px] uppercase tracking-wider">Clock</span>
+                                            <span className="text-brand-silver text-xs font-bold">{product.boost_clock}</span>
+                                        </div>
+                                    )}
+                                    {product.memory_size && (
+                                        <div className="border-l border-white/10 pl-2">
+                                            <span className="block text-white/40 text-[9px] uppercase tracking-wider">VRAM</span>
+                                            <span className="text-brand-silver text-xs font-bold">{product.memory_size}</span>
+                                        </div>
+                                    )}
+                                    {product.capacity && (
+                                        <div className="border-l border-white/10 pl-2">
+                                            <span className="block text-white/40 text-[9px] uppercase tracking-wider">Size</span>
+                                            <span className="text-brand-silver text-xs font-bold">{product.capacity}</span>
+                                        </div>
+                                    )}
+                                    {!product.core_count && !product.memory_size && !product.capacity && (
+                                        <div className="col-span-2 border-l border-white/10 pl-2">
+                                            <span className="block text-white/40 text-[9px] uppercase tracking-wider">Grade</span>
+                                            <span className="text-brand-silver text-xs font-bold">Professional</span>
+                                        </div>
                                     )}
                                 </div>
 
-                                <Link href={`/product/${product.id}`} className="mb-4 block flex-grow">
-                                   <h4 className="text-white font-bold text-lg leading-tight group-hover:text-brand-purple transition-colors line-clamp-2">
-                                       {product.name}
-                                   </h4>
-                                   {/* Socket Spec (if exists) */}
-                                   {product.socket && (
-                                       <p className="text-brand-silver/60 text-xs mt-2 font-saira">
-                                           Socket: <span className="text-brand-silver">{product.socket}</span>
-                                       </p>
-                                   )}
-                                </Link>
-
                                 {/* Price & Actions */}
-                                <div className="pt-4 border-t border-white/10 mt-auto">
-                                    <div className="flex justify-between items-center mb-4">
+                                <div className="mt-auto pt-6 border-t border-white/5 flex items-end justify-between gap-4">
+                                    <div>
+                                        <p className="text-[10px] text-brand-silver uppercase tracking-widest mb-1">Price</p>
                                         <span className="text-white font-orbitron font-bold text-xl">₹{product.price.toLocaleString("en-IN")}</span>
                                     </div>
                                     
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="flex gap-0">
                                         <button 
                                             onClick={() => handleAction(product, false)} 
                                             disabled={!product.in_stock} 
-                                            className="border border-white/20 text-white text-[10px] py-3 uppercase font-bold tracking-wider rounded hover:bg-white hover:text-black hover:border-white transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="h-10 w-12 border border-white/20 text-white hover:bg-white hover:text-black hover:border-white transition-all flex items-center justify-center disabled:opacity-20"
+                                            title="Add to Cart"
                                         >
-                                            <FaShoppingCart /> Cart
+                                            <FaShoppingCart size={14} />
                                         </button>
                                         <button 
                                             onClick={() => handleAction(product, true)} 
                                             disabled={!product.in_stock} 
-                                            className="bg-brand-purple text-white text-[10px] py-3 uppercase font-bold tracking-wider rounded hover:bg-white hover:text-black transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-brand-purple/50"
+                                            className="h-10 px-6 bg-white text-black text-[10px] font-orbitron font-bold uppercase tracking-widest hover:bg-brand-purple hover:text-white transition-all disabled:opacity-20 flex items-center gap-2"
                                         >
-                                            Buy Now
+                                            Buy <FaArrowRight />
                                         </button>
                                     </div>
                                 </div>
@@ -271,17 +313,13 @@ export default function CategoryPage({ params }: { params: Promise<{ category: s
 
              {/* Empty State */}
              {!loading && filteredProducts.length === 0 && (
-                <Reveal>
-                    <div className="w-full py-24 text-center border border-dashed border-white/10 bg-white/5 rounded-xl flex flex-col items-center justify-center">
-                       <p className="text-brand-silver text-lg font-orbitron mb-2">No components found.</p>
-                       <p className="text-sm text-brand-silver/50">Try adjusting your filters.</p>
-                    </div>
-                </Reveal>
+                <div className="h-[50vh] flex flex-col items-center justify-center text-brand-silver border border-dashed border-white/10 m-8">
+                   <p className="font-orbitron text-xl mb-2">NO SIGNALS DETECTED</p>
+                   <p className="text-sm text-brand-silver/50 uppercase tracking-widest">Adjust filters to locate hardware.</p>
+                </div>
              )}
-          </div>
         </div>
       </div>
-
       <Footer />
     </div>
   );

@@ -4,7 +4,7 @@ import Navbar from "@/components/Navbar";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import { FaTrash, FaUser, FaUserSecret, FaSync } from "react-icons/fa";
+import { FaTrash, FaUser, FaUserSecret, FaSync, FaMapMarkerAlt, FaFileInvoiceDollar } from "react-icons/fa";
 
 export default function AdminOrders() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -16,17 +16,12 @@ export default function AdminOrders() {
   }, []);
 
   const init = async () => {
-    // 1. Auth Check (Security)
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || user.email !== "rigbuilders123@gmail.com") {
       router.push("/");
       return;
     }
-
-    // 2. Fetch Data
     await fetchOrders();
-
-    // 3. Real-Time Listener (Auto-Refresh)
     const channel = supabase
       .channel('admin-orders-live')
       .on(
@@ -40,18 +35,13 @@ export default function AdminOrders() {
         }
       )
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   };
 
   const fetchOrders = async () => {
-    // We select EVERYTHING to ensure we don't miss data
     const { data, error } = await supabase
       .from('orders_ops')
-      .select(`
-        *,
-        procurement_items ( product_name, category, status )
-      `)
+      .select(`*, procurement_items ( product_name, category, status )`)
       .order('created_at', { ascending: false });
 
     if (error) console.error("Error:", error.message);
@@ -60,9 +50,7 @@ export default function AdminOrders() {
   };
 
   const updateStatus = async (id: string, newStatus: string) => {
-    // 1. Instant UI update
     setOrders(orders.map(o => o.id === id ? { ...o, status: newStatus } : o));
-    // 2. Database update
     await supabase.from('orders_ops').update({ status: newStatus }).eq('id', id);
   };
 
@@ -73,19 +61,21 @@ export default function AdminOrders() {
     setOrders(orders.filter(o => o.id !== id));
   };
 
-  // --- SMART NAME FINDER ---
   const getCustomerDetails = (order: any) => {
     const info = order.guest_info || {};
-    
-    // Try every possible variation of the name field
-    const name = info.fullName || info.full_name || info.name || 
-                 (info.firstName ? `${info.firstName} ${info.lastName}` : "Unknown Name");
-
+    const name = info.fullName || info.full_name || info.name || "Unknown";
     const email = info.email || "No Email";
     const phone = info.phone || info.contact || "No Phone";
-    const address = info.address || info.fullAddress || "No Address";
+    // Construct Shipping Address string
+    const shipping = `${info.addressLine1}, ${info.addressLine2 || ''}\n${info.city}, ${info.state} - ${info.pincode}\n${info.country || 'India'}`;
+    return { name, email, phone, shipping };
+  };
 
-    return { name, email, phone, address };
+  // Helper for Billing Address
+  const getBillingAddress = (order: any) => {
+    if (!order.billing_address) return "Same as Shipping";
+    const b = order.billing_address;
+    return `${b.addressLine1}, ${b.addressLine2 || ''}\n${b.city}, ${b.state} - ${b.pincode}\n${b.country || 'India'}`;
   };
 
   if (loading) return <div className="min-h-screen bg-[#121212] flex items-center justify-center text-white">Loading Portal...</div>;
@@ -110,8 +100,9 @@ export default function AdminOrders() {
         ) : (
             <div className="space-y-6">
             {orders.map((order) => {
-                const { name, email, phone, address } = getCustomerDetails(order);
-                const isMember = !!order.customer_id; // True if they were logged in
+                const { name, email, phone, shipping } = getCustomerDetails(order);
+                const billing = getBillingAddress(order);
+                const isMember = !!order.customer_id;
 
                 return (
                     <div key={order.id} className="bg-[#1A1A1A] border border-white/5 p-6 rounded-lg hover:border-brand-purple/30 transition-all relative">
@@ -119,7 +110,7 @@ export default function AdminOrders() {
                         {/* --- HEADER --- */}
                         <div className="flex flex-col md:flex-row justify-between md:items-start mb-6 border-b border-white/10 pb-4">
                             <div className="flex gap-4">
-                                <div className={`w-12 h-12 rounded flex items-center justify-center text-xl ${isMember ? "bg-brand-purple text-white shadow-[0_0_15px_#4E2C8B]" : "bg-white/10 text-brand-silver"}`}>
+                                <div className={`w-12 h-12 rounded flex items-center justify-center text-xl ${isMember ? "bg-brand-purple text-white" : "bg-white/10 text-brand-silver"}`}>
                                     {isMember ? <FaUser /> : <FaUserSecret />}
                                 </div>
                                 <div>
@@ -130,14 +121,9 @@ export default function AdminOrders() {
                                         </span>
                                     </div>
                                     <p className="text-sm text-brand-silver">{email} • {phone}</p>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <span className="text-[10px] text-white/30 font-mono">ID: {order.order_display_id}</span>
-                                        <span className="text-[10px] text-white/30">•</span>
-                                        <span className="text-[10px] text-white/30 uppercase">{order.source}</span>
-                                    </div>
+                                    <p className="text-[10px] text-white/30 font-mono mt-1">ID: {order.order_display_id}</p>
                                 </div>
                             </div>
-
                             <div className="mt-4 md:mt-0 text-right">
                                 <p className="font-orbitron text-2xl font-bold text-white">₹{(order.total_amount || 0).toLocaleString("en-IN")}</p>
                                 <p className="text-xs text-brand-silver">{new Date(order.created_at).toLocaleString()}</p>
@@ -145,12 +131,22 @@ export default function AdminOrders() {
                         </div>
 
                         {/* --- DETAILS GRID --- */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                             
-                            {/* ADDRESS */}
+                            {/* SHIPPING ADDRESS */}
                             <div className="text-sm bg-black/20 p-4 rounded border border-white/5">
-                                <span className="text-[10px] text-brand-purple uppercase tracking-wider block mb-2 font-bold">Shipping Address</span>
-                                <p className="text-white/80 whitespace-pre-line leading-relaxed text-xs">{address}</p>
+                                <span className="text-[10px] text-brand-purple uppercase tracking-wider mb-2 font-bold flex items-center gap-2">
+                                    <FaMapMarkerAlt /> Shipping To
+                                </span>
+                                <p className="text-white/80 whitespace-pre-line leading-relaxed text-xs">{shipping}</p>
+                            </div>
+
+                            {/* BILLING ADDRESS */}
+                            <div className="text-sm bg-brand-blue/5 p-4 rounded border border-brand-blue/10">
+                                <span className="text-[10px] text-brand-blue uppercase tracking-wider mb-2 font-bold flex items-center gap-2">
+                                    <FaFileInvoiceDollar /> Billed To
+                                </span>
+                                <p className="text-white/80 whitespace-pre-line leading-relaxed text-xs">{billing}</p>
                             </div>
 
                             {/* ITEMS */}

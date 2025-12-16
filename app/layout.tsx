@@ -3,6 +3,8 @@ import { Saira, Orbitron } from "next/font/google";
 import "./globals.css";
 // IMPORT THE CART PROVIDER
 import { CartProvider } from "./context/CartContext"; 
+import { ModalProvider } from "./context/ModalContext"; 
+import GlobalModal from "@/components/ui/GlobalModal";   
 
 const saira = Saira({
   subsets: ["latin"],
@@ -35,9 +37,12 @@ export default function RootLayout({
         className={`${saira.variable} ${orbitron.variable} font-saira antialiased bg-brand-black text-brand-silver`}
       >
         {/* WRAP THE APP IN CART PROVIDER */}
+        <ModalProvider>
         <CartProvider>
+          <GlobalModal />
           {children}
         </CartProvider>
+        </ModalProvider>
       </body>
     </html>
   );

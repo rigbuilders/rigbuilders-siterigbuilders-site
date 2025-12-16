@@ -7,8 +7,8 @@ import { useCart } from "../context/CartContext";
 import { supabase } from "@/lib/supabaseClient";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import CouponCode from "@/components/cart/CouponCode"; // Import Coupon Component
-import { Reveal } from "@/components/ui/MotionWrappers"; // Import Motions
+import CouponCode from "@/components/cart/CouponCode"; 
+import { Reveal } from "@/components/ui/MotionWrappers";
 
 // --- CONSTANTS ---
 const INDIAN_STATES = [
@@ -21,7 +21,6 @@ const INDIAN_STATES = [
   "Jammu and Kashmir", "Ladakh"
 ];
 
-// Load Razorpay Script
 const loadRazorpay = () => {
   return new Promise((resolve) => {
     const script = document.createElement("script");
@@ -42,86 +41,82 @@ export default function CheckoutPage() {
   const [discount, setDiscount] = useState(0);
   const [activeCoupon, setActiveCoupon] = useState("");
   const [shippingCost, setShippingCost] = useState(0); 
+  const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
 
+  // SHIPPING FORM
   const [formData, setFormData] = useState({
-    fullName: "",
-    phone: "",
-    email: "", 
-    addressLine1: "",
-    addressLine2: "",
-    landmark: "",
-    pincode: "",
-    city: "",
-    state: "",
-    country: "India", // Default
-    billingSame: true
+    fullName: "", phone: "", email: "", 
+    addressLine1: "", addressLine2: "", landmark: "", 
+    pincode: "", city: "", state: "", country: "India"
   });
 
-  // --- LOGIC 1: SHIPPING CHARGE CALCULATION ---
-  // Checks if cart contains Desktops, Custom Rigs, or Displays
-  useEffect(() => {
-    const heavyItemKeywords = [
-        "Desktop", "System", "Custom", "Rig", "Workstation", // PCs
-        "Ascend", "WorkPro", "Creator", "Signature",         // Series Names
-        "Display", "Monitor", "Screen"                       // Displays
-    ];
-    
-    // Check if ANY item in the cart matches the keywords
-    const needsHeavyShipping = cart.some(item => {
-    const category = item.category || ""; // Fallback to empty string if undefined
-    return heavyItemKeywords.some(keyword => category.toLowerCase().includes(keyword.toLowerCase()));
-});
+  // BILLING FORM (New)
+  const [billingSame, setBillingSame] = useState(true);
+  const [billingData, setBillingData] = useState({
+    fullName: "", phone: "", 
+    addressLine1: "", addressLine2: "", 
+    pincode: "", city: "", state: "", country: "India"
+  });
 
-    // Set Shipping Cost
-    if (needsHeavyShipping) {
-        setShippingCost(1200); // ₹1200 for Rigs & Displays
-    } else {
-        setShippingCost(0); // Free for small components
-    }
+  // --- SHIPPING COST LOGIC ---
+  useEffect(() => {
+    const heavyItemKeywords = ["Desktop", "System", "Custom", "Rig", "Workstation", "Ascend", "WorkPro", "Creator", "Signature", "Display", "Monitor", "Screen"];
+    const needsHeavyShipping = cart.some(item => {
+        const category = item.category || "";
+        return heavyItemKeywords.some(keyword => category.toLowerCase().includes(keyword.toLowerCase()));
+    });
+    setShippingCost(needsHeavyShipping ? 1200 : 0);
   }, [cart]);
 
-  // --- LOGIC 2: TOTAL CALCULATION ---
-  // Assuming cartTotal is Inclusive of 18% GST
+  // --- TOTAL CALCULATION ---
   const subtotalInclusive = cartTotal;
   const baseAmount = Math.round(subtotalInclusive / 1.18);
   const gstAmount = subtotalInclusive - baseAmount;
-  
-  // Final Total = (Subtotal + Shipping) - Coupon
   const finalTotal = subtotalInclusive + shippingCost - discount;
 
-  // 1. Initialize User Data
+  // --- INITIALIZE USER ---
   useEffect(() => {
     const initUser = async () => {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-            router.push("/signin");
-            return;
-        }
+        if (!user) { router.push("/signin"); return; }
         if (cart.length === 0) router.push("/cart");
 
-        // Prefill known data
         setFormData(prev => ({
             ...prev,
             email: user.email || "",
             fullName: user.user_metadata.full_name || "",
             phone: user.user_metadata.phone || ""
         }));
+
+        const { data: addresses } = await supabase
+            .from('user_addresses')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('is_default', { ascending: false });
+
+        if (addresses) setSavedAddresses(addresses);
     };
     initUser();
   }, [cart, router]);
 
-  // 2. Mock Delhivery Serviceability Check
+  const applySavedAddress = (addr: any) => {
+      setFormData(prev => ({
+          ...prev,
+          fullName: addr.full_name,
+          phone: addr.phone,
+          addressLine1: addr.address_line1,
+          addressLine2: addr.address_line2 || "",
+          city: addr.city,
+          state: addr.state,
+          pincode: addr.pincode,
+      }));
+      checkServiceability(addr.pincode);
+  };
+
   const checkServiceability = async (pincode: string) => {
-      if (pincode.length !== 6) {
-          setPincodeStatus("invalid");
-          return;
-      }
+      if (pincode.length !== 6) { setPincodeStatus("invalid"); return; }
       setPincodeStatus("checking");
-      
-      // Simulating API check
-      setTimeout(() => {
-          setPincodeStatus("valid"); 
-      }, 800);
+      setTimeout(() => setPincodeStatus("valid"), 800);
   };
 
   const handlePincodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -131,18 +126,14 @@ export default function CheckoutPage() {
       else setPincodeStatus(null);
   };
 
-  // 3. Coupon Usage Tracking
   const trackCouponUsage = async (couponUsed: string) => {
     if (couponUsed) {
       const { error } = await supabase.rpc('increment_coupon_usage', { coupon_code: couponUsed });
       if (error) console.error("Failed to track coupon usage:", error);
-      else console.log("Coupon usage tracked +1");
     }
   };
 
-  // ... (Previous code: trackCouponUsage function) ...
-
-  // 4. Handle Payment (UPDATED FOR OPS AUTOMATION)
+  // --- PAYMENT HANDLER ---
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -152,49 +143,43 @@ export default function CheckoutPage() {
     }
 
     setLoading(true);
-
     const { data: { user } } = await supabase.auth.getUser();
-    // Note: We proceed even if user is null (Guest Checkout logic handled by backend)
-
-    const res = await loadRazorpay();
-    if (!res) {
-      alert("Razorpay SDK failed to load. Check connection.");
-      setLoading(false);
-      return;
-    }
+    
+    // Determine Final Billing Address
+    const finalBillingAddress = billingSame ? formData : billingData;
 
     try {
-        // STEP 1: Call Backend to Create Razorpay Order ID
         const orderRes = await fetch("/api/payment/create", {
             method: "POST",
             body: JSON.stringify({ amount: finalTotal }),
         });
         const orderData = await orderRes.json();
-
         if (orderData.error) throw new Error(orderData.error);
 
-        // STEP 2: Initialize Razorpay
+        const res = await loadRazorpay();
+        if (!res) throw new Error("Razorpay SDK failed to load.");
+
         const options = {
-            key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_PLACEHOLDER",
+            key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
             amount: orderData.amount, 
             currency: orderData.currency,
             name: "Rig Builders",
             description: `Order for ${cart.length} Items`,
             image: "/icons/navbar/logo.png",
-            order_id: orderData.id, // CRITICAL: Pass the ID generated by backend
+            order_id: orderData.id, 
 
             handler: async function (response: any) {
-                // STEP 3: Payment Success -> Call Verification & Ops Automation
                 const verifyData = {
                     orderCreationId: orderData.id,
                     razorpayPaymentId: response.razorpay_payment_id,
                     razorpaySignature: response.razorpay_signature,
                     
-                    // Ops Data
+                    // PASSING BOTH ADDRESSES
                     cartItems: cart,
                     userId: user?.id || 'guest',
                     totalAmount: finalTotal,
-                    shippingAddress: formData
+                    shippingAddress: formData,
+                    billingAddress: finalBillingAddress // <--- NEW FIELD
                 };
 
                 const verifyRes = await fetch('/api/payment/verify', {
@@ -208,7 +193,6 @@ export default function CheckoutPage() {
                 if (resData.msg === "success") {
                     await trackCouponUsage(activeCoupon);
                     clearCart();
-                    // Redirect to New Success Page
                     router.push(`/order-success?id=${resData.displayId}`);
                 } else {
                     alert("Payment Verification Failed: " + resData.error);
@@ -233,18 +217,11 @@ export default function CheckoutPage() {
     }
   };
 
-  // NOTE: The old 'createOrder' function has been deleted as the backend now handles DB insertion.
-
-  if (cart.length === 0) return null; // Or loading state
-
-  // ... (Rest of the component: return statement) ...
+  if (cart.length === 0) return null;
 
   return (
     <div className="bg-[#121212] min-h-screen text-white font-saira flex flex-col relative overflow-hidden">
-      
-      {/* Background Ambience */}
       <div className="fixed top-0 left-0 w-full h-[500px] bg-brand-purple/5 blur-[120px] pointer-events-none z-0" />
-
       <Navbar />
       
       <div className="flex-grow pt-32 pb-12 px-[20px] md:px-[40px] lg:px-[80px] 2xl:px-[100px] relative z-10">
@@ -256,131 +233,175 @@ export default function CheckoutPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-24">
             
-            {/* --- LEFT: ADDRESS FORM --- */}
+            {/* --- LEFT: FORMS --- */}
             <div className="lg:col-span-2">
                 <form id="checkout-form" onSubmit={handlePayment} className="space-y-8">
                     
-                    {/* Shipping Details Block */}
+                    {/* 1. SHIPPING DETAILS */}
                     <Reveal delay={0.1}>
                         <div className="bg-[#1A1A1A] p-8 border border-white/5 rounded-lg relative overflow-hidden">
-                            {/* Decorative Line */}
                             <div className="absolute top-0 left-0 w-1 h-full bg-brand-purple" />
-                            
                             <h2 className="font-orbitron text-xl font-bold mb-8 text-white flex items-center gap-3">
                                 <span className="w-8 h-8 rounded-full bg-brand-purple flex items-center justify-center text-sm">1</span>
                                 Shipping Details
                             </h2>
+
+                            {/* SAVED ADDRESSES */}
+                            {savedAddresses.length > 0 && (
+                                <div className="mb-8">
+                                    <p className="text-xs uppercase tracking-wider text-brand-silver mb-3 font-bold flex items-center gap-2">
+                                        <span className="w-2 h-2 bg-brand-purple rounded-full animate-pulse"></span>
+                                        Quick Fill
+                                    </p>
+                                    <div className="flex gap-4 overflow-x-auto custom-scrollbar pb-2">
+                                        {savedAddresses.map((addr) => (
+                                            <div key={addr.id} onClick={() => applySavedAddress(addr)} className="min-w-[200px] bg-black/40 border border-white/10 hover:border-brand-purple hover:bg-brand-purple/5 p-4 rounded cursor-pointer transition-all group relative">
+                                                {addr.is_default && <span className="absolute top-2 right-2 text-[8px] bg-brand-purple px-1.5 rounded text-white font-bold uppercase">Default</span>}
+                                                <div className="font-bold text-white text-sm mb-1">{addr.label}</div>
+                                                <div className="text-xs text-brand-silver line-clamp-2">{addr.address_line1}, {addr.city}</div>
+                                                <div className="mt-2 text-[10px] text-white/50 font-mono">{addr.pincode}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="w-full h-[1px] bg-white/5 mt-6"></div>
+                                </div>
+                            )}
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {/* Full Name */}
                                 <div className="md:col-span-2">
-                                    <label className="block text-xs uppercase tracking-wider text-brand-silver mb-2 font-bold">Full Name</label>
-                                    <input required type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none transition-colors" 
+                                    <label className="text-xs text-brand-silver mb-2 font-bold block">Full Name</label>
+                                    <input required type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none" 
                                         value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} placeholder="John Doe" />
                                 </div>
-
-                                {/* Phone */}
                                 <div>
-                                    <label className="block text-xs uppercase tracking-wider text-brand-silver mb-2 font-bold">Phone Number</label>
-                                    <div className="flex">
-                                        <span className="bg-white/5 border border-white/10 border-r-0 rounded-l p-4 text-brand-silver select-none font-bold">+91</span>
-                                        <input required type="tel" className="w-full bg-black/40 border border-white/10 rounded-r p-4 text-white focus:border-brand-purple outline-none transition-colors" 
-                                            value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value.replace(/\D/g,'').slice(0,10)})} placeholder="99999 XXXXX" />
-                                    </div>
+                                    <label className="text-xs text-brand-silver mb-2 font-bold block">Phone Number</label>
+                                    <input required type="tel" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none" 
+                                        value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value.replace(/\D/g,'').slice(0,10)})} placeholder="99999 XXXXX" />
                                 </div>
-
-                                {/* Email */}
                                 <div>
-                                    <label className="block text-xs uppercase tracking-wider text-brand-silver mb-2 font-bold">Email Address</label>
-                                    <input readOnly type="email" className="w-full bg-white/5 border border-white/5 rounded p-4 text-white/50 cursor-not-allowed" 
-                                        value={formData.email} />
+                                    <label className="text-xs text-brand-silver mb-2 font-bold block">Email Address</label>
+                                    <input readOnly type="email" className="w-full bg-white/5 border border-white/5 rounded p-4 text-white/50 cursor-not-allowed" value={formData.email} />
                                 </div>
-
-                                {/* Address */}
                                 <div className="md:col-span-2">
-                                    <label className="block text-xs uppercase tracking-wider text-brand-silver mb-2 font-bold">Address Line 1</label>
-                                    <input required type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none transition-colors" 
+                                    <label className="text-xs text-brand-silver mb-2 font-bold block">Address Line 1</label>
+                                    <input required type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none" 
                                         value={formData.addressLine1} onChange={e => setFormData({...formData, addressLine1: e.target.value})} placeholder="House / Flat / Building" />
                                 </div>
                                 <div className="md:col-span-2">
-                                    <label className="block text-xs uppercase tracking-wider text-brand-silver mb-2 font-bold">Address Line 2</label>
-                                    <input required type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none transition-colors" 
+                                    <label className="text-xs text-brand-silver mb-2 font-bold block">Address Line 2</label>
+                                    <input required type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none" 
                                         value={formData.addressLine2} onChange={e => setFormData({...formData, addressLine2: e.target.value})} placeholder="Street / Area" />
                                 </div>
-
-                                {/* Pincode Logic */}
                                 <div>
-                                    <label className="block text-xs uppercase tracking-wider text-brand-silver mb-2 font-bold">Pincode</label>
+                                    <label className="text-xs text-brand-silver mb-2 font-bold block">Pincode</label>
                                     <div className="relative">
-                                        <input required type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none transition-colors" 
+                                        <input required type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none" 
                                             value={formData.pincode} onChange={handlePincodeChange} placeholder="110001" />
-                                        
-                                        {/* Status Indicators */}
                                         <div className="absolute right-4 top-1/2 -translate-y-1/2">
                                             {pincodeStatus === "checking" && <span className="text-xs text-yellow-500 font-bold animate-pulse">Checking...</span>}
-                                            {pincodeStatus === "valid" && <span className="text-xs text-green-500 font-bold">Serviceable ✓</span>}
+                                            {pincodeStatus === "valid" && <span className="text-xs text-green-500 font-bold">✓</span>}
                                             {pincodeStatus === "invalid" && <span className="text-xs text-red-500 font-bold">Invalid</span>}
                                         </div>
                                     </div>
                                 </div>
-
-                                {/* Landmark */}
                                 <div>
-                                    <label className="block text-xs uppercase tracking-wider text-brand-silver mb-2 font-bold">Landmark</label>
-                                    <input type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none transition-colors" 
-                                        value={formData.landmark} onChange={e => setFormData({...formData, landmark: e.target.value})} placeholder="Near..." />
-                                </div>
-
-                                {/* City */}
-                                <div>
-                                    <label className="block text-xs uppercase tracking-wider text-brand-silver mb-2 font-bold">City</label>
-                                    <input required type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none transition-colors" 
+                                    <label className="text-xs text-brand-silver mb-2 font-bold block">City</label>
+                                    <input required type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none" 
                                         value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} />
                                 </div>
-
-                                {/* State Dropdown */}
                                 <div>
-                                    <label className="block text-xs uppercase tracking-wider text-brand-silver mb-2 font-bold">State</label>
-                                    <div className="relative">
-                                        <select required className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none appearance-none cursor-pointer"
-                                            value={formData.state} onChange={e => setFormData({...formData, state: e.target.value})}>
+                                    <label className="text-xs text-brand-silver mb-2 font-bold block">State</label>
+                                    <select required className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none appearance-none"
+                                        value={formData.state} onChange={e => setFormData({...formData, state: e.target.value})}>
+                                        <option value="" disabled>Select State</option>
+                                        {INDIAN_STATES.map(st => <option key={st} value={st} className="bg-[#1A1A1A]">{st}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </Reveal>
+
+                    {/* 2. BILLING DETAILS */}
+                    <Reveal delay={0.2}>
+                        <div className="bg-[#1A1A1A] p-8 border border-white/5 rounded-lg relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-1 h-full bg-brand-blue" />
+                            <div className="flex justify-between items-center mb-8">
+                                <h2 className="font-orbitron text-xl font-bold text-white flex items-center gap-3">
+                                    <span className="w-8 h-8 rounded-full bg-brand-blue flex items-center justify-center text-sm">2</span>
+                                    Billing Address
+                                </h2>
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                    <span className="text-xs text-brand-silver font-bold uppercase">Same as Shipping</span>
+                                    <div className={`w-12 h-6 rounded-full p-1 transition-colors ${billingSame ? "bg-brand-blue" : "bg-white/10"}`}>
+                                        <div className={`w-4 h-4 rounded-full bg-white transition-transform ${billingSame ? "translate-x-6" : "translate-x-0"}`} />
+                                    </div>
+                                    <input type="checkbox" className="hidden" checked={billingSame} onChange={() => setBillingSame(!billingSame)} />
+                                </label>
+                            </div>
+
+                            {!billingSame && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in-down">
+                                     <div className="md:col-span-2">
+                                        <label className="text-xs text-brand-silver mb-2 font-bold block">Name</label>
+                                        <input required type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-blue outline-none" 
+                                            value={billingData.fullName} onChange={e => setBillingData({...billingData, fullName: e.target.value})} />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="text-xs text-brand-silver mb-2 font-bold block">Billing Address</label>
+                                        <input required type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-blue outline-none" 
+                                            value={billingData.addressLine1} onChange={e => setBillingData({...billingData, addressLine1: e.target.value})} placeholder="Address Line 1" />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <input required type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-blue outline-none" 
+                                            value={billingData.addressLine2} onChange={e => setBillingData({...billingData, addressLine2: e.target.value})} placeholder="Address Line 2" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-brand-silver mb-2 font-bold block">City</label>
+                                        <input required type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-blue outline-none" 
+                                            value={billingData.city} onChange={e => setBillingData({...billingData, city: e.target.value})} />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-brand-silver mb-2 font-bold block">Pincode</label>
+                                        <input required type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-blue outline-none" 
+                                            value={billingData.pincode} onChange={e => setBillingData({...billingData, pincode: e.target.value})} />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="text-xs text-brand-silver mb-2 font-bold block">State</label>
+                                        <select required className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-blue outline-none appearance-none"
+                                            value={billingData.state} onChange={e => setBillingData({...billingData, state: e.target.value})}>
                                             <option value="" disabled>Select State</option>
                                             {INDIAN_STATES.map(st => <option key={st} value={st} className="bg-[#1A1A1A]">{st}</option>)}
                                         </select>
-                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-xs text-brand-silver">▼</div>
+                                    </div>
+                                    {/* ADD THIS: Billing Country Field */}
+                                    <div className="md:col-span-2">
+                                       <label className="text-xs text-brand-silver mb-2 font-bold block">Country</label>
+                                       <input 
+                                           readOnly 
+                                           type="text" 
+                                           className="w-full bg-white/5 border border-white/5 rounded p-4 text-white/50 cursor-not-allowed font-bold" 
+                                           value={billingData.country} 
+                                         />
                                     </div>
                                 </div>
-                                
-                                {/* ADDED: Country Field (Read Only) */}
-                                <div>
-                                    <label className="block text-xs uppercase tracking-wider text-brand-silver mb-2 font-bold">Country</label>
-                                    <input readOnly type="text" className="w-full bg-white/5 border border-white/5 rounded p-4 text-white/50 cursor-not-allowed font-bold" 
-                                        value={formData.country} />
-                                </div>
-
-                            </div>
+                            )}
                         </div>
                     </Reveal>
                 </form>
             </div>
 
-            {/* --- RIGHT: ORDER SUMMARY (Sticky) --- */}
+            {/* --- RIGHT: SUMMARY --- */}
             <div className="h-fit">
                 <Reveal delay={0.2} className="sticky top-32">
                     <div className="bg-[#1A1A1A]/80 backdrop-blur-md p-8 border border-white/10 rounded-lg shadow-2xl relative">
-                        
-                        {/* Summary Header */}
                         <h3 className="font-orbitron text-xl font-bold mb-6 text-white border-b border-white/10 pb-4 flex justify-between items-center">
                             Order Summary
                             <span className="text-xs font-saira text-brand-silver bg-white/5 px-2 py-1 rounded">{cart.length} Items</span>
                         </h3>
-                        
-                        {/* Items List (Scrollable) */}
                         <div className="mb-6 space-y-4 max-h-[250px] overflow-y-auto custom-scrollbar pr-2">
                             {cart.map(item => (
                                 <div key={item.id} className="flex justify-between items-start text-sm group">
                                     <div className="flex gap-3">
-                                         {/* Quantity Badge */}
                                          <span className="w-6 h-6 bg-brand-purple/20 text-brand-purple rounded flex items-center justify-center text-[10px] font-bold border border-brand-purple/30 shrink-0">
                                             {item.quantity}x
                                          </span>
@@ -394,72 +415,28 @@ export default function CheckoutPage() {
                             ))}
                         </div>
 
-                        {/* --- COUPON INPUT --- */}
                         <div className="mb-8">
-                             <CouponCode 
-                                subtotal={subtotalInclusive} 
-                                onApply={(amount, code) => {
-                                    setDiscount(amount);
-                                    setActiveCoupon(code);
-                                }} 
-                             />
+                             <CouponCode subtotal={subtotalInclusive} onApply={(amount, code) => { setDiscount(amount); setActiveCoupon(code); }} />
                         </div>
 
-                        {/* Price Breakdown */}
                         <div className="border-t border-white/10 pt-6 space-y-3 text-sm font-saira">
-                            <div className="flex justify-between text-brand-silver/70">
-                                <span>Base Amount</span>
-                                <span>₹{baseAmount.toLocaleString("en-IN")}</span>
-                            </div>
-                            <div className="flex justify-between text-brand-silver/70">
-                                <span>Tax (18% GST)</span>
-                                <span>₹{gstAmount.toLocaleString("en-IN")}</span>
-                            </div>
-                            
-                            {/* SHIPPING CHARGE DISPLAY */}
+                            <div className="flex justify-between text-brand-silver/70"><span>Base Amount</span><span>₹{baseAmount.toLocaleString("en-IN")}</span></div>
+                            <div className="flex justify-between text-brand-silver/70"><span>Tax (18% GST)</span><span>₹{gstAmount.toLocaleString("en-IN")}</span></div>
                             <div className="flex justify-between text-brand-silver">
                                 <span>Shipping Charge</span>
-                                {shippingCost === 0 ? (
-                                    <span className="text-green-400 font-bold uppercase text-xs bg-green-500/10 px-2 py-1 rounded">Free</span>
-                                ) : (
-                                    // Shows ₹1200 if heavy items are present
-                                    <span>₹{shippingCost.toLocaleString("en-IN")}</span>
-                                )}
+                                {shippingCost === 0 ? <span className="text-green-400 font-bold uppercase text-xs bg-green-500/10 px-2 py-1 rounded">Free</span> : <span>₹{shippingCost.toLocaleString("en-IN")}</span>}
                             </div>
-
-                            {/* DISCOUNT DISPLAY */}
                             {discount > 0 && (
-                                <div className="flex justify-between text-brand-purple font-bold animate-pulse">
-                                    <span>Coupon ({activeCoupon})</span>
-                                    <span>- ₹{discount.toLocaleString("en-IN")}</span>
-                                </div>
+                                <div className="flex justify-between text-brand-purple font-bold animate-pulse"><span>Coupon ({activeCoupon})</span><span>- ₹{discount.toLocaleString("en-IN")}</span></div>
                             )}
-
-                            {/* FINAL TOTAL */}
                             <div className="flex justify-between text-2xl font-black text-white pt-4 mt-2 border-t border-white/10 font-orbitron">
-                                <span>TOTAL</span>
-                                <span>₹{finalTotal.toLocaleString("en-IN")}</span>
+                                <span>TOTAL</span><span>₹{finalTotal.toLocaleString("en-IN")}</span>
                             </div>
                         </div>
 
-                        {/* PAY BUTTON */}
-                        <button 
-                            type="submit"
-                            form="checkout-form"
-                            disabled={loading || pincodeStatus === "invalid"}
-                            className="w-full bg-white text-black py-4 mt-8 font-orbitron font-bold uppercase tracking-[0.15em] hover:bg-brand-purple hover:text-white transition-all duration-300 rounded shadow-lg hover:shadow-brand-purple/50 clip-path-slant flex justify-center items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {loading ? (
-                                <span className="animate-pulse">Processing...</span>
-                            ) : (
-                                <>Pay Securely <span className="text-lg">→</span></>
-                            )}
+                        <button type="submit" form="checkout-form" disabled={loading || pincodeStatus === "invalid"} className="w-full bg-white text-black py-4 mt-8 font-orbitron font-bold uppercase tracking-[0.15em] hover:bg-brand-purple hover:text-white transition-all duration-300 rounded shadow-lg hover:shadow-brand-purple/50 flex justify-center items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed">
+                            {loading ? <span className="animate-pulse">Processing...</span> : <>Pay Securely <span className="text-lg">→</span></>}
                         </button>
-                        
-                        <p className="text-[10px] text-center text-[#555] mt-4 flex items-center justify-center gap-2">
-                             <Image src="/icons/payment/upi.svg" alt="UPI" width={16} height={16} className="opacity-50" />
-                             Secure 256-bit SSL Encrypted Payment by Razorpay.
-                        </p>
                     </div>
                 </Reveal>
             </div>

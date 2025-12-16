@@ -4,139 +4,149 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
 import Image from "next/image";
-import { Reveal, StaggerGrid, StaggerItem } from "@/components/ui/MotionWrappers";
+import { Reveal } from "@/components/ui/MotionWrappers";
 import { FaArrowRight } from "react-icons/fa";
 
-// Updated Data with your specific Image Paths
+// --- DATA CONFIGURATION ---
 const categories = [
   { 
     id: "cpu", 
     name: "PROCESSORS", 
+    sub: "CORE ARCHITECTURE",
     desc: "Intel Core Ultra & AMD Ryzen",
     image: "/images/Products/cpu.jpg" 
   },
   { 
     id: "gpu", 
-    name: "GRAPHICS CARDS", 
+    name: "GRAPHICS CARD", 
+    sub: "VISUAL ENGINES",
     desc: "NVIDIA RTX & AMD Radeon",
     image: "/images/Products/gpu.jpg" 
   },
   { 
     id: "motherboard", 
     name: "MOTHERBOARDS", 
-    desc: "Performance-Class Motherboards",
+    sub: "SYSTEM FOUNDATION",
+    desc: "Z790, X670 & B650 Chipsets",
     image: "/images/Products/mobo.jpg" 
-  },
-  { 
-    id: "memory", 
-    name: "MEMORY", 
-    desc: "High-Speed DDR4 & DDR5",
-    image: "/images/Products/ram.jpg" 
-  },
-  { 
-    id: "cabinet", 
-    name: "PC CABINETS", 
-    desc: "Mid-Tower, Full-Tower & ITX",
-    image: "/images/Products/pc cabinet.jpg" 
   },
   { 
     id: "storage", 
     name: "STORAGE", 
-    desc: "NVMe Gen4 & Gen5 SSDs",
+    sub: "DATA VAULTS",
+    desc: "NVMe Gen4 & Gen5 Solutions",
     image: "/images/Products/nvme.jpg" 
   },
   { 
+    id: "cabinet", 
+    name: "CHASSIS", 
+    sub: "ARMOR PLATING",
+    desc: "Mid-Tower, Full-Tower & ITX",
+    // Handling space in filename safely
+    image: "/images/Products/pc cabinet.jpg" 
+  },
+  { 
     id: "psu", 
-    name: "POWER SUPPLY", 
-    desc: "Silver, Gold & Platinum Rated Units",
+    name: "POWER", 
+    sub: "ENERGY REACTORS",
+    desc: "Gold & Platinum Modular Units",
     image: "/images/Products/psu.jpg" 
+  },
+  { 
+    id: "memory", 
+    name: "MEMORY", 
+    sub: "SYSTEM CACHE",
+    desc: "High-Bandwidth DDR5 Modules",
+    image: "/images/Products/ram.jpg" 
   },
   { 
     id: "cooler", 
     name: "COOLING", 
-    desc: "AIO Liquid & Air Coolers",
+    sub: "THERMAL CONTROL",
+    desc: "AIO Liquid & Air Solutions",
     image: "/images/Products/aio.jpg" 
   },
 ];
 
 export default function ProductHubPage() {
   return (
-    <div className="min-h-screen bg-[#121212] text-white font-saira flex flex-col overflow-hidden">
-      
-      {/* Cinematic Background Noise/Glow */}
-      <div className="fixed top-0 left-0 w-full h-full bg-[url('/images/noise.png')] opacity-[0.03] pointer-events-none z-0" />
-      <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-brand-purple/10 blur-[150px] pointer-events-none z-0" />
-
+    <div className="min-h-screen bg-[#121212] text-white font-saira flex flex-col">
       <Navbar />
       
       {/* HERO SECTION */}
-      <section className="pt-16 pb-16 px-6 relative z-10 border-b border-white/5 bg-gradient-to-b from-[#121212] to-[#1A1A1A]">
-        <Reveal>
-            <div className="max-w-7xl mx-auto text-center">
-                <span className="font-saira text-brand-purple font-bold tracking-[0.3em] text-sm uppercase mb-4 block">
-                    Premium Hardware
-                </span>
-                <h1 className="font-orbitron font-black text-5xl md:text-6xl text-white mb-6 tracking-wide drop-shadow-lg">
-                    PC <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-purple to-brand-blue">COMPONENTS</span>
-                </h1>
-                <p className="text-brand-silver max-w-2xl mx-auto text-lg leading-relaxed">
-                    Browse our curated selection of high-performance parts. From flagship processors to custom liquid cooling, we have everything to build your dream rig.
-                </p>
-            </div>
-        </Reveal>
+      <section className="pt-32 pb-12 px-6 border-b border-white/5 bg-[#121212] relative z-10">
+        <div className="max-w-7xl mx-auto text-center">
+          <Reveal>
+            <h1 className="font-orbitron font-bold text-5xl md:text-6xl text-white mb-4 tracking-tighter">
+                COMPONENT <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-purple to-brand-blue">ECOSYSTEM</span>
+            </h1>
+            <p className="text-brand-silver font-saira tracking-widest uppercase text-sm">
+                Engineer your ultimate machine with precision hardware.
+            </p>
+          </Reveal>
+        </div>
       </section>
 
-      {/* CATEGORY GRID */}
-      <div className="flex-grow max-w-8xl mx-auto px-6 py-20 w-full relative z-10">
-        <StaggerGrid className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {categories.map((cat) => (
-            <StaggerItem key={cat.id} className="h-full">
-              <Link href={`/products/${cat.id}`} className="group block h-full">
+      {/* CINEMATIC GRID (3 COLUMNS) */}
+      <div className="flex-grow w-full">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          {categories.map((cat, index) => (
+            <Link 
+                key={cat.id} 
+                href={`/products/${cat.id}`} 
+                className="group relative h-[500px] overflow-hidden border-b border-white/5 md:border-r border-white/5 lg:[&:nth-child(3n)]:border-r-0"
+            >
+              
+              {/* --- 1. BACKGROUND IMAGE --- */}
+              <div className="absolute inset-0 w-full h-full">
+                <Image 
+                    src={cat.image} 
+                    alt={cat.name} 
+                    fill 
+                    className="object-cover transition-transform duration-[1.5s] ease-out group-hover:scale-110"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                />
+                {/* Dark Overlay */}
+                <div className="absolute inset-0 bg-black/60 group-hover:bg-black/40 transition-colors duration-500"></div>
                 
-                {/* CARD CONTAINER (Full Image Fill) */}
-                <div className="relative h-[450px] bg-[#1A1A1A] border border-white/5 rounded-2xl overflow-hidden transition-all duration-500 hover:border-brand-purple/50 hover:shadow-[0_0_30px_rgba(78,44,139,0.2)] flex flex-col group">
-                  
-                  {/* 1. BACKGROUND IMAGE (Fills entire card) */}
-                  <div className="absolute inset-0 w-full h-full">
-                      <div className="relative w-full h-full transform group-hover:scale-110 transition-transform duration-700 ease-out">
-                         <Image 
-                            src={cat.image} 
-                            alt={cat.name} 
-                            fill 
-                            className="object-cover opacity-60 group-hover:opacity-80 transition-opacity duration-500"
-                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-                         />
-                      </div>
-                      
-                      {/* Gradient Overlay for Text Readability */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent opacity-90 group-hover:opacity-80 transition-opacity duration-500" />
-                  </div>
+                {/* Gradient from bottom for text readability */}
+                <div className="absolute bottom-0 left-0 w-full h-2/3 bg-gradient-to-t from-black via-black/50 to-transparent"></div>
+              </div>
 
-                  {/* 2. TEXT CONTENT (Overlaid on top) */}
-                  <div className="relative h-full flex flex-col justify-end p-8 z-10">
-                      <div className="transform group-hover:-translate-y-2 transition-transform duration-500">
-                          <h3 className="font-orbitron text-3xl font-bold text-white mb-2 tracking-wide drop-shadow-md">
-                              {cat.name}
-                          </h3>
-                          <p className="text-brand-silver text-sm font-medium opacity-80 group-hover:opacity-100 group-hover:text-white transition-all">
-                              {cat.desc}
-                          </p>
-                      </div>
+              {/* --- 2. CONTENT LAYER --- */}
+              <div className="relative z-10 h-full flex flex-col items-center justify-center p-8 text-center">
+                 
+                 {/* Floating Border Box */}
+                 <div className="absolute inset-8 border border-white/10 scale-95 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-500 pointer-events-none"></div>
 
-                      {/* Action Line (Appears on Hover) */}
-                      <div className="h-0 group-hover:h-8 overflow-hidden transition-all duration-500">
-                          <div className="flex items-center gap-3 text-xs font-bold uppercase tracking-[0.2em] text-brand-purple pt-4">
-                              <span>Browse Collection</span>
-                              <FaArrowRight />
-                          </div>
-                      </div>
-                  </div>
+                 {/* Text Content */}
+                 <div className="transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
+                    <span className="text-brand-purple font-bold tracking-[0.3em] text-[10px] uppercase mb-3 block opacity-0 group-hover:opacity-100 transition-opacity duration-700 delay-100">
+                        {cat.sub}
+                    </span>
+                    <h2 className="font-orbitron text-4xl font-bold text-white mb-4 tracking-tight drop-shadow-2xl">
+                        {cat.name}
+                    </h2>
+                    <p className="text-brand-silver text-xs font-medium uppercase tracking-wider opacity-60 group-hover:opacity-100 transition-opacity duration-500">
+                        {cat.desc}
+                    </p>
+                 </div>
 
-                </div>
-              </Link>
-            </StaggerItem>
+                 {/* Button (Slides up) */}
+                 <div className="absolute bottom-12 opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 delay-100">
+                    <button className="flex items-center gap-3 text-xs font-orbitron font-bold uppercase tracking-widest text-white hover:text-brand-purple transition-colors">
+                        Browse Parts <FaArrowRight />
+                    </button>
+                 </div>
+              </div>
+
+              {/* --- 3. HOVER ACCENTS --- */}
+              {/* Top Line */}
+              <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-brand-purple to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-700"></div>
+              
+            </Link>
           ))}
-        </StaggerGrid>
+        </div>
       </div>
 
       <Footer />

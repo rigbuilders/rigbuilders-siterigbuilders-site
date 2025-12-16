@@ -402,6 +402,7 @@ export default function ProductManager() {
                                     { label: "Power", key: "recipe_psu", cat: "psu" },
                                     { label: "Cooling", key: "recipe_cooler", cat: "cooler" },
                                     { label: "Cabinet", key: "recipe_cabinet", cat: "cabinet" },
+                                    { label: "Operating System", key: "recipe_os", cat: "os" },
                                 ].map((field) => (
                                     <select key={field.key} className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs"
                                         value={(formData as any)[field.key]} onChange={e => setFormData({...formData, [field.key]: e.target.value})}>
