@@ -74,7 +74,7 @@ export default function ProductHubPage() {
       <Navbar />
       
       {/* HERO SECTION */}
-      <section className="pt-32 pb-12 px-6 border-b border-white/5 bg-[#121212] relative z-10">
+      <section className="pt-12 pb-12 px-6 border-b border-white/5 bg-[#121212] relative z-10">
         <div className="max-w-7xl mx-auto text-center">
           <Reveal>
             <h1 className="font-orbitron font-bold text-5xl md:text-6xl text-white mb-4 tracking-tighter">
