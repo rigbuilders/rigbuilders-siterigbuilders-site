@@ -100,7 +100,7 @@ export default function HowWeCommission() {
 
         {/* LEARN MORE BUTTON */}
         <Reveal delay={0.4}>
-            <Link href="/commission-process">
+            <Link href="/how-we-commission">
                 <button className="px-10 py-4 bg-black/40 backdrop-blur-sm border border-white/30 hover:border-brand-purple text-white hover:text-brand-purple font-orbitron font-bold text-sm tracking-widest uppercase transition-all hover:bg-white/5 rounded-sm">
                     Learn More
                 </button>
