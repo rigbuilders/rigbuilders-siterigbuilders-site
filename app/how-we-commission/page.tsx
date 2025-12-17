@@ -30,7 +30,7 @@ const steps = [
     title: "Stress Testing & Validation",
     subtitle: "Thermal validation and performance benchmarking.",
     description: "We push the hardware harder than you ever will. Your rig undergoes a 24-hour torture test loop (AIDA64, FurMark, Cinebench) to ensure stability. We map the thermal curves of your specific GPU and CPU to guarantee they perform within safe deltas.",
-    image: "", // No image provided -> Will show Digital Blueprint Fallback
+    image: "/images/how/testing.webp", // No image provided -> Will show Digital Blueprint Fallback
     orientation: "landscape",
     imagePos: "right"
   },
