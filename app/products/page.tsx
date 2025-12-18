@@ -121,7 +121,7 @@ export default function ProductHubPage() {
 
                  {/* Text Content */}
                  <div className="transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
-                    <span className="text-brand-purple font-bold tracking-[0.3em] text-[10px] uppercase mb-3 block opacity-0 group-hover:opacity-100 transition-opacity duration-700 delay-100">
+                    <span className="text-brand-white font-bold tracking-[0.3em] text-[10px] uppercase mb-3 block opacity-0 group-hover:opacity-100 transition-opacity duration-700 delay-100">
                         {cat.sub}
                     </span>
                     <h2 className="font-orbitron text-4xl font-bold text-white mb-4 tracking-tight drop-shadow-2xl">
