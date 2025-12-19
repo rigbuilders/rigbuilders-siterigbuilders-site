@@ -441,7 +441,7 @@ export default function Navbar() {
             </div>
 
             <div className="mt-auto pt-6 text-center text-xs text-brand-silver/50 border-t border-white/10 font-saira">
-                &copy; 2024 Rig Builders.
+                &copy; 2025 Rig Builders.
             </div>
         </div>
     </div>
