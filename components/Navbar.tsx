@@ -321,7 +321,7 @@ export default function Navbar() {
             </div>
         </div>
       </div>
-
+                  
       {/* 3. ACCESSORIES HOVER */}
       <div className={`hidden lg:block absolute top-[80px] left-0 w-full bg-[#121212] border-t border-white/10 transition-all duration-300 overflow-hidden z-40 ${activeMenu === "accessories" ? "max-h-[600px] opacity-100 visible" : "max-h-0 opacity-0 invisible"}`}
            onMouseEnter={() => setActiveMenu("accessories")} onMouseLeave={() => setActiveMenu(null)}>
