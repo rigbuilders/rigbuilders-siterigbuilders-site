@@ -50,7 +50,7 @@ function OrderSuccessContent() {
                 </h1>
                 <p className="text-brand-silver text-lg max-w-xl mx-auto font-light mb-8">
                     Your equipment has been secured and is entering the assembly queue.
-                    A confirmation email with full details has been sent to your email.
+                    A confirmation email with full details has been sent to your E-mail address.
                 </p>
 
                 {/* --- ORDER ID DISPLAY --- */}
