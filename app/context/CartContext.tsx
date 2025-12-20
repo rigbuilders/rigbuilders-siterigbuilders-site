@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
-// Define the shape of a Cart Item
 export interface CartItem {
   id: string;
   name: string;
@@ -15,6 +14,7 @@ export interface CartItem {
 interface CartContextType {
   cart: CartItem[];
   addToCart: (product: any) => void;
+  updateQuantity: (id: string, delta: number) => void; // <--- NEW FUNCTION
   removeFromCart: (id: string) => void;
   clearCart: () => void;
   cartTotal: number;
@@ -26,15 +26,13 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
 
-  // Load cart from LocalStorage on start
+  // Load from LocalStorage
   useEffect(() => {
     const savedCart = localStorage.getItem("rigBuildersCart");
-    if (savedCart) {
-      setCart(JSON.parse(savedCart));
-    }
+    if (savedCart) setCart(JSON.parse(savedCart));
   }, []);
 
-  // Save cart to LocalStorage whenever it changes
+  // Save to LocalStorage
   useEffect(() => {
     localStorage.setItem("rigBuildersCart", JSON.stringify(cart));
   }, [cart]);
@@ -43,25 +41,33 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setCart((prev) => {
       const existing = prev.find((item) => item.id === product.id);
       if (existing) {
-        // If exists, increment quantity
         return prev.map((item) =>
           item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
-      // If new, add to cart
       return [...prev, { 
         id: product.id, 
         name: product.name, 
         price: product.price, 
-        image: product.image || "/icons/navbar/products/PC Components.svg", // Fallback image
+        image: product.image || "/icons/navbar/products/PC Components.svg",
         quantity: 1,
         category: product.category
       }];
     });
-    
-    // --- ALERT REMOVED ---
-    // We removed the window.alert() here. 
-    // Now, the Page component (UI) handles the notification using 'sonner'.
+  };
+
+  // --- NEW: UPDATE QUANTITY ---
+  const updateQuantity = (id: string, delta: number) => {
+    setCart((prev) => 
+      prev.map((item) => {
+        if (item.id === id) {
+          // Prevent going below 1 (User must use "Remove" button for 0)
+          const newQuantity = Math.max(1, item.quantity + delta);
+          return { ...item, quantity: newQuantity };
+        }
+        return item;
+      })
+    );
   };
 
   const removeFromCart = (id: string) => {
@@ -74,7 +80,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const cartCount = cart.reduce((count, item) => count + item.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ cart, addToCart, removeFromCart, clearCart, cartTotal, cartCount }}>
+    <CartContext.Provider value={{ cart, addToCart, updateQuantity, removeFromCart, clearCart, cartTotal, cartCount }}>
       {children}
     </CartContext.Provider>
   );
