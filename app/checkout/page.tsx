@@ -239,6 +239,11 @@ export default function CheckoutPage() {
                 if (resData.msg === "success") {
                     // [FIX] Set success flag BEFORE clearing cart
                     setPaymentSuccess(true);
+
+                    localStorage.setItem("latestOrder", JSON.stringify({ 
+                    items: cart, 
+                    display_id: resData.displayId 
+                    }));
                     
                     await trackCouponUsage(activeCoupon);
                     clearCart();
