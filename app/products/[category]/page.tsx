@@ -2,7 +2,7 @@
 
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import AuthModal from "@/components/AuthModal";
+// import AuthModal from "@/components/AuthModal"; // <-- REMOVED
 import { useState, useMemo, useEffect, use } from "react";
 import { useCart } from "@/app/context/CartContext"; 
 import { notFound, useRouter } from "next/navigation";
@@ -10,8 +10,8 @@ import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
 import { Reveal, StaggerGrid, StaggerItem } from "@/components/ui/MotionWrappers";
 import { FaShoppingCart, FaArrowRight, FaChevronDown, FaChevronUp } from "react-icons/fa";
+import { toast } from "sonner"; 
 
-// Valid categories list
 const validCategories = [
   "cpu", "gpu", "motherboard", "memory", "ram", "storage", "psu", "cooler", "cabinet", "prebuilt",
   "monitor", "keyboard", "mouse", "combo", "mousepad", "usb"
@@ -56,11 +56,10 @@ const FilterGroup = ({ title, options, selected, onChange }: any) => {
 };
 
 export default function CategoryPage({ params }: { params: Promise<{ category: string }> }) {
-  // 1. Unwrapping Params
   const resolvedParams = use(params);
   const router = useRouter();
   const { addToCart } = useCart();
-  const [showAuthModal, setShowAuthModal] = useState(false);
+  // const [showAuthModal, setShowAuthModal] = useState(false); // <-- REMOVED
   
   const categoryParam = resolvedParams.category.toLowerCase();
   const dbCategory = categoryParam === "memory" ? "ram" : categoryParam;
@@ -69,36 +68,27 @@ export default function CategoryPage({ params }: { params: Promise<{ category: s
     return notFound();
   }
 
-  // 2. State Management
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedBrand, setSelectedBrand] = useState<string[]>([]);
   const [selectedPrice, setSelectedPrice] = useState<string[]>([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
-  // 3. Data Fetching
   useEffect(() => {
     const fetchProducts = async () => {
       setLoading(true);
-      const { data } = await supabase
-        .from('products')
-        .select('*')
-        .eq('category', dbCategory);
-
+      const { data } = await supabase.from('products').select('*').eq('category', dbCategory);
       if (data) {
         setProducts(data.map(p => ({ ...p, image: p.image_url, ...(p.specs || {}) })));
       }
       setLoading(false);
     };
-
     fetchProducts();
   }, [dbCategory]);
 
-  // 4. Filtering Logic
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
       if (selectedBrand.length > 0 && !selectedBrand.includes(product.brand)) return false;
-
       if (selectedPrice.length > 0) {
         const matchesPrice = selectedPrice.some((range) => {
           if (range === "Under ₹10K") return product.price < 10000;
@@ -113,15 +103,23 @@ export default function CategoryPage({ params }: { params: Promise<{ category: s
     });
   }, [products, selectedBrand, selectedPrice]);
 
-  // 5. Handlers
+  // --- UPDATED HANDLER (GUEST MODE) ---
   const handleAction = async (product: any, isBuyNow: boolean) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-        setShowAuthModal(true);
-        return;
-    }
+    // --- AUTH CHECK REMOVED ---
+    
     addToCart(product);
-    if (isBuyNow) router.push("/checkout");
+
+    if (isBuyNow) {
+        router.push("/checkout");
+    } else {
+        toast.success("Added to Gear", {
+            description: `${product.name} is secure in your cart.`,
+            action: {
+                label: "View Cart",
+                onClick: () => router.push("/cart")
+            }
+        });
+    }
   };
 
   const toggleFilter = (item: string, list: string[], setList: Function) => {
@@ -133,15 +131,12 @@ export default function CategoryPage({ params }: { params: Promise<{ category: s
 
   return (
     <div className="min-h-screen bg-[#121212] text-white font-saira flex flex-col relative overflow-hidden">
-      
-      {/* Background Ambience */}
       <div className="fixed top-0 left-0 w-full h-full bg-[url('/images/noise.png')] opacity-[0.03] pointer-events-none z-0" />
       <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-brand-purple/10 blur-[150px] pointer-events-none z-0" />
 
       <Navbar />
-      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+      {/* <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} /> <-- REMOVED */}
 
-      {/* HEADER SECTION */}
       <section className="pt-[50px] pb-12 px-[20px] lg:px-[80px] 2xl:px-[100px] border-b border-white/5 relative z-10 bg-[#121212]">
         <h1 className="font-orbitron text-4xl md:text-5xl font-bold uppercase tracking-tighter mb-2">
             {categoryParam === "cpu" ? "Processors" : categoryParam.toUpperCase()}
@@ -152,11 +147,7 @@ export default function CategoryPage({ params }: { params: Promise<{ category: s
       </section>
 
       <div className="flex flex-col lg:flex-row min-h-screen relative z-10">
-          
-        {/* --- LEFT SIDEBAR (STICKY & CINEMATIC) --- */}
         <aside className="w-full lg:w-[300px] xl:w-[350px] border-r border-white/5 p-8 lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto bg-[#0A0A0A]">
-            
-            {/* Mobile Toggle */}
             <div 
                 className="lg:hidden flex items-center justify-between mb-6 cursor-pointer text-brand-purple border-b border-white/10 pb-4"
                 onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
@@ -183,7 +174,6 @@ export default function CategoryPage({ params }: { params: Promise<{ category: s
                             selected={selectedBrand}
                             onChange={(val: string) => toggleFilter(val, selectedBrand, setSelectedBrand)}
                         />
-
                         <FilterGroup 
                             title="Budget" 
                             options={["Under ₹10K", "₹10K - ₹30K", "₹30K - ₹80K", "Above ₹80K"]} 
@@ -195,10 +185,7 @@ export default function CategoryPage({ params }: { params: Promise<{ category: s
             </div>
         </aside>
           
-        {/* --- RIGHT PRODUCT GRID --- */}
         <div className="flex-1 bg-[#121212] p-4 lg:p-0">
-             
-             {/* Mobile Result Count */}
              <div className="py-4 px-8 border-b border-white/5 bg-[#121212]/90 backdrop-blur sticky top-0 z-10 lg:hidden">
                 <span className="text-brand-silver text-xs font-bold uppercase tracking-widest">Found: {filteredProducts.length} Items</span>
              </div>
@@ -212,7 +199,6 @@ export default function CategoryPage({ params }: { params: Promise<{ category: s
                <StaggerGrid className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 border-l border-white/5">
                   {filteredProducts.map((product) => (
                     <StaggerItem key={product.id}>
-                        {/* --- CINEMATIC CARD --- */}
                         <div className="group relative border-b border-r border-white/5 bg-[#121212] hover:bg-[#151515] transition-colors duration-300 flex flex-col h-full min-h-[500px]">
                             
                             {!product.in_stock && (
@@ -221,7 +207,6 @@ export default function CategoryPage({ params }: { params: Promise<{ category: s
                               </div>
                             )}
 
-                            {/* Image Section */}
                             <Link href={`/product/${product.id}`} className="relative h-64 overflow-hidden block w-full p-8 flex items-center justify-center bg-gradient-to-b from-[#1A1A1A] to-transparent">
                                <div className="absolute inset-0 bg-brand-purple/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-3xl z-0" />
                                
@@ -232,9 +217,7 @@ export default function CategoryPage({ params }: { params: Promise<{ category: s
                                )}
                             </Link>
                             
-                            {/* Content Section */}
                             <div className="p-8 flex flex-col flex-grow relative z-10 border-t border-white/5">
-                                
                                 <span className="text-[10px] font-bold text-brand-purple tracking-[0.2em] uppercase mb-2 block">
                                     {product.brand}
                                 </span>
@@ -245,7 +228,6 @@ export default function CategoryPage({ params }: { params: Promise<{ category: s
                                    </h4>
                                 </Link>
 
-                                {/* DYNAMIC SPECS (No Wattage) */}
                                 <div className="grid grid-cols-2 gap-y-2 gap-x-4 mb-8 mt-2">
                                     {product.core_count && (
                                         <div className="border-l border-white/10 pl-2">
@@ -279,7 +261,6 @@ export default function CategoryPage({ params }: { params: Promise<{ category: s
                                     )}
                                 </div>
 
-                                {/* Price & Actions */}
                                 <div className="mt-auto pt-6 border-t border-white/5 flex items-end justify-between gap-4">
                                     <div>
                                         <p className="text-[10px] text-brand-silver uppercase tracking-widest mb-1">Price</p>
@@ -311,7 +292,6 @@ export default function CategoryPage({ params }: { params: Promise<{ category: s
                </StaggerGrid>
              )}
 
-             {/* Empty State */}
              {!loading && filteredProducts.length === 0 && (
                 <div className="h-[50vh] flex flex-col items-center justify-center text-brand-silver border border-dashed border-white/10 m-8">
                    <p className="font-orbitron text-xl mb-2">NO SIGNALS DETECTED</p>

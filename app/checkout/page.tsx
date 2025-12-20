@@ -2,13 +2,13 @@
 
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import Image from "next/image";
 import { useCart } from "../context/CartContext";
 import { supabase } from "@/lib/supabaseClient";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import CouponCode from "@/components/cart/CouponCode"; 
 import { Reveal } from "@/components/ui/MotionWrappers";
+import { toast } from "sonner";
 
 // --- CONSTANTS ---
 const INDIAN_STATES = [
@@ -38,6 +38,8 @@ export default function CheckoutPage() {
   const router = useRouter();
   
   // --- STATES ---
+  const [isGuest, setIsGuest] = useState(true); // Default to guest
+  const [user, setUser] = useState<any>(null);
   const [discount, setDiscount] = useState(0);
   const [activeCoupon, setActiveCoupon] = useState("");
   const [shippingCost, setShippingCost] = useState(0); 
@@ -50,7 +52,7 @@ export default function CheckoutPage() {
     pincode: "", city: "", state: "", country: "India"
   });
 
-  // BILLING FORM (New)
+  // BILLING FORM
   const [billingSame, setBillingSame] = useState(true);
   const [billingData, setBillingData] = useState({
     fullName: "", phone: "", 
@@ -68,33 +70,57 @@ export default function CheckoutPage() {
     setShippingCost(needsHeavyShipping ? 1200 : 0);
   }, [cart]);
 
-  // --- TOTAL CALCULATION ---
-  const subtotalInclusive = cartTotal;
-  const baseAmount = Math.round(subtotalInclusive / 1.18);
-  const gstAmount = subtotalInclusive - baseAmount;
-  const finalTotal = subtotalInclusive + shippingCost - discount;
+  // --- GST CALCULATION (Punjab vs India) ---
+  const taxBreakdown = useMemo(() => {
+    const subtotalInclusive = cartTotal;
+    const baseAmount = Math.round(subtotalInclusive / 1.18);
+    const totalTax = subtotalInclusive - baseAmount;
+    
+    // Rig Builders operates in Punjab. 
+    // If User State is Punjab -> Intra-state (CGST + SGST)
+    // Else -> Inter-state (IGST)
+    const isPunjab = formData.state?.toLowerCase() === "punjab";
 
-  // --- INITIALIZE USER ---
+    return {
+        baseAmount,
+        totalTax,
+        cgst: isPunjab ? totalTax / 2 : 0,
+        sgst: isPunjab ? totalTax / 2 : 0,
+        igst: isPunjab ? 0 : totalTax,
+        isPunjab
+    };
+  }, [cartTotal, formData.state]);
+
+  const finalTotal = cartTotal + shippingCost - discount;
+
+  // --- INITIALIZE USER (Guest Logic) ---
   useEffect(() => {
     const initUser = async () => {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) { router.push("/signin"); return; }
+        
+        if (user) {
+            setIsGuest(false);
+            setUser(user);
+            setFormData(prev => ({
+                ...prev,
+                email: user.email || "",
+                fullName: user.user_metadata.full_name || "",
+                phone: user.user_metadata.phone || ""
+            }));
+
+            // Fetch saved addresses for registered users
+            const { data: addresses } = await supabase
+                .from('user_addresses')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('is_default', { ascending: false });
+
+            if (addresses) setSavedAddresses(addresses);
+        } else {
+            setIsGuest(true);
+        }
+        
         if (cart.length === 0) router.push("/cart");
-
-        setFormData(prev => ({
-            ...prev,
-            email: user.email || "",
-            fullName: user.user_metadata.full_name || "",
-            phone: user.user_metadata.phone || ""
-        }));
-
-        const { data: addresses } = await supabase
-            .from('user_addresses')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('is_default', { ascending: false });
-
-        if (addresses) setSavedAddresses(addresses);
     };
     initUser();
   }, [cart, router]);
@@ -110,26 +136,46 @@ export default function CheckoutPage() {
           state: addr.state,
           pincode: addr.pincode,
       }));
-      checkServiceability(addr.pincode);
+      // Re-validate serviceability logic if needed
+      if(addr.pincode) setPincodeStatus("valid");
   };
 
-  const checkServiceability = async (pincode: string) => {
-      if (pincode.length !== 6) { setPincodeStatus("invalid"); return; }
-      setPincodeStatus("checking");
-      setTimeout(() => setPincodeStatus("valid"), 800);
-  };
-
-  const handlePincodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // --- AUTO PINCODE LOOKUP ---
+  const handlePincodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const pin = e.target.value.replace(/\D/g, '').slice(0, 6);
-      setFormData({ ...formData, pincode: pin });
-      if (pin.length === 6) checkServiceability(pin);
-      else setPincodeStatus(null);
+      setFormData(prev => ({ ...prev, pincode: pin }));
+
+      if (pin.length === 6) {
+          setPincodeStatus("checking");
+          try {
+              const res = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
+              const data = await res.json();
+
+              if (data[0].Status === "Success") {
+                  const details = data[0].PostOffice[0];
+                  setFormData(prev => ({
+                      ...prev,
+                      city: details.District,
+                      state: details.State,
+                      pincode: pin
+                  }));
+                  setPincodeStatus("valid");
+                  toast.success("Location Detected", { description: `${details.District}, ${details.State}` });
+              } else {
+                  setPincodeStatus("invalid");
+                  toast.error("Invalid Pincode", { description: "Couriers may not service this area." });
+              }
+          } catch (err) {
+              setPincodeStatus("invalid");
+          }
+      } else {
+          setPincodeStatus(null);
+      }
   };
 
   const trackCouponUsage = async (couponUsed: string) => {
     if (couponUsed) {
-      const { error } = await supabase.rpc('increment_coupon_usage', { coupon_code: couponUsed });
-      if (error) console.error("Failed to track coupon usage:", error);
+      await supabase.rpc('increment_coupon_usage', { coupon_code: couponUsed });
     }
   };
 
@@ -138,27 +184,30 @@ export default function CheckoutPage() {
     e.preventDefault();
     
     if (pincodeStatus === "invalid") {
-        alert("Please enter a valid 6-digit Pincode.");
+        toast.error("Invalid Pincode", { description: "Please enter a valid 6-digit Pincode." });
         return;
     }
 
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
     
-    // Determine Final Billing Address
+    // Determine Billing
     const finalBillingAddress = billingSame ? formData : billingData;
 
     try {
+        // 1. Create Order
         const orderRes = await fetch("/api/payment/create", {
             method: "POST",
             body: JSON.stringify({ amount: finalTotal }),
         });
         const orderData = await orderRes.json();
+        
         if (orderData.error) throw new Error(orderData.error);
 
+        // 2. Load SDK
         const res = await loadRazorpay();
         if (!res) throw new Error("Razorpay SDK failed to load.");
 
+        // 3. Open Payment
         const options = {
             key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
             amount: orderData.amount, 
@@ -169,17 +218,21 @@ export default function CheckoutPage() {
             order_id: orderData.id, 
 
             handler: async function (response: any) {
+                const toastId = toast.loading("Verifying & Creating Account...");
+
                 const verifyData = {
                     orderCreationId: orderData.id,
                     razorpayPaymentId: response.razorpay_payment_id,
                     razorpaySignature: response.razorpay_signature,
                     
-                    // PASSING BOTH ADDRESSES
+                    // PASSING FULL DATA FOR BACKEND AUTO-CREATION
                     cartItems: cart,
                     userId: user?.id || 'guest',
                     totalAmount: finalTotal,
                     shippingAddress: formData,
-                    billingAddress: finalBillingAddress // <--- NEW FIELD
+                    billingAddress: finalBillingAddress,
+                    isGuest: isGuest, // Flag for backend to trigger auto-signup
+                    autoSaveAddress: true // Flag for backend to save this address
                 };
 
                 const verifyRes = await fetch('/api/payment/verify', {
@@ -189,13 +242,28 @@ export default function CheckoutPage() {
                 });
 
                 const resData = await verifyRes.json();
+                toast.dismiss(toastId);
 
                 if (resData.msg === "success") {
                     await trackCouponUsage(activeCoupon);
                     clearCart();
+                    
+                    // Different messages for Guest vs User
+                    if (isGuest && resData.accountCreated) {
+                        toast.success("Order Placed & Account Created!", {
+                            description: "Check your email for your temporary login details."
+                        });
+                    } else {
+                        toast.success("Order Placed Successfully", {
+                            description: "Redirecting to receipt..."
+                        });
+                    }
+                    
                     router.push(`/order-success?id=${resData.displayId}`);
                 } else {
-                    alert("Payment Verification Failed: " + resData.error);
+                    toast.error("Verification Failed", {
+                        description: resData.error || "Payment was not verified."
+                    });
                 }
             },
             prefill: {
@@ -204,6 +272,12 @@ export default function CheckoutPage() {
                 contact: formData.phone,
             },
             theme: { color: "#4E2C8B" },
+            modal: {
+                ondismiss: function() {
+                    setLoading(false);
+                    toast("Payment Cancelled");
+                }
+            }
         };
 
         const paymentObject = new (window as any).Razorpay(options);
@@ -211,8 +285,7 @@ export default function CheckoutPage() {
 
     } catch (err: any) {
         console.error(err);
-        alert("Checkout Error: " + err.message);
-    } finally {
+        toast.error("Checkout Error", { description: err.message });
         setLoading(false);
     }
   };
@@ -246,8 +319,8 @@ export default function CheckoutPage() {
                                 Shipping Details
                             </h2>
 
-                            {/* SAVED ADDRESSES */}
-                            {savedAddresses.length > 0 && (
+                            {/* SAVED ADDRESSES (Only for logged in users) */}
+                            {!isGuest && savedAddresses.length > 0 && (
                                 <div className="mb-8">
                                     <p className="text-xs uppercase tracking-wider text-brand-silver mb-3 font-bold flex items-center gap-2">
                                         <span className="w-2 h-2 bg-brand-purple rounded-full animate-pulse"></span>
@@ -280,25 +353,37 @@ export default function CheckoutPage() {
                                 </div>
                                 <div>
                                     <label className="text-xs text-brand-silver mb-2 font-bold block">Email Address</label>
-                                    <input readOnly type="email" className="w-full bg-white/5 border border-white/5 rounded p-4 text-white/50 cursor-not-allowed" value={formData.email} />
+                                    <input 
+                                        required 
+                                        type="email" 
+                                        readOnly={!isGuest} // Only editable if Guest
+                                        className={`w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none ${!isGuest ? 'cursor-not-allowed opacity-50' : ''}`}
+                                        value={formData.email} 
+                                        onChange={e => setFormData({...formData, email: e.target.value})}
+                                        placeholder="guest@example.com"
+                                    />
+                                    {isGuest && <span className="text-[10px] text-brand-silver mt-1 block">We will create an account for you with this email.</span>}
                                 </div>
                                 <div className="md:col-span-2">
                                     <label className="text-xs text-brand-silver mb-2 font-bold block">Address Line 1</label>
                                     <input required type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none" 
                                         value={formData.addressLine1} onChange={e => setFormData({...formData, addressLine1: e.target.value})} placeholder="House / Flat / Building" />
                                 </div>
+                                {/* OPTIONAL ADDRESS LINE 2 */}
                                 <div className="md:col-span-2">
-                                    <label className="text-xs text-brand-silver mb-2 font-bold block">Address Line 2</label>
-                                    <input required type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none" 
+                                    <label className="text-xs text-brand-silver mb-2 font-bold block">Address Line 2 <span className="text-white/20 font-normal">(Optional)</span></label>
+                                    <input type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none" 
                                         value={formData.addressLine2} onChange={e => setFormData({...formData, addressLine2: e.target.value})} placeholder="Street / Area" />
                                 </div>
+                                
+                                {/* SMART PINCODE INPUT */}
                                 <div>
                                     <label className="text-xs text-brand-silver mb-2 font-bold block">Pincode</label>
                                     <div className="relative">
                                         <input required type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none" 
-                                            value={formData.pincode} onChange={handlePincodeChange} placeholder="110001" />
+                                            value={formData.pincode} onChange={handlePincodeChange} placeholder="147001" maxLength={6} />
                                         <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                                            {pincodeStatus === "checking" && <span className="text-xs text-yellow-500 font-bold animate-pulse">Checking...</span>}
+                                            {pincodeStatus === "checking" && <span className="text-xs text-yellow-500 font-bold animate-pulse">Locating...</span>}
                                             {pincodeStatus === "valid" && <span className="text-xs text-green-500 font-bold">✓</span>}
                                             {pincodeStatus === "invalid" && <span className="text-xs text-red-500 font-bold">Invalid</span>}
                                         </div>
@@ -352,36 +437,21 @@ export default function CheckoutPage() {
                                             value={billingData.addressLine1} onChange={e => setBillingData({...billingData, addressLine1: e.target.value})} placeholder="Address Line 1" />
                                     </div>
                                     <div className="md:col-span-2">
-                                        <input required type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-blue outline-none" 
-                                            value={billingData.addressLine2} onChange={e => setBillingData({...billingData, addressLine2: e.target.value})} placeholder="Address Line 2" />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-brand-silver mb-2 font-bold block">City</label>
-                                        <input required type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-blue outline-none" 
-                                            value={billingData.city} onChange={e => setBillingData({...billingData, city: e.target.value})} />
+                                        <input type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-blue outline-none" 
+                                            value={billingData.addressLine2} onChange={e => setBillingData({...billingData, addressLine2: e.target.value})} placeholder="Address Line 2 (Optional)" />
                                     </div>
                                     <div>
                                         <label className="text-xs text-brand-silver mb-2 font-bold block">Pincode</label>
                                         <input required type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-blue outline-none" 
-                                            value={billingData.pincode} onChange={e => setBillingData({...billingData, pincode: e.target.value})} />
+                                            value={billingData.pincode} onChange={e => setBillingData({...billingData, pincode: e.target.value})} maxLength={6} />
                                     </div>
-                                    <div className="md:col-span-2">
+                                    <div>
                                         <label className="text-xs text-brand-silver mb-2 font-bold block">State</label>
                                         <select required className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-blue outline-none appearance-none"
                                             value={billingData.state} onChange={e => setBillingData({...billingData, state: e.target.value})}>
                                             <option value="" disabled>Select State</option>
                                             {INDIAN_STATES.map(st => <option key={st} value={st} className="bg-[#1A1A1A]">{st}</option>)}
                                         </select>
-                                    </div>
-                                    {/* ADD THIS: Billing Country Field */}
-                                    <div className="md:col-span-2">
-                                       <label className="text-xs text-brand-silver mb-2 font-bold block">Country</label>
-                                       <input 
-                                           readOnly 
-                                           type="text" 
-                                           className="w-full bg-white/5 border border-white/5 rounded p-4 text-white/50 cursor-not-allowed font-bold" 
-                                           value={billingData.country} 
-                                         />
                                     </div>
                                 </div>
                             )}
@@ -390,7 +460,7 @@ export default function CheckoutPage() {
                 </form>
             </div>
 
-            {/* --- RIGHT: SUMMARY --- */}
+            {/* --- RIGHT: SUMMARY & TAX BREAKDOWN --- */}
             <div className="h-fit">
                 <Reveal delay={0.2} className="sticky top-32">
                     <div className="bg-[#1A1A1A]/80 backdrop-blur-md p-8 border border-white/10 rounded-lg shadow-2xl relative">
@@ -416,19 +486,44 @@ export default function CheckoutPage() {
                         </div>
 
                         <div className="mb-8">
-                             <CouponCode subtotal={subtotalInclusive} onApply={(amount, code) => { setDiscount(amount); setActiveCoupon(code); }} />
+                             <CouponCode subtotal={cartTotal} onApply={(amount, code) => { setDiscount(amount); setActiveCoupon(code); }} />
                         </div>
 
+                        {/* TAX BREAKDOWN SECTION */}
                         <div className="border-t border-white/10 pt-6 space-y-3 text-sm font-saira">
-                            <div className="flex justify-between text-brand-silver/70"><span>Base Amount</span><span>₹{baseAmount.toLocaleString("en-IN")}</span></div>
-                            <div className="flex justify-between text-brand-silver/70"><span>Tax (18% GST)</span><span>₹{gstAmount.toLocaleString("en-IN")}</span></div>
+                            <div className="flex justify-between text-brand-silver/70">
+                                <span>Taxable Value</span>
+                                <span>₹{taxBreakdown.baseAmount.toLocaleString("en-IN")}</span>
+                            </div>
+                            
+                            {/* DYNAMIC TAX DISPLAY */}
+                            {taxBreakdown.isPunjab ? (
+                                <>
+                                    <div className="flex justify-between text-brand-silver/70">
+                                        <span>CGST (9%)</span>
+                                        <span>₹{taxBreakdown.cgst.toLocaleString("en-IN")}</span>
+                                    </div>
+                                    <div className="flex justify-between text-brand-silver/70">
+                                        <span>SGST (9%)</span>
+                                        <span>₹{taxBreakdown.sgst.toLocaleString("en-IN")}</span>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="flex justify-between text-brand-silver/70">
+                                    <span>IGST (18%)</span>
+                                    <span>₹{taxBreakdown.igst.toLocaleString("en-IN")}</span>
+                                </div>
+                            )}
+
                             <div className="flex justify-between text-brand-silver">
                                 <span>Shipping Charge</span>
                                 {shippingCost === 0 ? <span className="text-green-400 font-bold uppercase text-xs bg-green-500/10 px-2 py-1 rounded">Free</span> : <span>₹{shippingCost.toLocaleString("en-IN")}</span>}
                             </div>
+                            
                             {discount > 0 && (
                                 <div className="flex justify-between text-brand-purple font-bold animate-pulse"><span>Coupon ({activeCoupon})</span><span>- ₹{discount.toLocaleString("en-IN")}</span></div>
                             )}
+                            
                             <div className="flex justify-between text-2xl font-black text-white pt-4 mt-2 border-t border-white/10 font-orbitron">
                                 <span>TOTAL</span><span>₹{finalTotal.toLocaleString("en-IN")}</span>
                             </div>

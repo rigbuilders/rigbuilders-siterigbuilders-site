@@ -6,14 +6,14 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { FcGoogle } from "react-icons/fc";
-import { FaEye, FaEyeSlash } from "react-icons/fa"; // Icons for toggle
+import { FaEye, FaEyeSlash } from "react-icons/fa"; 
 import { supabase } from "@/lib/supabaseClient"; 
+import { toast } from "sonner"; // <--- IMPORT SONNER
 
 export default function SignInPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [showPassword, setShowPassword] = useState(false); // Toggle state
+  const [showPassword, setShowPassword] = useState(false);
   
   const [formData, setFormData] = useState({
     email: "",
@@ -23,7 +23,6 @@ export default function SignInPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError("");
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -34,12 +33,20 @@ export default function SignInPage() {
       if (error) throw error;
 
       if (data.user) {
-        console.log("Login Success:", data.user);
+        // CINEMATIC SUCCESS TOAST
+        toast.success("Welcome Back", {
+            description: "Access granted to your workstation.",
+            duration: 3000,
+        });
         router.push("/"); 
       }
     } catch (err: any) {
       console.error("Login Failed:", err.message);
-      setError("Invalid credentials. Please check your email and password.");
+      
+      // CINEMATIC ERROR TOAST
+      toast.error("Access Denied", {
+          description: "Invalid credentials. Please check your email and password."
+      });
     } finally {
       setLoading(false);
     }
@@ -47,7 +54,6 @@ export default function SignInPage() {
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
-    setError("");
     
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -60,7 +66,9 @@ export default function SignInPage() {
       if (error) throw error;
       
     } catch (err: any) {
-      setError(err.message || "Google sign in failed.");
+      toast.error("Connection Failed", {
+          description: err.message || "Google sign in failed."
+      });
       setLoading(false);
     }
   };
@@ -69,7 +77,7 @@ export default function SignInPage() {
     <div className="bg-[#121212] min-h-screen text-white font-saira flex flex-col"> 
       <Navbar />
 
-      <div className="flex-grow pt-24 pb-12 px-6 flex items-center justify-center w-full relative z-10">
+      <div className="flex-grow pt-16 pb-12 px-6 flex items-center justify-center w-full relative z-10">
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-64 h-64 bg-[#4E2C8B]/20 blur-[100px] rounded-full pointer-events-none"></div>
 
         <div className="bg-[#1A1A1A] p-8 md:p-12 rounded-xl shadow-2xl w-full max-w-md border border-white/5 relative z-20">
@@ -78,11 +86,7 @@ export default function SignInPage() {
           </h1>
           <p className="text-[#A0A0A0] text-sm text-center mb-10">Sign in to access your commissioned builds.</p>
 
-          {error && (
-            <div className="bg-red-900/50 text-red-300 p-3 rounded-md mb-4 text-center text-sm border border-red-800">
-              {error}
-            </div>
-          )}
+          {/* OLD ERROR BOX REMOVED - Now handled by Toast */}
 
           <form onSubmit={handleLogin} className="space-y-6">
             <div>
@@ -111,13 +115,13 @@ export default function SignInPage() {
               </div>
               <div className="relative">
                 <input
-                  type={showPassword ? "text" : "password"} // Toggles between text and password
+                  type={showPassword ? "text" : "password"} 
                   id="password"
                   required
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className="w-full bg-[#121212] border border-white/10 rounded p-3 text-white focus:border-[#4E2C8B] outline-none transition-colors pr-10"
-                  placeholder="••••••••"
+                  placeholder="•••••••••••••"
                 />
                 <button
                   type="button"
@@ -132,9 +136,9 @@ export default function SignInPage() {
             <button 
               type="submit"
               disabled={loading}
-              className="w-full py-4 bg-[#4E2C8B] hover:bg-[#3b2169] text-white font-bold rounded uppercase tracking-widest transition-all disabled:opacity-50 font-orbitron"
+              className="w-full py-4 bg-[#4E2C8B] hover:bg-[#3b2169] text-white font-bold rounded uppercase tracking-widest transition-all disabled:opacity-50 font-orbitron shadow-[0_0_15px_rgba(78,44,139,0.3)] hover:shadow-none"
             >
-              {loading ? "Signing In..." : "Sign In"}
+              {loading ? "Authenticating..." : "Sign In"}
             </button>
           </form>
 

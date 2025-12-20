@@ -41,7 +41,7 @@ export default function Hero() {
           <h1 className="font-orbitron font-black text-5xl md:text-7xl lg:text-8xl text-white mb-8 leading-none drop-shadow-2xl">
             COMMISSIONED.<br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#4E2C8B] to-[#924dbf]">
-              NOT
+             NOT
             </span>
             <br></br>
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#4E2C8B] to-[#924dbf]">

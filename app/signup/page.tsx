@@ -8,32 +8,33 @@ import { useRouter } from "next/navigation";
 import { FcGoogle } from "react-icons/fc";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { supabase } from "@/lib/supabaseClient";
+import { toast } from "sonner"; // <--- IMPORT SONNER
 
 export default function SignUpPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   
   // Toggle states
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [formData, setFormData] = useState({
-    username: "", // Changed from fullName
+    username: "", 
     email: "",
     phone: "",
     password: "",
-    confirmPassword: "" // New field
+    confirmPassword: "" 
   });
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError("");
 
     // VALIDATION: Check if passwords match
     if (formData.password !== formData.confirmPassword) {
-        setError("Passwords do not match.");
+        toast.error("Password Mismatch", {
+            description: "The passwords you entered do not match."
+        });
         setLoading(false);
         return;
     }
@@ -44,7 +45,7 @@ export default function SignUpPage() {
         password: formData.password,
         options: {
           data: {
-            full_name: formData.username, // Save username as full_name
+            full_name: formData.username, 
             phone: formData.phone
           },
         },
@@ -53,12 +54,24 @@ export default function SignUpPage() {
       if (error) throw error;
 
       if (data.user) {
-        alert("Account Created Successfully! Please Log In.");
-        router.push("/signin");
+        // CINEMATIC SUCCESS TOAST
+        toast.success("Account Created", {
+            description: "Welcome to Rig Builders! Redirecting to login...",
+            duration: 4000
+        });
+        
+        // Slight delay so they see the success message before moving
+        setTimeout(() => {
+            router.push("/signin");
+        }, 2000);
       }
     } catch (err: any) {
       console.error("Sign Up Failed:", err.message);
-      setError(err.message || "Registration failed.");
+      
+      // CINEMATIC ERROR TOAST
+      toast.error("Registration Failed", {
+          description: err.message || "Could not create your account."
+      });
     } finally {
       setLoading(false);
     }
@@ -66,7 +79,6 @@ export default function SignUpPage() {
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
-    setError("");
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -76,7 +88,9 @@ export default function SignUpPage() {
       });
       if (error) throw error;
     } catch (err: any) {
-      setError(err.message);
+      toast.error("Connection Failed", {
+          description: err.message || "Google sign in failed."
+      });
       setLoading(false);
     }
   };
@@ -85,7 +99,7 @@ export default function SignUpPage() {
     <div className="bg-[#121212] min-h-screen text-white font-saira flex flex-col">
       <Navbar />
       
-      <div className="flex-grow pt-28 pb-12 px-6 flex items-center justify-center w-full relative z-10">
+      <div className="flex-grow pt-16 pb-12 px-6 flex items-center justify-center w-full relative z-10">
         
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-64 h-64 bg-[#4E2C8B]/20 blur-[100px] rounded-full pointer-events-none"></div>
 
@@ -96,11 +110,7 @@ export default function SignUpPage() {
             <p className="text-[#A0A0A0] text-sm">Commission your masterpiece today.</p>
           </div>
 
-          {error && (
-            <div className="mb-6 p-3 bg-red-900/50 border border-red-800 rounded text-red-300 text-sm text-center font-bold">
-              {error}
-            </div>
-          )}
+          {/* ERROR BOX REMOVED - Now handled by Toast */}
 
           <form onSubmit={handleSignUp} className="space-y-4">
             {/* Username */}
@@ -192,7 +202,7 @@ export default function SignUpPage() {
             <div className="pt-4">
                 <button 
                     disabled={loading}
-                    className="w-full py-4 bg-[#4E2C8B] hover:bg-[#3b2169] text-white font-bold rounded uppercase tracking-widest transition-all disabled:opacity-50 font-orbitron"
+                    className="w-full py-4 bg-[#4E2C8B] hover:bg-[#3b2169] text-white font-bold rounded uppercase tracking-widest transition-all disabled:opacity-50 font-orbitron shadow-[0_0_15px_rgba(78,44,139,0.3)] hover:shadow-none"
                 >
                     {loading ? "Creating Account..." : "Sign Up"}
                 </button>

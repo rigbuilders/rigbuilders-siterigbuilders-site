@@ -5,6 +5,7 @@ import "./globals.css";
 import { CartProvider } from "./context/CartContext"; 
 import { ModalProvider } from "./context/ModalContext"; 
 import GlobalModal from "@/components/ui/GlobalModal";   
+import { Toaster } from 'sonner';
 
 const saira = Saira({
   subsets: ["latin"],
@@ -51,11 +52,19 @@ export default function RootLayout({
       >
         {/* WRAP THE APP IN CART PROVIDER */}
         <ModalProvider>
-        <CartProvider>
-          <GlobalModal />
-          {children}
-        </CartProvider>
+          <CartProvider>
+            <GlobalModal />
+            {children}
+          </CartProvider>
         </ModalProvider>
+        
+        {/* UPDATED TOASTER CONFIGURATION */}
+        <Toaster 
+          position="top-center" 
+          theme="dark" 
+          richColors 
+          closeButton
+        />
       </body>
     </html>
   );

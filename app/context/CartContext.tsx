@@ -58,7 +58,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
         category: product.category
       }];
     });
-    alert(`${product.name} added to cart!`);
+    
+    // --- ALERT REMOVED ---
+    // We removed the window.alert() here. 
+    // Now, the Page component (UI) handles the notification using 'sonner'.
   };
 
   const removeFromCart = (id: string) => {
