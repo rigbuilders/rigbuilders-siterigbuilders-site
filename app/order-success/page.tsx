@@ -7,14 +7,14 @@ import { useEffect, useState, Suspense } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
 import { Reveal, StaggerGrid, StaggerItem } from "@/components/ui/MotionWrappers";
-import { FaCheckCircle, FaArrowRight, FaCube, FaShoppingCart } from "react-icons/fa";
+import { FaCheckCircle, FaArrowRight, FaCube } from "react-icons/fa";
 
 function OrderSuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const orderId = searchParams.get("id");
 
-  const [order, setOrder] = useState<any>(null);
+  const [orderItems, setOrderItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [recommendations, setRecommendations] = useState<any[]>([]);
 
@@ -25,22 +25,54 @@ function OrderSuccessContent() {
     }
 
     const fetchOrderDetails = async () => {
-      // 1. Attempt to fetch the Order
-      const { data: orderData, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('display_id', orderId)
-        .single();
+      console.log("🔍 Checking Order ID:", orderId);
+      let itemsToDisplay: any[] = [];
+      let foundSource = "";
 
-      if (!error && orderData) {
-         setOrder(orderData);
-      } else {
-         // Fallback by UUID
-         const { data: orderUUID } = await supabase.from('orders').select('*').eq('id', orderId).single();
-         if (orderUUID) setOrder(orderUUID);
+      // STRATEGY 1: CHECK LOCAL STORAGE (Fastest & Guaranteed for Guests)
+      // We prioritize this because it contains exactly what was just in the cart
+      try {
+          const saved = localStorage.getItem("latestOrder");
+          if (saved) {
+              const parsed = JSON.parse(saved);
+              // We check if the saved order ID matches the URL ID
+              if (parsed.display_id === orderId || parsed.order_id === orderId) {
+                  console.log("✅ Found items in LocalStorage");
+                  itemsToDisplay = parsed.items || [];
+                  foundSource = "local";
+              }
+          }
+      } catch (e) {
+          console.error("LocalStorage Error:", e);
       }
 
-      // 2. Fetch Recommendations (Random "Complete Setup" items)
+      // STRATEGY 2: CHECK SUPABASE (If LocalStorage missed)
+      if (itemsToDisplay.length === 0) {
+          console.log("📡 Fetching from Database...");
+          const { data: orderData, error } = await supabase
+            .from('orders')
+            .select('*')
+            .eq('display_id', orderId) // Try Display ID (RB-2025-...)
+            .single();
+
+          if (orderData && orderData.items && orderData.items.length > 0) {
+             console.log("✅ Found items in Database");
+             itemsToDisplay = orderData.items;
+             foundSource = "db";
+          } else {
+             // Fallback: Try checking by UUID just in case
+             const { data: orderUUID } = await supabase.from('orders').select('*').eq('id', orderId).single();
+             if (orderUUID && orderUUID.items) {
+                 itemsToDisplay = orderUUID.items;
+                 foundSource = "db-uuid";
+             }
+          }
+      }
+
+      console.log(`🎉 Final Items to Show (${foundSource}):`, itemsToDisplay);
+      setOrderItems(itemsToDisplay);
+
+      // 3. Fetch Recommendations
       const { data: products } = await supabase
         .from('products')
         .select('id, name, price, image_url, category, brand')
@@ -54,7 +86,6 @@ function OrderSuccessContent() {
     fetchOrderDetails();
   }, [orderId, router]);
 
-  // LOADING STATE
   if (loading) return (
     <div className="min-h-screen bg-[#121212] flex flex-col items-center justify-center text-white pt-24">
         <div className="text-brand-purple font-orbitron text-xl animate-pulse tracking-widest mb-4">SECURING ASSETS...</div>
@@ -76,12 +107,17 @@ function OrderSuccessContent() {
                 <p className="text-brand-silver text-lg max-w-xl mx-auto font-light">
                     Your equipment has been secured and is entering the assembly queue.
                 </p>
+                {/* Debug Helper: If empty, show why */}
+                {orderItems.length === 0 && (
+                    <div className="mt-4 text-xs text-brand-silver/30 font-mono">
+                        No item data retrieved. ID: {orderId}
+                    </div>
+                )}
             </Reveal>
         </div>
 
         {/* --- SECTION: CINEMATIC ARMORY (Purchased Items) --- */}
-        {/* Only show if we successfully fetched the order items */}
-        {order && order.items && order.items.length > 0 && (
+        {orderItems.length > 0 && (
             <div className="max-w-7xl mx-auto mb-32">
                 <Reveal>
                     <div className="flex items-center gap-4 mb-10 border-b border-white/5 pb-4">
@@ -93,9 +129,9 @@ function OrderSuccessContent() {
                 </Reveal>
 
                 <StaggerGrid className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {order.items.map((item: any, i: number) => (
+                    {orderItems.map((item: any, i: number) => (
                         <StaggerItem key={i}>
-                            <div className="group relative h-[350px] bg-[#151515] border border-white/5 rounded-2xl overflow-hidden hover:border-brand-purple/50 transition-all duration-500 flex flex-col">
+                            <div className="group relative h-[400px] bg-[#151515] border border-white/5 rounded-2xl overflow-hidden hover:border-brand-purple/50 transition-all duration-500 flex flex-col shadow-2xl">
                                 
                                 {/* Image Stage */}
                                 <div className="flex-grow relative flex items-center justify-center p-8 bg-gradient-to-b from-white/5 to-transparent">
@@ -120,9 +156,14 @@ function OrderSuccessContent() {
                                                 {item.name}
                                             </h3>
                                         </div>
-                                        <span className="bg-white/10 text-white text-[10px] font-bold px-2 py-1 rounded border border-white/10">
-                                            x{item.quantity}
-                                        </span>
+                                        <div className="flex flex-col items-end">
+                                            <span className="bg-white/10 text-white text-[10px] font-bold px-2 py-1 rounded border border-white/10 mb-1">
+                                                QTY: {item.quantity}
+                                            </span>
+                                            <span className="text-brand-silver font-saira text-sm">
+                                                ₹{item.price.toLocaleString("en-IN")}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
