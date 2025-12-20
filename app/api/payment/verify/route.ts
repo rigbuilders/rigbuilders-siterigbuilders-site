@@ -1,9 +1,30 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin"; // <--- CHANGED: Using Admin Client
+import Razorpay from "razorpay";
 import crypto from "crypto";
+import { createClient } from "@supabase/supabase-js";
 
-export async function POST(request: Request) {
+// Initialize Razorpay
+const razorpay = new Razorpay({
+  key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+  key_secret: process.env.RAZORPAY_KEY_SECRET!,
+});
+
+// Initialize Supabase Admin (Required to create users without them confirming email first)
+// You need the SERVICE_ROLE_KEY for this, not the Anon key.
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!, 
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+);
+
+export async function POST(req: Request) {
   try {
+    const body = await req.json();
     const { 
       orderCreationId, 
       razorpayPaymentId, 
@@ -11,112 +32,114 @@ export async function POST(request: Request) {
       cartItems, 
       userId, 
       totalAmount, 
-      shippingAddress 
-    } = await request.json();
+      shippingAddress, 
+      isGuest,
+      autoSaveAddress
+    } = body;
 
-    // 1. SECURITY CHECK: Verify Signature
-    const shasum = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET || "");
+    // 1. VERIFY SIGNATURE (Security Check)
+    const shasum = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!);
     shasum.update(`${orderCreationId}|${razorpayPaymentId}`);
     const digest = shasum.digest("hex");
 
     if (digest !== razorpaySignature) {
-      return NextResponse.json({ error: "Transaction not legit!" }, { status: 400 });
+      return NextResponse.json({ msg: "failure", error: "Invalid Signature" }, { status: 400 });
     }
 
-    // --- PAYMENT IS CONFIRMED REAL. NOW WE SAVE TO DB ---
+    // 2. HANDLE USER ACCOUNT (Guest vs Registered)
+    let finalUserId = userId;
+    let accountCreated = false;
+    let tempPassword = "";
 
-    // 2. Create the Main Order Entry in OPS
-    const orderDisplayId = `RB-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    if (isGuest) {
+        // Check if user already exists (just in case)
+        const { data: existingUser } = await supabaseAdmin
+            .from('users') // Or check auth.users depending on your setup
+            .select('id')
+            .eq('email', shippingAddress.email)
+            .single();
 
-    // Guest Info Logic: Ensure we handle missing user ID for guest checkouts
-    const finalCustomerId = userId && userId !== 'guest' ? userId : null;
+        if (existingUser) {
+            finalUserId = existingUser.id;
+        } else {
+            // --- AUTO-CREATE ACCOUNT LOGIC ---
+            
+            // A. Generate a random temporary password
+            tempPassword = Math.random().toString(36).slice(-8) + "Rig!23"; 
+            
+            // B. Create User in Supabase Auth
+            const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+                email: shippingAddress.email,
+                password: tempPassword,
+                email_confirm: true, // Auto-confirm email so they can login immediately
+                user_metadata: {
+                    full_name: shippingAddress.fullName,
+                    phone: shippingAddress.phone
+                }
+            });
 
-    // IMPORTANT: Using 'supabaseAdmin' here bypasses RLS policies
-    const { data: orderData, error: orderError } = await supabaseAdmin
-      .from('orders_ops')
-      .insert({
-        order_display_id: orderDisplayId,
-        customer_id: finalCustomerId, 
-        source: 'website',
-        status: 'payment_received',
-        total_amount: totalAmount,
-        payment_status: 'paid',
-        guest_info: shippingAddress,
-        note: `Pay ID: ${razorpayPaymentId}`
-      })
-      .select()
-      .single();
+            if (createError) {
+                console.error("Auto-Account Creation Failed:", createError);
+                // We don't stop the order, but we log the error. 
+                // The order will be assigned to 'guest' or null.
+            } else {
+                finalUserId = newUser.user.id;
+                accountCreated = true;
+                
+                // TODO: TRIGGER EMAIL HERE (SendGrid / Resend)
+                // Send 'tempPassword' to user's email: shippingAddress.email
+                console.log(`[EMAIL TRIGGER] Send password ${tempPassword} to ${shippingAddress.email}`);
+            }
+        }
+    }
+
+    // 3. CREATE ORDER IN DATABASE
+    const { data: order, error: orderError } = await supabaseAdmin
+        .from('orders')
+        .insert({
+            user_id: finalUserId !== 'guest' ? finalUserId : null, // Link to user if exists
+            customer_email: shippingAddress.email, // Always save email for contact
+            amount: totalAmount,
+            items: cartItems, // JSON of products
+            shipping_address: shippingAddress, // JSON of address
+            payment_id: razorpayPaymentId,
+            order_id: orderCreationId,
+            status: 'paid',
+            display_id: `ORD-${Math.floor(100000 + Math.random() * 900000)}` // Friendly ID like ORD-837192
+        })
+        .select()
+        .single();
 
     if (orderError) throw orderError;
 
-    // 3. RECIPE EXPLOSION: Convert Cart to Procurement Items
-    const procurementRows = [];
-
-    for (const item of cartItems) {
-      // SCENARIO A: It's a Pre-built (Fetch Recipe)
-      if (item.category === 'prebuilt') {
-          // Use Admin client for reading products too, just to be safe
-          const { data: productData } = await supabaseAdmin
-              .from('products')
-              .select('specs')
-              .eq('id', item.id)
-              .single();
-              
-          if (productData && productData.specs) {
-              const specs = productData.specs;
-              // Map specs to procurement rows
-              const parts = [
-                  { cat: 'cpu', name: specs["Processor"] },
-                  { cat: 'gpu', name: specs["Graphics Card"] },
-                  { cat: 'mobo', name: specs["Motherboard"] },
-                  { cat: 'ram', name: specs["Memory"] },
-                  { cat: 'storage', name: specs["Storage"] },
-                  { cat: 'psu', name: specs["Power Supply"] },
-                  { cat: 'cooler', name: specs["Cooling"] },
-                  { cat: 'cabinet', name: specs["Cabinet"] },
-              ];
-
-              parts.forEach(part => {
-                  if (part.name) {
-                      procurementRows.push({
-                          order_id: orderData.id,
-                          product_name: part.name,
-                          category: part.cat,
-                          status: 'pending', 
-                          distributor_name: null,
-                          cost_price: 0
-                      });
-                  }
-              });
-          }
-      } 
-      // SCENARIO B: Regular Component
-      else {
-          procurementRows.push({
-              order_id: orderData.id,
-              product_name: item.name,
-              sku: item.id,
-              category: item.category,
-              status: 'pending',
-              distributor_name: null,
-              cost_price: 0
-          });
-      }
+    // 4. AUTO-SAVE ADDRESS (If requested and user exists)
+    if (autoSaveAddress && finalUserId !== 'guest') {
+        const { error: addrError } = await supabaseAdmin
+            .from('user_addresses')
+            .insert({
+                user_id: finalUserId,
+                label: "Home (Auto-Saved)",
+                full_name: shippingAddress.fullName,
+                phone: shippingAddress.phone,
+                address_line1: shippingAddress.addressLine1,
+                address_line2: shippingAddress.addressLine2,
+                city: shippingAddress.city,
+                state: shippingAddress.state,
+                pincode: shippingAddress.pincode,
+                is_default: true
+            });
+            // We ignore duplicates/errors here to not block the main flow
     }
 
-    // 4. Bulk Insert (Using Admin Client)
-    if (procurementRows.length > 0) {
-      await supabaseAdmin.from('procurement_items').insert(procurementRows);
-    }
-
-    return NextResponse.json({ 
-        msg: "success", 
-        orderId: orderData.id, 
-        displayId: orderDisplayId 
+    return NextResponse.json({
+      msg: "success",
+      orderId: order.id,
+      displayId: order.display_id,
+      accountCreated: accountCreated, // Frontend uses this to show the specific Toast
     });
 
   } catch (error: any) {
-    console.error("Verification Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Payment Verification Error:", error);
+    return NextResponse.json({ msg: "failure", error: error.message }, { status: 500 });
   }
 }
