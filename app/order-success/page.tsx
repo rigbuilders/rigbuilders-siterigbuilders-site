@@ -50,16 +50,11 @@ function OrderSuccessContent() {
                 </h1>
                 <p className="text-brand-silver text-lg max-w-xl mx-auto font-light mb-8">
                     Your equipment has been secured and is entering the assembly queue.
-                    A confirmation email with full details has been sent to you.
+                    A confirmation email with full details has been sent to your email.
                 </p>
 
                 {/* --- ORDER ID DISPLAY --- */}
-                <div className="inline-block bg-[#1A1A1A] border border-white/10 px-8 py-4 rounded-lg shadow-lg">
-                    <p className="text-brand-silver text-[10px] uppercase tracking-[0.25em] mb-2 font-bold">Reference ID</p>
-                    <p className="text-white font-orbitron text-2xl md:text-3xl font-bold tracking-widest select-all">
-                        {orderId}
-                    </p>
-                </div>
+              
             </Reveal>
         </div>
 
