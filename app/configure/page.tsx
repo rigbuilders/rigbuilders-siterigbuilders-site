@@ -238,7 +238,7 @@ export default function ConfiguratorPage() {
 
       <Navbar />
       
-      <div className="flex-grow pt-32 pb-12 px-4 md:px-8 2xl:px-[100px] relative z-10">
+      <div className="flex-grow pt-12 pb-12 px-4 md:px-8 2xl:px-[100px] relative z-10">
         <Reveal>
             <h1 className="font-orbitron text-4xl font-bold mb-8 text-white uppercase tracking-wide text-center lg:text-left">
                 System <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-purple to-brand-blue">Configurator</span>
