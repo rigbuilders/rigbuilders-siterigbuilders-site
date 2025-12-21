@@ -137,14 +137,7 @@ export default function CategoryPage({ params }: { params: Promise<{ category: s
       <Navbar />
       {/* <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} /> <-- REMOVED */}
 
-      <section className="pt-[50px] pb-12 px-[20px] lg:px-[80px] 2xl:px-[100px] border-b border-white/5 relative z-10 bg-[#121212]">
-        <h1 className="font-orbitron text-4xl md:text-5xl font-bold uppercase tracking-tighter mb-2">
-            {categoryParam === "cpu" ? "Processors" : categoryParam.toUpperCase()}
-        </h1>
-        <p className="text-brand-silver font-saira tracking-wide">
-             High-Performance Components. Precision Engineering.
-        </p>
-      </section>
+     
 
       <div className="flex flex-col lg:flex-row min-h-screen relative z-10">
         <aside className="w-full lg:w-[300px] xl:w-[350px] border-r border-white/5 p-8 lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto bg-[#0A0A0A]">
