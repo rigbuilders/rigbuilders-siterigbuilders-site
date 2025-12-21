@@ -179,8 +179,7 @@ export default function Navbar() {
   return (
     <>
     <nav className="sticky top-0 left-0 w-full z-50 bg-[#000000] border-b border-white/10 font-orbitron" onMouseLeave={() => setActiveMenu(null)}>
-      <div className="h-[80px] px-6 lg:px-[80px] 2xl:px-[100px] flex items-center justify-between relative bg-[#121212] z-50">
-        
+      <div className="h-[80px] px-[30px] flex items-center justify-between relative bg-[#121212] z-50">
         {/* MOBILE HAMBURGER */}
         <div className="lg:hidden flex items-center">
             <button onClick={() => setMobileMenuOpen(true)} className="text-white text-2xl p-2"><FaBars /></button>
@@ -197,36 +196,39 @@ export default function Navbar() {
             <button onClick={() => setMobileSearchOpen(true)} className="text-white text-xl p-2"><FaSearch /></button>
         </div>
 
-        {/* DESKTOP NAV LINKS */}
-        <div className="hidden lg:flex items-center h-full gap-12 text-[15px] font-bold tracking-widest text-white">
-          {["products", "desktops", "accessories", "support"].map((menu) => (
-              <div key={menu} className="h-full flex items-center relative group" onMouseEnter={() => setActiveMenu(menu)}>
-                <Link href={`/${menu}`} className="flex items-center h-full px-2 cursor-pointer uppercase hover:text-brand-purple transition-colors">{menu}</Link>
-                {/* Underline attached to bottom */}
-                <span className={`absolute bottom-0 left-0 w-full h-[3px] bg-brand-purple transition-transform duration-200 origin-center ${activeMenu === menu ? "scale-x-100" : "scale-x-0"}`}></span>
-              </div>
-          ))}
-        </div>
-
-        {/* DESKTOP RIGHT ICONS */}
-        <div className="hidden lg:flex items-center justify-center h-full space-x-[30px]">
-          <Link href="/cart" className="relative group p-2 hover:opacity-80"><Image src="/icons/navbar/cart.png" alt="Cart" width={24} height={24} /></Link>
-
-          {/* User Icon */}
-          <div className="relative h-full flex items-center group" onMouseEnter={() => setActiveMenu("user")} onMouseLeave={() => setActiveMenu(null)}>
-            <button className="p-2 hover:opacity-80"><Image src="/icons/navbar/User Account.svg" alt="Account" width={24} height={24} /></button>
-            {activeMenu === "user" && <UserAccountMenu user={user} />}
-          </div>
-
-          {/* Search Icon */}
-          <div className="relative h-full flex items-center group" onMouseEnter={() => setActiveMenu("search")} onMouseLeave={() => setActiveMenu(null)}>
-             <button className="p-2 hover:opacity-80"><Image src="/icons/navbar/search.svg" alt="Search" width={24} height={24} /></button>
-             {activeMenu === "search" && <SearchMenu />}
-          </div>
+        {/* DESKTOP RIGHT SECTION (Links + Icons) */}
+        <div className="hidden lg:flex items-center h-full gap-[35px]">
           
-          <Link href="/configure">
-            <button className="border border-white text-white w-[150px] h-[36px] text-[11px] font-bold tracking-[0.15em] hover:bg-white hover:text-[#121212] transition-all uppercase flex items-center justify-center">BUILD YOURS</button>
-          </Link>
+          {/* NAV LINKS */}
+          <div className="flex items-center gap-[35px] text-[15px] font-bold tracking-widest text-white h-full">
+            {["products", "desktops", "accessories", "support"].map((menu) => (
+                <div key={menu} className="h-full flex items-center relative group" onMouseEnter={() => setActiveMenu(menu)}>
+                  <Link href={`/${menu}`} className="flex items-center h-full px-2 cursor-pointer uppercase hover:text-brand-purple transition-colors">{menu}</Link>
+                  <span className={`absolute bottom-0 left-0 w-full h-[3px] bg-brand-purple transition-transform duration-200 origin-center ${activeMenu === menu ? "scale-x-100" : "scale-x-0"}`}></span>
+                </div>
+            ))}
+          </div>
+
+          {/* RIGHT ICONS */}
+          <div className="flex items-center gap-[20px] h-full">
+            <Link href="/cart" className="relative group p-2 hover:opacity-80"><Image src="/icons/navbar/cart.png" alt="Cart" width={28} height={28} /></Link>
+
+            {/* User Icon */}
+            <div className="relative h-full flex items-center group" onMouseEnter={() => setActiveMenu("user")} onMouseLeave={() => setActiveMenu(null)}>
+              <button className="p-2 hover:opacity-80"><Image src="/icons/navbar/User Account.svg" alt="Account" width={26} height={26} /></button>
+              {activeMenu === "user" && <UserAccountMenu user={user} />}
+            </div>
+
+            {/* Search Icon */}
+            <div className="relative h-full flex items-center group" onMouseEnter={() => setActiveMenu("search")} onMouseLeave={() => setActiveMenu(null)}>
+              <button className="p-2 hover:opacity-80"><Image src="/icons/navbar/search.svg" alt="Search" width={28} height={28} /></button>
+              {activeMenu === "search" && <SearchMenu />}
+            </div>
+            
+            <Link href="/configure">
+              <button className="border border-white text-white w-[150px] h-[36px] text-[11px] font-bold tracking-[0.15em] hover:bg-white hover:text-[#121212] transition-all uppercase flex items-center justify-center">BUILD YOURS</button>
+            </Link>
+          </div>
         </div>
       </div>
 
