@@ -399,7 +399,7 @@ export default function Navbar() {
         >
             <div className="flex justify-between items-center mb-8 border-b border-white/10 pb-4">
                 <div className="relative h-10 w-10">
-                    <Image src="/icons/navbar/white logo icon.svg" alt="Logo" fill className="object-contain" />
+                    <Image src="/icons/navbar/logo.svg" alt="Logo" fill className="object-contain" />
                 </div>
                 <button onClick={() => setMobileMenuOpen(false)} className="text-white text-2xl"><FaTimes /></button>
             </div>
