@@ -4,13 +4,16 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'images.unsplash.com',
+        hostname: '**', // 🟢 ALLOWS ALL EXTERNAL IMAGES
       },
       {
         protocol: 'https',
-        hostname: 'cdn.pixabay.com', // If using external video thumbnails
+        hostname: 'images.unsplash.com',  
       },
-      // Add your own bucket later (e.g., supabase.co)
+      {
+        protocol: 'https',
+        hostname: 'cdn.pixabay.com',
+      },
     ],
   },
 };

@@ -188,7 +188,7 @@ export default function Navbar() {
         {/* LOGO */}
         <Link href="/" className="flex-shrink-0 flex items-center justify-center">
            <div className="hidden lg:block relative h-10 w-40"><Image src="/icons/navbar/logo.png" alt="Rig Builders" fill className="object-contain object-left" priority /></div>
-           <div className="lg:hidden relative h-10 w-10"><Image src="/icons/navbar/white logo icon.svg" alt="Rig Builders" fill className="object-contain" priority /></div>
+           <div className="lg:hidden relative h-15 w-15"><Image src="/icons/navbar/white logo icon.svg" alt="Rig Builders" fill className="object-contain" priority /></div>
         </Link>
 
         {/* MOBILE SEARCH */}

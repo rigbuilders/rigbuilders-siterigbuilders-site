@@ -140,11 +140,7 @@ export default function DesktopsPage() {
       <Navbar />
       
       {/* HEADER SECTION */}
-      <section className="pt-[50px] pb-12 px-[80px] 2xl:px-[100px] border-b border-white/5">
-        <h1 className="font-orbitron text-5xl font-bold uppercase tracking-tighter mb-2">Desktops</h1>
-        <p className="text-brand-silver font-saira tracking-wide">Cinematic Performance. Precision Engineering.</p>
-      </section>
-
+     
       <div className="flex flex-col lg:flex-row min-h-screen">
           
         {/* --- LEFT SIDEBAR (STICKY) --- */}

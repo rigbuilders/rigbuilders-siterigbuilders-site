@@ -78,14 +78,18 @@ export default function AccessoriesPage() {
           {accessoryCategories.map((cat, index) => (
             <Link key={cat.id} href={`/products/${cat.id}`} className="group relative h-[400px] lg:h-[500px] overflow-hidden border-b border-white/5 md:border-r md:odd:border-r-white/5 md:even:border-r-0">
               
-              {/* --- 1. BACKGROUND IMAGE --- */}
+              {/* --- 1. BACKGROUND IMAGE (OPTIMIZED) --- */}
               <div className="absolute inset-0 w-full h-full">
                 <Image 
                     src={cat.image} 
                     alt={cat.name} 
                     fill 
+                    // 🟢 PERFORMANCE UPGRADE:
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    priority={index < 2} // Loads top 2 images instantly
                     className="object-cover transition-transform duration-[1.5s] ease-out group-hover:scale-110"
                 />
+                
                 {/* Dark Overlay (Fades slightly on hover) */}
                 <div className="absolute inset-0 bg-black/60 group-hover:bg-black/40 transition-colors duration-500"></div>
                 
