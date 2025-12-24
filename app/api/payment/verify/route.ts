@@ -107,15 +107,29 @@ export async function POST(req: Request) {
     const { data: order, error: orderError } = await supabaseAdmin
         .from('orders')
         .insert({
-            user_id: dbUserId, // Make sure your DB allows NULL here!
+            // 1. User & ID
+            user_id: dbUserId,
+            display_id: displayId,
+            
+            // 2. Contact Info (MISSING BEFORE)
+            full_name: shippingAddress.fullName,
             email: shippingAddress.email,
+            phone: shippingAddress.phone, // ✅ ADDED: Matches 'phone' column in DB
+            
+            // 3. Address Data
+            // We save the full JSON object to 'shipping_address'
+            shipping_address: shippingAddress,
+            // We ALSO save a simple string to 'address' to satisfy that column
+            address: `${shippingAddress.addressLine1}, ${shippingAddress.city}, ${shippingAddress.pincode}`, // ✅ ADDED
+
+            // 4. Order Details
             total_amount: totalAmount,
             items: cartItems,
-            shipping_address: shippingAddress,
-            payment_id: razorpayPaymentId,
-            order_id: orderCreationId,
             status: 'paid',
-            display_id: displayId
+            
+            // 5. Payment References
+            payment_id: razorpayPaymentId,
+            order_id: orderCreationId
         })
         .select()
         .single();
