@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import Razorpay from "razorpay";
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
+import { Resend } from "resend"; 
+import OrderConfirmationEmail from "@/components/emails/OrderConfirmationEmail"; 
 
 // Initialize Razorpay
 const razorpay = new Razorpay({
@@ -9,8 +11,12 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET!,
 });
 
-// Initialize Supabase Admin (Required to create users without them confirming email first)
-// You need the SERVICE_ROLE_KEY for this, not the Anon key.
+// Initialize Resend (Safe Mode)
+const resend = process.env.RESEND_API_KEY 
+  ? new Resend(process.env.RESEND_API_KEY) 
+  : null;
+
+// Initialize Supabase Admin (Bypasses Row Level Security)
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!, 
@@ -23,6 +29,8 @@ const supabaseAdmin = createClient(
 );
 
 export async function POST(req: Request) {
+  console.log("🚨 PAYMENT VERIFICATION STARTED"); 
+
   try {
     const body = await req.json();
     const { 
@@ -37,109 +45,116 @@ export async function POST(req: Request) {
       autoSaveAddress
     } = body;
 
-    // 1. VERIFY SIGNATURE (Security Check)
+    // --- STEP 1: VERIFY SIGNATURE (Security Check) ---
     const shasum = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!);
     shasum.update(`${orderCreationId}|${razorpayPaymentId}`);
     const digest = shasum.digest("hex");
 
     if (digest !== razorpaySignature) {
+      console.error("❌ Invalid Signature");
       return NextResponse.json({ msg: "failure", error: "Invalid Signature" }, { status: 400 });
     }
 
-    // 2. HANDLE USER ACCOUNT (Guest vs Registered)
-    let finalUserId = userId;
+    // --- STEP 2: HANDLE USER (Fail-Safe) ---
+    // We wrap this in try/catch so if user creation fails, we still save the order as Guest
+    let finalUserId = userId; 
     let accountCreated = false;
-    let tempPassword = "";
 
-    if (isGuest) {
-        // Check if user already exists (just in case)
-        const { data: existingUser } = await supabaseAdmin
-            .from('users') // Or check auth.users depending on your setup
-            .select('id')
-            .eq('email', shippingAddress.email)
-            .single();
+    try {
+      if (isGuest) {
+          // Check if email already exists
+          const { data: existingUser } = await supabaseAdmin
+              .from('users')
+              .select('id')
+              .eq('email', shippingAddress.email)
+              .single();
 
-        if (existingUser) {
-            finalUserId = existingUser.id;
-        } else {
-            // --- AUTO-CREATE ACCOUNT LOGIC ---
-            
-            // A. Generate a random temporary password
-            tempPassword = Math.random().toString(36).slice(-8) + "Rig!23"; 
-            
-            // B. Create User in Supabase Auth
-            const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-                email: shippingAddress.email,
-                password: tempPassword,
-                email_confirm: true, // Auto-confirm email so they can login immediately
-                user_metadata: {
-                    full_name: shippingAddress.fullName,
-                    phone: shippingAddress.phone
-                }
-            });
+          if (existingUser) {
+              finalUserId = existingUser.id;
+          } else {
+              // Create new user silently
+              const tempPassword = Math.random().toString(36).slice(-8) + "Rig!23"; 
+              const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+                  email: shippingAddress.email,
+                  password: tempPassword,
+                  email_confirm: true,
+                  user_metadata: {
+                      full_name: shippingAddress.fullName,
+                      phone: shippingAddress.phone
+                  }
+              });
 
-            if (createError) {
-                console.error("Auto-Account Creation Failed:", createError);
-                // We don't stop the order, but we log the error. 
-                // The order will be assigned to 'guest' or null.
-            } else {
-                finalUserId = newUser.user.id;
-                accountCreated = true;
-                
-                // TODO: TRIGGER EMAIL HERE (SendGrid / Resend)
-                // Send 'tempPassword' to user's email: shippingAddress.email
-                console.log(`[EMAIL TRIGGER] Send password ${tempPassword} to ${shippingAddress.email}`);
-            }
-        }
+              if (!createError && newUser.user) {
+                  finalUserId = newUser.user.id;
+                  accountCreated = true;
+              } else {
+                  console.error("⚠️ User creation failed (continuing as guest):", createError);
+              }
+          }
+      }
+    } catch (userError) {
+       console.error("⚠️ User Logic Crashed (continuing as guest):", userError);
+       // We ignore the error and proceed to save the order anyway
     }
 
-    // 3. CREATE ORDER IN DATABASE
+    // --- STEP 3: SAVE ORDER (CRITICAL PRIORITY) ---
+    console.log("💾 Attempting to save order to DB...");
+    const displayId = `ORD-${Math.floor(100000 + Math.random() * 900000)}`;
+    
+    // Ensure finalUserId is valid for DB (convert 'guest' string to null)
+    const dbUserId = (finalUserId && finalUserId !== 'guest') ? finalUserId : null;
+
     const { data: order, error: orderError } = await supabaseAdmin
         .from('orders')
         .insert({
-            user_id: finalUserId !== 'guest' ? finalUserId : null, // Link to user if exists
-            customer_email: shippingAddress.email, // Always save email for contact
+            user_id: dbUserId, // Make sure your DB allows NULL here!
+            customer_email: shippingAddress.email,
             amount: totalAmount,
-            items: cartItems, // JSON of products
-            shipping_address: shippingAddress, // JSON of address
+            items: cartItems,
+            shipping_address: shippingAddress,
             payment_id: razorpayPaymentId,
             order_id: orderCreationId,
             status: 'paid',
-            display_id: `ORD-${Math.floor(100000 + Math.random() * 900000)}` // Friendly ID like ORD-837192
+            display_id: displayId
         })
         .select()
         .single();
 
-    if (orderError) throw orderError;
-
-    // 4. AUTO-SAVE ADDRESS (If requested and user exists)
-    if (autoSaveAddress && finalUserId !== 'guest') {
-        const { error: addrError } = await supabaseAdmin
-            .from('user_addresses')
-            .insert({
-                user_id: finalUserId,
-                label: "Home (Auto-Saved)",
-                full_name: shippingAddress.fullName,
-                phone: shippingAddress.phone,
-                address_line1: shippingAddress.addressLine1,
-                address_line2: shippingAddress.addressLine2,
-                city: shippingAddress.city,
-                state: shippingAddress.state,
-                pincode: shippingAddress.pincode,
-                is_default: true
-            });
-            // We ignore duplicates/errors here to not block the main flow
+    if (orderError) {
+        console.error("❌ FATAL DB ERROR:", orderError);
+        // If DB fails, we MUST throw error so client knows
+        throw new Error(`Database Insert Failed: ${orderError.message}`);
     }
 
+    console.log("✅ Order Saved:", order.id);
+
+    // --- STEP 4: SEND EMAIL (Fire & Forget) ---
+    // We do NOT await this. We let it run in background.
+    if (resend) {
+        resend.emails.send({
+            from: 'Rig Builders Support <support@rigbuilders.in>',
+            to: [shippingAddress.email],
+            subject: `Order Confirmed: ${displayId}`,
+            react: OrderConfirmationEmail({
+                customerName: shippingAddress.fullName,
+                orderId: displayId,
+                orderItems: cartItems,
+                totalAmount: totalAmount,
+            }),
+        }).then(() => console.log("📧 Email sent"))
+          .catch((e) => console.error("📧 Email failed:", e));
+    }
+
+    // --- STEP 5: RETURN SUCCESS ---
     return NextResponse.json({
       msg: "success",
       orderId: order.id,
       displayId: order.display_id,
-      accountCreated: accountCreated, // Frontend uses this to show the specific Toast
+      accountCreated: accountCreated,
     });
 
   } catch (error: any) {
-    console.error("Payment Verification Error:", error);
+    console.error("🚨 GLOBAL HANDLER ERROR:", error);
     return NextResponse.json({ msg: "failure", error: error.message }, { status: 500 });
   }
 }
