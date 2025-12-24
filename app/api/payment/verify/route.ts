@@ -109,7 +109,7 @@ export async function POST(req: Request) {
         .insert({
             user_id: dbUserId, // Make sure your DB allows NULL here!
             customer_email: shippingAddress.email,
-            amount: totalAmount,
+            total_amount: totalAmount,
             items: cartItems,
             shipping_address: shippingAddress,
             payment_id: razorpayPaymentId,
