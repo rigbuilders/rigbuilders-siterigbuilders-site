@@ -108,7 +108,7 @@ export async function POST(req: Request) {
         .from('orders')
         .insert({
             user_id: dbUserId, // Make sure your DB allows NULL here!
-            customer_email: shippingAddress.email,
+            email: shippingAddress.email,
             total_amount: totalAmount,
             items: cartItems,
             shipping_address: shippingAddress,
