@@ -10,11 +10,11 @@ export default function ProcurementPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<any[]>([]);
-  const [filter, setFilter] = useState("all");
 
   // State for Inputs
   const [distributorInput, setDistributorInput] = useState<{ [key: string]: string }>({});
   const [costInput, setCostInput] = useState<{ [key: string]: string }>({});
+  const [hsnInput, setHsnInput] = useState<{ [key: string]: string }>({}); // <--- NEW HSN STATE
   const [serialInput, setSerialInput] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
@@ -43,15 +43,17 @@ export default function ProcurementPage() {
   const markOrdered = async (itemId: string) => {
     const dist = distributorInput[itemId];
     const cost = costInput[itemId];
+    const hsn = hsnInput[itemId] || '8471'; // Default to 8471 if empty
 
-    if (!dist || !cost) return alert("Please enter Distributor Name and Cost Price first.");
+    if (!dist || !cost) return alert("Please enter Distributor Name and Cost Price.");
 
     const { error } = await supabase
       .from('procurement_items')
       .update({ 
         status: 'ordered',
         distributor_name: dist,
-        cost_price: parseFloat(cost)
+        cost_price: parseFloat(cost),
+        hsn_code: hsn // <--- SAVING HSN HERE
       })
       .eq('id', itemId);
 
@@ -73,15 +75,6 @@ export default function ProcurementPage() {
 
     if (error) alert("Error updating: " + error.message);
     else fetchItems();
-  };
-
-  // --- UI HELPERS ---
-
-  const getStatusColor = (status: string) => {
-    if (status === 'pending') return 'bg-red-500/20 text-red-500 border-red-500/50';
-    if (status === 'ordered') return 'bg-yellow-500/20 text-yellow-500 border-yellow-500/50';
-    if (status === 'received') return 'bg-green-500/20 text-green-500 border-green-500/50';
-    return 'bg-gray-500/20 text-gray-400';
   };
 
   if (loading) return <div className="min-h-screen bg-[#121212] text-white flex items-center justify-center">Loading Operations...</div>;
@@ -118,23 +111,31 @@ export default function ProcurementPage() {
                         <div className="space-y-2">
                             <input 
                                 placeholder="Distributor Name" 
-                                className="w-full bg-[#121212] border border-white/10 rounded p-2 text-xs"
+                                className="w-full bg-[#121212] border border-white/10 rounded p-2 text-xs text-white"
                                 onChange={e => setDistributorInput({...distributorInput, [item.id]: e.target.value})}
                             />
+                            
+                            {/* HSN CODE INPUT */}
                             <div className="flex gap-2">
                                 <input 
+                                    placeholder="HSN (Def: 8471)" 
+                                    className="w-1/3 bg-[#121212] border border-white/10 rounded p-2 text-xs text-white"
+                                    onChange={e => setHsnInput({...hsnInput, [item.id]: e.target.value})}
+                                />
+                                <input 
                                     type="number"
-                                    placeholder="Cost Price (₹)" 
-                                    className="w-full bg-[#121212] border border-white/10 rounded p-2 text-xs"
+                                    placeholder="Cost (₹)" 
+                                    className="w-2/3 bg-[#121212] border border-white/10 rounded p-2 text-xs text-white"
                                     onChange={e => setCostInput({...costInput, [item.id]: e.target.value})}
                                 />
-                                <button 
-                                    onClick={() => markOrdered(item.id)}
-                                    className="bg-red-500 hover:bg-red-600 text-white p-2 rounded text-xs font-bold w-20 flex items-center justify-center gap-1"
-                                >
-                                    <FaMoneyBillWave /> Buy
-                                </button>
                             </div>
+
+                            <button 
+                                onClick={() => markOrdered(item.id)}
+                                className="w-full bg-red-500 hover:bg-red-600 text-white p-2 rounded text-xs font-bold flex items-center justify-center gap-1 mt-2"
+                            >
+                                <FaMoneyBillWave /> Confirm Purchase
+                            </button>
                         </div>
                     </div>
                 ))}
@@ -154,7 +155,8 @@ export default function ProcurementPage() {
                             <span className="text-xs font-bold text-brand-silver bg-white/5 px-2 py-1 rounded">{item.orders_ops?.order_display_id}</span>
                             <span className="text-[10px] text-brand-silver">from <span className="text-white font-bold">{item.distributor_name}</span></span>
                         </div>
-                        <h3 className="text-sm font-bold text-white mb-3">{item.product_name}</h3>
+                        <h3 className="text-sm font-bold text-white mb-1">{item.product_name}</h3>
+                        <div className="text-[10px] text-gray-500 mb-3">HSN: {item.hsn_code || '8471'}</div>
                         
                         {/* INPUTS FOR RECEIVING */}
                         <div className="space-y-2">
@@ -162,7 +164,7 @@ export default function ProcurementPage() {
                                 <FaBarcode className="absolute left-3 top-2.5 text-brand-silver text-xs" />
                                 <input 
                                     placeholder="Scan Serial Number" 
-                                    className="w-full bg-[#121212] border border-brand-purple/50 rounded p-2 pl-8 text-xs focus:bg-brand-purple/10 transition-colors"
+                                    className="w-full bg-[#121212] border border-brand-purple/50 rounded p-2 pl-8 text-xs focus:bg-brand-purple/10 transition-colors text-white"
                                     onChange={e => setSerialInput({...serialInput, [item.id]: e.target.value})}
                                 />
                             </div>
@@ -195,8 +197,9 @@ export default function ProcurementPage() {
                         <div className="mt-2 text-[10px] text-brand-silver font-mono bg-[#121212] p-1 rounded border border-white/5">
                             SN: {item.serial_number}
                         </div>
-                        <div className="mt-1 text-[10px] text-brand-silver">
-                            Dist: {item.distributor_name}
+                        <div className="mt-1 flex justify-between text-[10px] text-brand-silver">
+                            <span>Dist: {item.distributor_name}</span>
+                            <span>HSN: {item.hsn_code}</span>
                         </div>
                     </div>
                 ))}

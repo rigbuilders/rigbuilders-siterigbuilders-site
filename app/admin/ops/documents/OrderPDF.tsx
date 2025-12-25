@@ -1,229 +1,221 @@
 import React from 'react';
 import { Page, Text, View, Document, StyleSheet, Image } from '@react-pdf/renderer';
 
-// --- STYLING ---
-const brandColor = '#4E2C8B'; // Rig Builders Purple
-const lightGray = '#F5F5F5';
-const darkGray = '#333333';
-const borderColor = '#E0E0E0';
+// --- UTILS: NUMBER TO WORDS ---
+const numberToWords = (n: number): string => {
+  if (n < 0) return "Negative";
+  if (n === 0) return "Zero";
+  
+  const single = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+  const double = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+  
+  const formatTenth = (n: number): string => {
+    let s = n.toString();
+    let t = parseInt(s.substring(0, 1));
+    let u = parseInt(s.substring(1));
+    if (t === 1) return double[u];
+    return tens[t] + (u === 0 ? '' : ' ' + single[u]);
+  }
 
+  if (n < 10) return single[n];
+  if (n < 20) return double[n % 10];
+  if (n < 100) return formatTenth(n);
+  if (n < 1000) return single[Math.floor(n / 100)] + ' Hundred ' + (n % 100 === 0 ? '' : ' and ' + numberToWords(n % 100));
+  if (n < 100000) return numberToWords(Math.floor(n / 1000)) + ' Thousand ' + (n % 1000 === 0 ? '' : ' ' + numberToWords(n % 1000));
+  if (n < 10000000) return numberToWords(Math.floor(n / 100000)) + ' Lakh ' + (n % 100000 === 0 ? '' : ' ' + numberToWords(n % 100000));
+  return numberToWords(Math.floor(n / 10000000)) + ' Crore ' + (n % 10000000 === 0 ? '' : ' ' + numberToWords(n % 10000000));
+}
+
+// --- STYLES ---
 const styles = StyleSheet.create({
-  page: { padding: 30, fontFamily: 'Helvetica', fontSize: 9, color: darkGray, lineHeight: 1.4 },
-  
-  // Header Section
-  header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
-  logoContainer: { width: '50%' },
-  logoText: { fontSize: 26, fontWeight: 'bold', color: brandColor, textTransform: 'uppercase' },
-  logoSub: { fontSize: 8, color: '#666', marginTop: 2 },
-  invoiceTitleContainer: { width: '50%', alignItems: 'flex-end', justifyContent: 'center' },
-  invoiceTitle: { fontSize: 16, fontWeight: 'bold', textTransform: 'uppercase', color: darkGray },
-  
-  // Info Boxes (Bill To / Invoice Details)
-  infoContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, borderTopWidth: 1, borderTopColor: borderColor, paddingTop: 10 },
-  box: { width: '48%' },
-  boxTitle: { fontSize: 9, fontWeight: 'bold', color: brandColor, marginBottom: 4, textTransform: 'uppercase' },
-  text: { fontSize: 9, marginBottom: 2 },
-  
-  // Grid Table
-  table: { width: '100%', marginBottom: 20, borderWidth: 1, borderColor: borderColor, borderRadius: 4 },
-  row: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: borderColor, minHeight: 24, alignItems: 'center' },
-  headerRow: { backgroundColor: brandColor }, // Purple Header
-  headerCell: { color: 'white', fontWeight: 'bold', fontSize: 8, padding: 5, textAlign: 'center' },
-  cell: { padding: 5, fontSize: 8, textAlign: 'center', color: darkGray },
-  
-  // Column Widths
-  col1: { width: '5%' },  // Sr No
-  col2: { width: '45%', textAlign: 'left', paddingLeft: 8 }, // Description
-  col3: { width: '15%' }, // HSN/SAC
-  col4: { width: '10%' }, // Qty
-  col5: { width: '25%', textAlign: 'right', paddingRight: 8 }, // Amount
-
-  // Totals Section
-  totalsContainer: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10 },
-  totalRow: { flexDirection: 'row', justifyContent: 'space-between', width: '40%', marginBottom: 5 },
-  totalLabel: { fontWeight: 'bold', fontSize: 9 },
-  totalValue: { fontSize: 10 },
-  grandTotal: { borderTopWidth: 1, borderTopColor: darkGray, paddingTop: 5, marginTop: 5 },
-  grandTotalText: { fontSize: 12, fontWeight: 'bold', color: brandColor },
-
-  // Footer / Bank / Terms
-  footerContainer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 30, borderTopWidth: 1, borderTopColor: borderColor, paddingTop: 10 },
-  termsBox: { width: '55%' },
-  signBox: { width: '40%', alignItems: 'center', justifyContent: 'flex-end', height: 60 },
-  termText: { fontSize: 7, color: '#666', marginBottom: 2 },
-  boldTerm: { fontSize: 8, fontWeight: 'bold', marginBottom: 2 },
-  
-  // Warranty Page Styles
-  warrantyCard: { borderWidth: 2, borderColor: brandColor, borderRadius: 8, padding: 20, marginTop: 20 },
-  warrantyTitle: { fontSize: 18, fontWeight: 'bold', color: brandColor, textAlign: 'center', marginBottom: 20, textTransform: 'uppercase' },
-  serialRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#eee', paddingVertical: 8 },
+  page: { padding: 25, fontFamily: 'Helvetica', fontSize: 10, lineHeight: 1.3 },
+  container: { border: '1px solid #000' },
+  row: { flexDirection: 'row' },
+  borderBottom: { borderBottom: '1px solid #000' },
+  borderRight: { borderRight: '1px solid #000' },
+  headerLeft: { width: '55%', padding: 10 },
+  headerRight: { width: '45%' },
+  titleBox: { height: 35, justifyContent: 'center', alignItems: 'center', borderBottom: '1px solid #000' },
+  titleText: { fontSize: 14, fontWeight: 'bold' },
+  logo: { width: 120, marginBottom: 5 },
+  labelBold: { fontSize: 8, fontWeight: 'bold', marginTop: 3 },
+  textNormal: { fontSize: 8 },
+  rightInfoBox: { padding: 10, justifyContent: 'center' },
+  idStrip: { flexDirection: 'row', borderBottom: '1px solid #000', backgroundColor: 'transparent' },
+  idCol: { width: '33.33%', padding: 5, borderRight: '1px solid #000' },
+  idText: { fontSize: 9, fontWeight: 'bold', textAlign: 'center' },
+  tableHeader: { flexDirection: 'row', borderBottom: '1px solid #000', backgroundColor: 'transparent', height: 20, alignItems: 'center' },
+  tableRow: { flexDirection: 'row', borderBottom: '1px solid #000', minHeight: 18, alignItems: 'center' },
+  th: { fontSize: 7, fontWeight: 'bold', textAlign: 'center', borderRight: '1px solid #000', height: '100%', padding: 2 },
+  td: { fontSize: 8, textAlign: 'center', borderRight: '1px solid #000', height: '100%', padding: 2 },
+  colSr: { width: '5%' },
+  colDesc: { width: '30%', textAlign: 'left', paddingLeft: 4 },
+  colHsn: { width: '10%' },
+  colQty: { width: '5%' },
+  colUnit: { width: '5%' },
+  colPrice: { width: '10%' },
+  colTax: { width: '9%' },
+  colTax2: { width: '9%' },
+  colTax3: { width: '9%' },
+  colTotal: { width: '13%', borderRight: 'none' },
+  totalRow: { flexDirection: 'row', borderBottom: '1px solid #000', height: 20, alignItems: 'center' },
+  footerSplit: { flexDirection: 'row', borderBottom: '1px solid #000' },
+  footerHalf: { width: '50%', padding: 8 },
+  termsRow: { flexDirection: 'row', borderBottom: '1px solid #000', minHeight: 80 },
+  termsBox: { width: '50%', padding: 8, borderRight: '1px solid #000' },
+  signBox: { width: '50%', padding: 8, justifyContent: 'space-between', alignItems: 'flex-end' },
+  bankBox: { padding: 8, textAlign: 'center' },
+  noteBox: { borderTop: '1px solid #000', padding: 5, textAlign: 'center' }
 });
 
-export const OrderPDF = ({ order, items }: { order: any, items: any[] }) => {
-  // Safe helper to format currency
-  const formatCurrency = (amount: number) => `Rs. ${(amount || 0).toLocaleString("en-IN")}`;
+export const OrderPDF = ({ order }: { order: any }) => {
+  const items = order?.items || [];
+  const taxDetails = order?.tax_details || {};
+  // FIX: Check billing_address OR shipping_address
+  const address = order?.billing_address || order?.shipping_address || {};
+  const date = new Date(order?.created_at || Date.now()).toLocaleDateString('en-IN');
+  const isInterState = (taxDetails.igst > 0); 
 
   return (
     <Document>
-      {/* --- PAGE 1: TAX INVOICE --- */}
       <Page size="A4" style={styles.page}>
-        
-        {/* 1. Header with Logo Area */}
-        <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Text style={styles.logoText}>RIG BUILDERS</Text>
-            <Text style={styles.text}>Tech Hub, Silicon Valley of India</Text>
-            <Text style={styles.text}>Bangalore, Karnataka - 560001</Text>
-            <Text style={styles.text}>GSTIN: 29AAAAA0000A1Z5</Text>
-            <Text style={styles.text}>Email: support@rigbuilders.in</Text>
-          </View>
-          <View style={styles.invoiceTitleContainer}>
-            <Text style={styles.invoiceTitle}>TAX INVOICE</Text>
-            <Text style={{ fontSize: 10, marginTop: 5 }}>Original for Recipient</Text>
-          </View>
-        </View>
+        <View style={styles.container}>
+            {/* 1. HEADER */}
+            <View style={[styles.row, styles.borderBottom]}>
+                <View style={[styles.headerLeft, styles.borderRight]}>
+                    {/* FIX: cache={false} helps with some CORS issues, but best is Base64 */}
+                    <Image 
+                      src="/icons/logo.png" 
+                      style={{ width: 120, height: 40, objectFit: 'contain', marginBottom: 5 }}
+                    />
+                    <Text style={styles.labelBold}>ADDRESS :</Text>
+                    <Text style={styles.textNormal}>MCB Z2 12267, SAHIBZADA JUJHAR SINGH NAGAR,</Text>
+                    <Text style={styles.textNormal}>STREET NO. 3A, BATHINDA, PUNJAB, INDIA - 151001</Text>
+                    <Text style={styles.labelBold}>GSTIN :</Text>
+                    <Text style={styles.textNormal}>03PPSPS3291K1ZV</Text>
+                    <Text style={styles.labelBold}>CONTACT INFORMATION :</Text>
+                    <Text style={styles.textNormal}>PHONE : +91 7707801014</Text>
+                    <Text style={styles.textNormal}>EMAIL : info@rigbuilders.in</Text>
+                </View>
 
-        {/* 2. Billing & Shipping Details */}
-        <View style={styles.infoContainer}>
-          <View style={styles.box}>
-            <Text style={styles.boxTitle}>Billed To:</Text>
-            <Text style={{ ...styles.text, fontWeight: 'bold' }}>{order.guest_info?.name || "Cash Customer"}</Text>
-            <Text style={styles.text}>{order.guest_info?.address || "Counter Sale"}</Text>
-            <Text style={styles.text}>Phone: {order.guest_info?.phone}</Text>
-            <Text style={styles.text}>Email: {order.guest_info?.email}</Text>
-          </View>
-          <View style={styles.box}>
-            <Text style={styles.boxTitle}>Invoice Details:</Text>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={styles.text}>Invoice No:</Text>
-              <Text style={{ ...styles.text, fontWeight: 'bold' }}>{order.order_display_id}</Text>
-            </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={styles.text}>Date:</Text>
-              <Text style={styles.text}>{new Date(order.created_at).toLocaleDateString()}</Text>
-            </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={styles.text}>Place of Supply:</Text>
-              <Text style={styles.text}>Karnataka (29)</Text>
-            </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={styles.text}>Payment Mode:</Text>
-              <Text style={styles.text}>Online / Prepaid</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* 3. The Product Table */}
-        <View style={styles.table}>
-          {/* Header */}
-          <View style={[styles.row, styles.headerRow]}>
-            <Text style={[styles.headerCell, styles.col1]}>#</Text>
-            <Text style={[styles.headerCell, styles.col2]}>Item Description</Text>
-            <Text style={[styles.headerCell, styles.col3]}>HSN/SAC</Text>
-            <Text style={[styles.headerCell, styles.col4]}>Qty</Text>
-            <Text style={[styles.headerCell, styles.col5]}>Amount</Text>
-          </View>
-
-          {/* Rows */}
-          {(items || []).map((item, i) => (
-            <View key={i} style={styles.row}>
-              <Text style={[styles.cell, styles.col1]}>{i + 1}</Text>
-              <View style={[styles.cell, styles.col2]}>
-                  <Text style={{ fontWeight: 'bold' }}>{item.product_name}</Text>
-                  <Text style={{ fontSize: 7, color: '#666', marginTop: 2 }}>Cat: {item.category}</Text>
-              </View>
-              <Text style={[styles.cell, styles.col3]}>8471</Text>
-              <Text style={[styles.cell, styles.col4]}>1</Text>
-              {/* Note: Showing "Included" for components if part of a build, or calculate split price if needed. 
-                  For now using cost_price logic or placeholder if total is aggregated. */}
-              <Text style={[styles.cell, styles.col5]}>-</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* 4. Totals & Bank Info */}
-        <View style={{ flexDirection: 'row' }}>
-            {/* Left Side: Bank Info & Amount in Words */}
-            <View style={{ width: '55%' }}>
-                <Text style={styles.boldTerm}>Bank Details for NEFT/RTGS:</Text>
-                <Text style={styles.text}>Bank Name: HDFC Bank</Text>
-                <Text style={styles.text}>A/c Name: RIG BUILDERS TECHNOLOGIES</Text>
-                <Text style={styles.text}>A/c No: 50200012345678</Text>
-                <Text style={styles.text}>IFSC: HDFC0001234</Text>
-                <Text style={styles.text}>Branch: Koramangala, Bangalore</Text>
+                <View style={styles.headerRight}>
+                    <View style={styles.titleBox}><Text style={styles.titleText}>TAX INVOICE</Text></View>
+                    <View style={styles.rightInfoBox}>
+                        <Text style={styles.labelBold}>SALES CHANNEL :</Text>
+                        <Text style={styles.textNormal}>WEBSITE</Text>
+                        <Text style={styles.labelBold}>PAYMENT MODE :</Text>
+                        <Text style={styles.textNormal}>{order?.payment_mode || "ONLINE"}</Text>
+                        <Text style={styles.labelBold}>DELIVERY MODE :</Text>
+                        <Text style={styles.textNormal}>COURIER</Text>
+                    </View>
+                </View>
             </View>
 
-            {/* Right Side: Calculation */}
-            <View style={{ width: '45%' }}>
+            {/* 2. ID STRIP */}
+            <View style={styles.idStrip}>
+                <View style={styles.idCol}><Text style={styles.idText}>DATE : {date}</Text></View>
+                <View style={styles.idCol}><Text style={styles.idText}>INVOICE NO : {order?.invoice_no || "PENDING"}</Text></View>
+                <View style={[styles.idCol, { borderRight: 'none' }]}><Text style={styles.idText}>ORDER ID : {order?.display_id}</Text></View>
+            </View>
+
+            {/* 3. TABLE */}
+            <View>
+                <View style={styles.tableHeader}>
+                    <Text style={[styles.th, styles.colSr]}>SR</Text>
+                    <Text style={[styles.th, styles.colDesc]}>PRODUCT DESCRIPTION</Text>
+                    <Text style={[styles.th, styles.colHsn]}>HSN/SAC</Text>
+                    <Text style={[styles.th, styles.colQty]}>QTY</Text>
+                    <Text style={[styles.th, styles.colUnit]}>UNIT</Text>
+                    <Text style={[styles.th, styles.colPrice]}>PRICE</Text>
+                    <Text style={[styles.th, styles.colTax]}>CGST</Text>
+                    <Text style={[styles.th, styles.colTax2]}>SGST</Text>
+                    <Text style={[styles.th, styles.colTax3]}>IGST</Text>
+                    <Text style={[styles.th, styles.colTotal]}>TOTAL</Text>
+                </View>
+
+                {items.map((item: any, i: number) => {
+                    const unitPrice = item.price; 
+                    const basicPrice = Math.round(unitPrice / 1.18);
+                    const taxAmt = Math.round(unitPrice - basicPrice);
+                    const totalLine = unitPrice * item.quantity;
+
+                    return (
+                        <View key={i} style={styles.tableRow}>
+                            <Text style={[styles.td, styles.colSr]}>{i + 1}</Text>
+                            <Text style={[styles.td, styles.colDesc]}>{item.name}</Text>
+                            <Text style={[styles.td, styles.colHsn]}>{item.hsn_code || '8471'}</Text>
+                            <Text style={[styles.td, styles.colQty]}>{item.quantity}</Text>
+                            <Text style={[styles.td, styles.colUnit]}>PCS</Text>
+                            <Text style={[styles.td, styles.colPrice]}>{basicPrice}</Text>
+                            <Text style={[styles.td, styles.colTax]}>{isInterState ? 0 : taxAmt/2}</Text>
+                            <Text style={[styles.td, styles.colTax2]}>{isInterState ? 0 : taxAmt/2}</Text>
+                            <Text style={[styles.td, styles.colTax3]}>{isInterState ? taxAmt : 0}</Text>
+                            <Text style={[styles.td, styles.colTotal, { borderRight: 'none' }]}>{totalLine}</Text>
+                        </View>
+                    );
+                })}
+                
+                <View style={[styles.tableRow, { height: 100 }]} />
+                
                 <View style={styles.totalRow}>
-                    <Text style={styles.totalLabel}>Taxable Amount:</Text>
-                    {/* Assuming tax included, basic logic for display */}
-                    <Text style={styles.totalValue}>{formatCurrency(order.total_amount * 0.82)}</Text>
-                </View>
-                <View style={styles.totalRow}>
-                    <Text style={styles.totalLabel}>CGST (9%):</Text>
-                    <Text style={styles.totalValue}>{formatCurrency(order.total_amount * 0.09)}</Text>
-                </View>
-                <View style={styles.totalRow}>
-                    <Text style={styles.totalLabel}>SGST (9%):</Text>
-                    <Text style={styles.totalValue}>{formatCurrency(order.total_amount * 0.09)}</Text>
-                </View>
-                <View style={[styles.totalRow, styles.grandTotal]}>
-                    <Text style={styles.grandTotalText}>Grand Total:</Text>
-                    <Text style={styles.grandTotalText}>{formatCurrency(order.total_amount)}</Text>
+                    <View style={{ width: '87%', paddingRight: 10 }}>
+                        <Text style={{ textAlign: 'right', fontWeight: 'bold' }}>GRAND TOTAL</Text>
+                    </View>
+                    <View style={{ width: '13%' }}>
+                        <Text style={{ textAlign: 'center', fontWeight: 'bold' }}>{order?.total_amount}</Text>
+                    </View>
                 </View>
             </View>
-        </View>
 
-        {/* 5. Footer / Signatory */}
-        <View style={styles.footerContainer}>
-            <View style={styles.termsBox}>
-                <Text style={styles.boldTerm}>Terms & Conditions:</Text>
-                <Text style={styles.termText}>1. Goods once sold will not be taken back.</Text>
-                <Text style={styles.termText}>2. Warranty provided by respective manufacturers.</Text>
-                <Text style={styles.termText}>3. Physical damage is not covered under warranty.</Text>
-                <Text style={styles.termText}>4. Subject to Bangalore Jurisdiction only.</Text>
+            {/* 4. AMOUNT IN WORDS */}
+            <View style={[styles.borderBottom, { padding: 5 }]}>
+                <Text style={styles.labelBold}>AMOUNT IN WORDS : <Text style={{ fontWeight: 'normal' }}>{numberToWords(order?.total_amount || 0).toUpperCase()} RUPEES ONLY</Text></Text>
             </View>
-            <View style={styles.signBox}>
-                <Text style={{ fontSize: 8, marginBottom: 30 }}>For RIG BUILDERS</Text>
-                <Text style={{ fontSize: 8, fontWeight: 'bold' }}>Authorized Signatory</Text>
+
+            {/* 5. ADDRESSES (Fixed Variable) */}
+            <View style={styles.footerSplit}>
+                <View style={[styles.footerHalf, styles.borderRight]}>
+                    <Text style={styles.labelBold}>BILLING ADDRESS :</Text>
+                    <Text style={styles.textNormal}>{address.fullName}</Text>
+                    <Text style={styles.textNormal}>{address.addressLine1}</Text>
+                    <Text style={styles.textNormal}>{address.city}, {address.state} - {address.pincode}</Text>
+                </View>
+                <View style={styles.footerHalf}>
+                    <Text style={styles.labelBold}>SHIPPING ADDRESS :</Text>
+                    <Text style={styles.textNormal}>{address.fullName}</Text>
+                    <Text style={styles.textNormal}>{address.addressLine1}</Text>
+                    <Text style={styles.textNormal}>{address.city}, {address.state} - {address.pincode}</Text>
+                </View>
             </View>
-        </View>
 
-      </Page>
+            {/* 6. TERMS & SIGNATORY */}
+            <View style={styles.termsRow}>
+                <View style={styles.termsBox}>
+                    <Text style={styles.labelBold}>TERMS & CONDITIONS :</Text>
+                    <Text style={{ fontSize: 7, marginTop: 2 }}>1. Every Product is backed by Manufacturer's Warranty.</Text>
+                    <Text style={{ fontSize: 7, marginTop: 1 }}>2. Returns are only accepted under transit damage with unboxing video proof.</Text>
+                    <Text style={{ fontSize: 7, marginTop: 1 }}>3. All Legal Matters governed by the courts of Bathinda, Punjab.</Text>
+                </View>
+                <View style={styles.signBox}>
+                    <Text style={{ fontSize: 10, fontWeight: 'bold' }}>FOR RIG BUILDERS</Text>
+                    <Text style={styles.labelBold}>AUTHORIZED SIGNATORY</Text>
+                </View>
+            </View>
 
-      {/* --- PAGE 2: OFFICIAL WARRANTY SHEET --- */}
-      <Page size="A4" style={styles.page}>
-         <View style={styles.warrantyCard}>
-            <Text style={styles.warrantyTitle}>Rig Builders Warranty Certificate</Text>
+            {/* 7. BANK */}
+            <View style={styles.bankBox}>
+                <Text style={styles.labelBold}>BANK DETAILS :</Text>
+                <Text style={styles.textNormal}>BANK NAME : PUNJAB NATIONAL BANK, CIVIL LINES, BATHINDA</Text>
+                <Text style={styles.textNormal}>A/C NO : 0730102100000998</Text>
+                <Text style={styles.textNormal}>IFSC CODE : PUNB0073010</Text>
+            </View>
             
-            <View style={{ marginBottom: 20, alignItems: 'center' }}>
-                <Text style={{ fontSize: 10 }}>This document certifies the hardware configuration for:</Text>
-                <Text style={{ fontSize: 14, fontWeight: 'bold', marginVertical: 5 }}>Order #{order.order_display_id}</Text>
-                {order.build_id && <Text style={{ fontSize: 12, color: brandColor }}>Build ID: {order.build_id}</Text>}
+            <View style={styles.noteBox}>
+                <Text style={{ fontSize: 7, fontWeight: 'bold' }}>NOTE</Text>
+                <Text style={{ fontSize: 7 }}>TAX IS NOT PAYABLE UNDER REVERSE CHARGES</Text>
             </View>
-
-            <View style={[styles.row, styles.headerRow, { marginTop: 10 }]}>
-                 <Text style={[styles.headerCell, { width: '40%' }]}>Component</Text>
-                 <Text style={[styles.headerCell, { width: '40%' }]}>Serial Number (S/N)</Text>
-                 <Text style={[styles.headerCell, { width: '20%' }]}>Warranty</Text>
-            </View>
-
-            {(items || []).map((item, i) => (
-                <View key={i} style={styles.serialRow}>
-                    <Text style={{ width: '40%', fontSize: 9 }}>{item.product_name}</Text>
-                    <Text style={{ width: '40%', fontFamily: 'Helvetica-Bold', fontSize: 9 }}>{item.serial_number || "PENDING"}</Text>
-                    <Text style={{ width: '20%', fontSize: 9, color: 'green' }}>Active</Text>
-                </View>
-            ))}
-
-            <View style={{ marginTop: 30, padding: 10, backgroundColor: lightGray, borderRadius: 4 }}>
-                <Text style={{ fontWeight: 'bold', fontSize: 10, marginBottom: 5 }}>Important Support Info:</Text>
-                <Text style={{ fontSize: 9, marginBottom: 3 }}>• Please retain this sheet for any warranty claims.</Text>
-                <Text style={{ fontSize: 9, marginBottom: 3 }}>• For support, email support@rigbuilders.in with your Build ID.</Text>
-                <Text style={{ fontSize: 9 }}>• Boxes/accessories for major components (GPU/Mobo) are required for RMA.</Text>
-            </View>
-         </View>
+        </View>
       </Page>
     </Document>
   );

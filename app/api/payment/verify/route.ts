@@ -5,18 +5,20 @@ import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend"; 
 import OrderConfirmationEmail from "@/components/emails/OrderConfirmationEmail"; 
 
-// Initialize Razorpay
+// --- CONFIGURATION ---
+const COMPANY_STATE = "Punjab"; // Used to decide IGST vs CGST/SGST
+const CURRENT_YEAR_SHORT = "25"; // Hardcoded '25' for 2025
+
+// Initialize Clients
 const razorpay = new Razorpay({
   key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
   key_secret: process.env.RAZORPAY_KEY_SECRET!,
 });
 
-// Initialize Resend (Safe Mode)
 const resend = process.env.RESEND_API_KEY 
   ? new Resend(process.env.RESEND_API_KEY) 
   : null;
 
-// Initialize Supabase Admin (Bypasses Row Level Security)
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!, 
@@ -28,21 +30,52 @@ const supabaseAdmin = createClient(
   }
 );
 
+// --- HELPER: GET NEXT SEQUENCE ID ---
+async function getNextId(counterName: string, prefix: string) {
+  // Try using the safe RPC function first
+  const { data, error } = await supabaseAdmin.rpc('increment_counter', { row_name: counterName });
+  
+  // Fallback if RPC doesn't exist yet
+  if (error || data === null) {
+     console.warn(`RPC failed for ${counterName}, using fallback manual update.`);
+     const { data: curr } = await supabaseAdmin.from('counters').select('current_value').eq('name', counterName).single();
+     const nextVal = (curr?.current_value || 0) + 1;
+     await supabaseAdmin.from('counters').update({ current_value: nextVal }).eq('name', counterName);
+     return `${prefix}${String(nextVal).padStart(3, '0')}`;
+  }
+  
+  return `${prefix}${String(data).padStart(3, '0')}`;
+}
+
+// --- HELPER: TAX CALCULATOR ---
+function calculateTax(totalAmount: number, userState: string) {
+  // Formula: Taxable = Total / 1.18
+  const taxableValue = parseFloat((totalAmount / 1.18).toFixed(2));
+  const totalGST = parseFloat((totalAmount - taxableValue).toFixed(2));
+  
+  // Check if state matches Company State (Punjab)
+  // We use simple string matching (ensure your address form has consistent state names)
+  const isInterState = userState?.trim().toLowerCase() !== COMPANY_STATE.toLowerCase();
+
+  return {
+    taxableValue,
+    totalGST,
+    cgst: isInterState ? 0 : parseFloat((totalGST / 2).toFixed(2)),
+    sgst: isInterState ? 0 : parseFloat((totalGST / 2).toFixed(2)),
+    igst: isInterState ? totalGST : 0,
+    gstRate: "18%"
+  };
+}
+
 export async function POST(req: Request) {
   console.log("🚨 PAYMENT VERIFICATION STARTED"); 
 
   try {
     const body = await req.json();
     const { 
-      orderCreationId, 
-      razorpayPaymentId, 
-      razorpaySignature, 
-      cartItems, 
-      userId, 
-      totalAmount, 
-      shippingAddress, 
-      isGuest,
-      autoSaveAddress
+      orderCreationId, razorpayPaymentId, razorpaySignature, 
+      cartItems, userId, totalAmount, shippingAddress, 
+      isGuest, autoSaveAddress 
     } = body;
 
     // --- STEP 1: VERIFY SIGNATURE (Security Check) ---
@@ -55,35 +88,42 @@ export async function POST(req: Request) {
       return NextResponse.json({ msg: "failure", error: "Invalid Signature" }, { status: 400 });
     }
 
-    // --- STEP 2: HANDLE USER (Fail-Safe) ---
-    // We wrap this in try/catch so if user creation fails, we still save the order as Guest
+    // --- STEP 2: GENERATE IDs & TAX (NEW LOGIC) ---
+    // A. Detect Order Type for ID Generation
+    let idType = 'component';
+    let idPrefix = `RB-CP-${CURRENT_YEAR_SHORT}-`;
+
+    const hasPrebuilt = cartItems.some((i: any) => i.category === 'prebuilt' || i.name?.toLowerCase().includes('prebuilt')); 
+    const hasCustom = cartItems.some((i: any) => i.name?.toLowerCase().includes('custom pc'));
+
+    if (hasPrebuilt) { idType = 'prebuilt'; idPrefix = `RB-PB-${CURRENT_YEAR_SHORT}-`; }
+    else if (hasCustom) { idType = 'custom'; idPrefix = `RB-CS-${CURRENT_YEAR_SHORT}-`; }
+
+    // B. Get Sequences
+    const invoiceNo = await getNextId('invoice', 'INV-RB-'); // e.g. INV-RB-005
+    const displayId = await getNextId(idType, idPrefix);     // e.g. RB-PB-25-001
+
+    // C. Calculate Tax
+    const taxDetails = calculateTax(totalAmount, shippingAddress.state);
+
+
+    // --- STEP 3: HANDLE USER (Fail-Safe) ---
     let finalUserId = userId; 
     let accountCreated = false;
 
     try {
       if (isGuest) {
-          // Check if email already exists
-          const { data: existingUser } = await supabaseAdmin
-              .from('users')
-              .select('id')
-              .eq('email', shippingAddress.email)
-              .single();
-
+          const { data: existingUser } = await supabaseAdmin.from('users').select('id').eq('email', shippingAddress.email).single();
           if (existingUser) {
               finalUserId = existingUser.id;
           } else {
-              // Create new user silently
               const tempPassword = Math.random().toString(36).slice(-8) + "Rig!23"; 
               const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
                   email: shippingAddress.email,
                   password: tempPassword,
                   email_confirm: true,
-                  user_metadata: {
-                      full_name: shippingAddress.fullName,
-                      phone: shippingAddress.phone
-                  }
+                  user_metadata: { full_name: shippingAddress.fullName, phone: shippingAddress.phone }
               });
-
               if (!createError && newUser.user) {
                   finalUserId = newUser.user.id;
                   accountCreated = true;
@@ -94,14 +134,10 @@ export async function POST(req: Request) {
       }
     } catch (userError) {
        console.error("⚠️ User Logic Crashed (continuing as guest):", userError);
-       // We ignore the error and proceed to save the order anyway
     }
 
-    // --- STEP 3: SAVE ORDER (CRITICAL PRIORITY) ---
+    // --- STEP 4: SAVE ORDER (CRITICAL PRIORITY) ---
     console.log("💾 Attempting to save order to DB...");
-    const displayId = `ORD-${Math.floor(100000 + Math.random() * 900000)}`;
-    
-    // Ensure finalUserId is valid for DB (convert 'guest' string to null)
     const dbUserId = (finalUserId && finalUserId !== 'guest') ? finalUserId : null;
 
     const { data: order, error: orderError } = await supabaseAdmin
@@ -109,25 +145,26 @@ export async function POST(req: Request) {
         .insert({
             // 1. User & ID
             user_id: dbUserId,
-            display_id: displayId,
+            display_id: displayId,    // Now uses your specific format (RB-PB-25-001)
+            invoice_no: invoiceNo,    // ✅ NEW: Sequential Invoice Number
             
-            // 2. Contact Info (MISSING BEFORE)
+            // 2. Contact Info
             full_name: shippingAddress.fullName,
             email: shippingAddress.email,
-            phone: shippingAddress.phone, // ✅ ADDED: Matches 'phone' column in DB
+            phone: shippingAddress.phone,
             
             // 3. Address Data
-            // We save the full JSON object to 'shipping_address'
             shipping_address: shippingAddress,
-            // We ALSO save a simple string to 'address' to satisfy that column
-            address: `${shippingAddress.addressLine1}, ${shippingAddress.city}, ${shippingAddress.pincode}`, // ✅ ADDED
+            address: `${shippingAddress.addressLine1}, ${shippingAddress.city}, ${shippingAddress.pincode}`,
 
-            // 4. Order Details
+            // 4. Financials
             total_amount: totalAmount,
+            tax_details: taxDetails,  // ✅ NEW: Stores Breakdown (CGST/SGST)
+            payment_mode: "ONLINE",   // ✅ NEW: Hardcoded as requested
+            
+            // 5. Details
             items: cartItems,
             status: 'paid',
-            
-            // 5. Payment References
             payment_id: razorpayPaymentId,
             order_id: orderCreationId
         })
@@ -136,34 +173,50 @@ export async function POST(req: Request) {
 
     if (orderError) {
         console.error("❌ FATAL DB ERROR:", orderError);
-        // If DB fails, we MUST throw error so client knows
         throw new Error(`Database Insert Failed: ${orderError.message}`);
     }
 
     console.log("✅ Order Saved:", order.id);
 
-    // --- STEP 4: SEND EMAIL (Fire & Forget) ---
-    // We do NOT await this. We let it run in background.
+    // --- STEP 5: SEND EMAIL (Fire & Forget) ---
     if (resend) {
         resend.emails.send({
             from: 'Rig Builders Support <support@rigbuilders.in>',
             to: [shippingAddress.email],
-            subject: `Order Confirmed: ${displayId}`,
+            bcc: ['rigbuilders123@gmail.com'], // Receive copy
+            subject: `Invoice: ${invoiceNo}`,
             react: OrderConfirmationEmail({
-                customerName: shippingAddress.fullName,
-                orderId: displayId,
-                orderItems: cartItems,
-                totalAmount: totalAmount,
+                order: order,         // Pass full order object for Invoice ID
+                taxDetails: taxDetails // Pass calculated tax for Invoice Table
             }),
         }).then(() => console.log("📧 Email sent"))
           .catch((e) => console.error("📧 Email failed:", e));
     }
+    
+    // --- STEP 6: AUTO-SAVE ADDRESS ---
+    if (autoSaveAddress && finalUserId && finalUserId !== 'guest') {
+        void supabaseAdmin.from('user_addresses').insert({
+            user_id: finalUserId,
+            full_name: shippingAddress.fullName,
+            phone: shippingAddress.phone,
+            address_line1: shippingAddress.addressLine1,
+            address_line2: shippingAddress.addressLine2,
+            city: shippingAddress.city,
+            state: shippingAddress.state,
+            pincode: shippingAddress.pincode,
+            label: "Home (Auto-Saved)", 
+            is_default: true
+        }).then(({ error }) => {
+            if (error) console.error("⚠️ Failed to auto-save address:", error);
+            else console.log("🏠 Address auto-saved successfully");
+        });
+    }
 
-    // --- STEP 5: RETURN SUCCESS ---
+    // --- STEP 7: RETURN SUCCESS ---
     return NextResponse.json({
       msg: "success",
       orderId: order.id,
-      displayId: order.display_id,
+      displayId: invoiceNo, // Return Invoice ID to show on success screen
       accountCreated: accountCreated,
     });
 

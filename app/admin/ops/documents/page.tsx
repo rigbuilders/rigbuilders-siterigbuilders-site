@@ -3,101 +3,158 @@
 import Navbar from "@/components/Navbar";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { pdf } from "@react-pdf/renderer"; // Import the generator function
-import { OrderPDF } from "./OrderPDF";
-import { FaFilePdf, FaCheckDouble, FaSpinner } from "react-icons/fa";
+import { useRouter } from "next/navigation";
+import { FaFileInvoice, FaPrint, FaSearch } from "react-icons/fa";
+import { PDFDownloadLink, PDFViewer } from "@react-pdf/renderer";
+import { OrderPDF } from "./OrderPDF"; // Importing the template we fixed
 
 export default function DocumentsPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<any[]>([]);
-  const [generatingId, setGeneratingId] = useState<string | null>(null); // Track which button is loading
+  const [search, setSearch] = useState("");
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
 
   useEffect(() => {
-    const fetchOrders = async () => {
-      const { data } = await supabase
-        .from('orders_ops')
-        .select(`*, procurement_items ( product_name, category, serial_number, price:cost_price )`)
-        .eq('status', 'ready_to_ship')
-        .order('created_at', { ascending: false });
-
-      if (data) setOrders(data);
-    };
     fetchOrders();
   }, []);
 
-  // --- MANUAL DOWNLOAD FUNCTION ---
-  const handleDownload = async (order: any) => {
-    setGeneratingId(order.id);
-    try {
-        // 1. Generate the Blob manually
-        const blob = await pdf(<OrderPDF order={order} items={order.procurement_items || []} />).toBlob();
-        
-        // 2. Create a temporary download link
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `Invoice_${order.order_display_id}.pdf`;
-        document.body.appendChild(link);
-        
-        // 3. Click it programmatically
-        link.click();
-        
-        // 4. Cleanup
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+  const fetchOrders = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return router.push("/");
 
-    } catch (err: any) {
-        console.error("PDF Error:", err);
-        alert("Failed to generate PDF. Check console for details.\nError: " + err.message);
-    } finally {
-        setGeneratingId(null);
+    // FATAL FIX: We must explicitly select new columns like 'invoice_no', 'tax_details', etc.
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*') 
+      .order('created_at', { ascending: false });
+
+    if (error) console.error("Error fetching orders:", error);
+    else setOrders(data || []);
+    setLoading(false);
+  };
+
+  // --- GENERATE INVOICE NUMBER IF MISSING ---
+  const generateInvoice = async (order: any) => {
+    if (order.invoice_no) {
+      setSelectedOrder(order);
+      return;
+    }
+
+    if (!confirm("This order has no Invoice Number. Generate one now?")) return;
+
+    // 1. Get next sequence
+    const { data: counter } = await supabase.from('counters').select('current_value').eq('name', 'invoice').single();
+    const nextVal = (counter?.current_value || 0) + 1;
+    const year = new Date().getFullYear().toString().slice(-2);
+    const newInvoiceNo = `INV-RB-${year}-${String(nextVal).padStart(3, '0')}`;
+
+    // 2. Update Order
+    const { error } = await supabase
+      .from('orders')
+      .update({ 
+        invoice_no: newInvoiceNo,
+        tax_details: { 
+            cgst: order.total_amount * 0.09, // Rough calc for display 
+            sgst: order.total_amount * 0.09,
+            igst: 0 
+        }
+      })
+      .eq('id', order.id);
+
+    if (error) {
+      alert("Failed to generate: " + error.message);
+    } else {
+      // 3. Update Counter
+      await supabase.from('counters').update({ current_value: nextVal }).eq('name', 'invoice');
+      
+      // 4. Refresh & Select
+      alert(`Generated Invoice: ${newInvoiceNo}`);
+      fetchOrders();
+      // We need to re-fetch the specific order to get the new data
+      const { data: freshOrder } = await supabase.from('orders').select('*').eq('id', order.id).single();
+      setSelectedOrder(freshOrder);
     }
   };
 
-  const markShipped = async (id: string) => {
-    if(!confirm("Mark as Shipped and Archive?")) return;
-    await supabase.from('orders_ops').update({ status: 'shipped' }).eq('id', id);
-    window.location.reload();
-  }
+  if (loading) return <div className="min-h-screen bg-[#121212] text-white flex items-center justify-center">Loading Documents...</div>;
+
+  const filteredOrders = orders.filter(o => 
+    o.display_id?.toLowerCase().includes(search.toLowerCase()) || 
+    o.billing_address?.fullName?.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div className="min-h-screen bg-[#121212] text-white font-saira pb-20">
       <Navbar />
-      <div className="pt-32 px-6 max-w-5xl mx-auto">
-        <h1 className="font-orbitron text-3xl font-bold text-brand-purple mb-8">DOCUMENT GENERATION</h1>
+      <div className="pt-32 px-4 max-w-7xl mx-auto">
         
-        <div className="grid gap-6">
-            {orders.map(order => (
-                <div key={order.id} className="bg-[#1A1A1A] p-6 rounded-xl border border-white/5 flex justify-between items-center">
-                    <div>
-                        <div className="flex items-center gap-3">
-                            <h2 className="text-xl font-bold">{order.order_display_id}</h2>
-                            <span className="bg-green-500/20 text-green-500 text-xs px-2 py-1 rounded border border-green-500/50">Ready for Docs</span>
+        <h1 className="font-orbitron text-3xl font-bold text-brand-purple mb-2">INVOICE GENERATOR</h1>
+        <p className="text-brand-silver mb-8">Select an order to generate and print the Official Tax Invoice.</p>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* LEFT: ORDER LIST */}
+          <div className="bg-[#1A1A1A] rounded-xl border border-white/5 p-4 h-[75vh] flex flex-col">
+            <div className="relative mb-4">
+                <FaSearch className="absolute left-3 top-3 text-gray-500" />
+                <input 
+                    placeholder="Search Order ID or Name..." 
+                    className="w-full bg-black/40 border border-white/10 rounded p-2 pl-9 text-sm focus:border-brand-purple/50 outline-none"
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                />
+            </div>
+            <div className="overflow-y-auto custom-scrollbar space-y-2 pr-2">
+                {filteredOrders.map(order => (
+                    <div 
+                        key={order.id}
+                        onClick={() => generateInvoice(order)}
+                        className={`p-3 rounded border cursor-pointer transition-colors ${selectedOrder?.id === order.id ? 'bg-brand-purple/20 border-brand-purple' : 'bg-black/20 border-white/5 hover:bg-white/5'}`}
+                    >
+                        <div className="flex justify-between items-start">
+                            <span className="font-bold text-white">{order.display_id}</span>
+                            <span className={`text-[10px] px-2 py-0.5 rounded ${order.invoice_no ? 'bg-green-500/20 text-green-500' : 'bg-yellow-500/20 text-yellow-500'}`}>
+                                {order.invoice_no ? "INVOICED" : "PENDING"}
+                            </span>
                         </div>
-                        <p className="text-brand-silver text-sm mt-1">{order.guest_info?.name}</p>
+                        <div className="text-xs text-gray-400 mt-1">{order.billing_address?.fullName || "Guest User"}</div>
+                        <div className="text-xs text-brand-silver mt-1 font-mono">₹{order.total_amount?.toLocaleString()}</div>
                     </div>
+                ))}
+            </div>
+          </div>
 
-                    <div className="flex gap-4">
-                        {/* MANUAL BUTTON */}
-                        <button 
-                            onClick={() => handleDownload(order)}
-                            disabled={generatingId === order.id}
-                            className="bg-brand-purple hover:bg-white hover:text-black text-white px-6 py-3 rounded font-bold uppercase flex items-center gap-2 transition-all disabled:opacity-50"
+          {/* RIGHT: PDF PREVIEW */}
+          <div className="lg:col-span-2 bg-[#525659] rounded-xl border border-white/5 flex flex-col h-[75vh] overflow-hidden">
+            {selectedOrder ? (
+                <>
+                    <div className="bg-[#323639] p-3 flex justify-between items-center shadow-lg z-10">
+                        <div className="text-sm font-bold text-white">
+                            PREVIEW: {selectedOrder.invoice_no || "DRAFT MODE"}
+                        </div>
+                        <PDFDownloadLink 
+                            document={<OrderPDF order={selectedOrder} />} 
+                            fileName={`Invoice_${selectedOrder.display_id}.pdf`}
+                            className="bg-brand-purple hover:bg-brand-purple/80 text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2"
                         >
-                            {generatingId === order.id ? (
-                                <><FaSpinner className="animate-spin" /> Generating...</>
-                            ) : (
-                                <><FaFilePdf /> Download Print Pack</>
-                            )}
-                        </button>
-
-                        <button onClick={() => markShipped(order.id)} className="bg-white/10 hover:bg-white/20 px-4 rounded border border-white/10">
-                            <FaCheckDouble /> Dispatch
-                        </button>
+                            {({ loading }) => loading ? 'Generating...' : <><FaPrint /> Download PDF</>}
+                        </PDFDownloadLink>
                     </div>
+                    <div className="flex-grow w-full h-full">
+                        <PDFViewer width="100%" height="100%" className="w-full h-full">
+                            <OrderPDF order={selectedOrder} />
+                        </PDFViewer>
+                    </div>
+                </>
+            ) : (
+                <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                    <FaFileInvoice className="text-6xl mb-4 opacity-20" />
+                    <p>Select an order to view Invoice</p>
                 </div>
-            ))}
-            
-            {orders.length === 0 && <div className="text-center text-brand-silver">No orders pending documentation.</div>}
+            )}
+          </div>
+
         </div>
       </div>
     </div>
