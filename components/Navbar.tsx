@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { User } from "@supabase/supabase-js";
@@ -56,7 +56,7 @@ const UserAccountMenu = ({ user }: { user: User | null }) => {
   const wrapperClasses = "absolute top-full right-0 w-64 pt-2 z-50 cursor-default";
   
   // Inner visible box handles the background and borders
-  const innerClasses = "bg-[#121212] border border-white/10 shadow-2xl font-saira text-white";
+  const innerClasses = "bg-[#090909] border border-white/10 shadow-2xl font-saira text-white";
 
   if (user) {
     return (
@@ -109,14 +109,14 @@ const SearchMenu = () => {
 
   return (
     // Added 'pt-2' here as well to fix the gap issue for search too
-    <div className="absolute top-full right-0 w-[400px] pt-2 z-50"> 
-        <div className="bg-[#121212] border border-white/10 shadow-2xl p-6 font-saira text-white">
+    <div className="absolute top-full right-0 w-[400px] pt-0 z-50"> 
+        <div className="bg-[#090909] border border-white/10 shadow-2xl p-6 font-saira text-white">
             <div className="relative mb-6">
                 <Image src="/icons/navbar/search.svg" alt="Search" width={16} height={16} className="absolute left-4 top-1/2 -translate-y-1/2 opacity-70" />
                 <input 
                     type="text" 
                     placeholder="Search rigbuilders.in..." 
-                    className="w-full bg-[#1A1A1A] border border-white/20 text-white text-sm py-3 pl-12 focus:outline-none focus:border-brand-purple transition-colors rounded-sm"
+                    className="w-full bg-[#090909] border border-white/20 text-white text-sm py-3 pl-12 focus:outline-none focus:border-brand-purple transition-colors rounded-sm"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onKeyDown={(e) => handleSearch(e)}
@@ -134,7 +134,7 @@ const SearchMenu = () => {
                 )}
             </div>
             <div>
-                <h4 className="font-orbitron font-bold text-xs text-white mb-4 uppercase tracking-widest">Quick Navigate</h4>
+                <h4 className="font-orbitron font-bold text-xs text-white mb-4 uppercase tracking-widest">Quick Links</h4>
                 <ul className="space-y-3 text-sm text-brand-silver">
                     <li><Link href="/ascend" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> Ascend Series</Link></li>
                     <li><Link href="/products" className="hover:text-white transition-colors flex items-center gap-2"><span>→</span> All Components</Link></li>
@@ -162,6 +162,22 @@ const QuickLinkItem = ({ href, label }: { href: string, label: string }) => (
 export default function Navbar() {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleMouseEnter = (menu: string) => {
+    // If there is a pending close action, cancel it immediately
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    setActiveMenu(menu);
+  };
+
+  const handleMouseLeave = () => {
+    // Add a delay (e.g., 200ms) before closing
+    timeoutRef.current = setTimeout(() => {
+      setActiveMenu(null);
+    }, 200); 
+  };
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   
@@ -178,8 +194,8 @@ export default function Navbar() {
 
   return (
     <>
-    <nav className="sticky top-0 left-0 w-full z-50 bg-[#000000] border-b border-white/10 font-orbitron" onMouseLeave={() => setActiveMenu(null)}>
-      <div className="h-[80px] px-[30px] flex items-center justify-between relative bg-[#121212] z-50">
+    <nav className="sticky top-0 left-0 w-full z-50 bg-[#090909] border-b border-white/10 font-orbitron" onMouseLeave={() => setActiveMenu(null)}>
+      <div className="h-[80px] px-[30px] flex items-center justify-between relative bg-[#090909] z-50">
         {/* MOBILE HAMBURGER */}
         <div className="lg:hidden flex items-center">
             <button onClick={() => setMobileMenuOpen(true)} className="text-white text-2xl p-2"><FaBars /></button>
@@ -214,8 +230,19 @@ export default function Navbar() {
             <Link href="/cart" className="relative group p-2 hover:opacity-80"><Image src="/icons/navbar/cart.png" alt="Cart" width={28} height={28} /></Link>
 
             {/* User Icon */}
-            <div className="relative h-full flex items-center group" onMouseEnter={() => setActiveMenu("user")} onMouseLeave={() => setActiveMenu(null)}>
-              <button className="p-2 hover:opacity-80"><Image src="/icons/navbar/User Account.svg" alt="Account" width={26} height={26} /></button>
+            <div 
+              className="relative h-full flex items-center group" 
+              onMouseEnter={() => handleMouseEnter("user")} 
+              onMouseLeave={handleMouseLeave}
+            >
+              <button className="p-2 hover:opacity-80">
+                <Image src="/icons/navbar/User Account.svg" alt="Account" width={26} height={26} />
+              </button>
+              
+              {/* The UserAccountMenu component already has 'pt-2' in your code.
+                 Combined with the handleMouseLeave delay above, this creates a 
+                 perfect bridge so the menu won't close unexpectedly.
+              */}
               {activeMenu === "user" && <UserAccountMenu user={user} />}
             </div>
 
@@ -235,7 +262,7 @@ export default function Navbar() {
       {/* --- MEGA MENUS --- */}
 
       {/* 1. PRODUCTS HOVER */}
-      <div className={`hidden lg:block absolute top-[80px] left-0 w-full bg-[#121212] border-t border-white/10 transition-all duration-300 overflow-hidden z-40 ${activeMenu === "products" ? "max-h-[600px] opacity-100 visible" : "max-h-0 opacity-0 invisible"}`}
+      <div className={`hidden lg:block absolute top-[80px] left-0 w-full bg-[#090909] border-t border-white/10 transition-all duration-300 overflow-hidden z-40 ${activeMenu === "products" ? "max-h-[600px] opacity-100 visible" : "max-h-0 opacity-0 invisible"}`}
            onMouseEnter={() => setActiveMenu("products")} onMouseLeave={() => setActiveMenu(null)}>
         
         {/* FIXED: Removed wide gap, added 'divide-x' for vertical lines, brought columns closer */}
@@ -302,7 +329,7 @@ export default function Navbar() {
       </div>
 
       {/* 2. DESKTOPS HOVER */}
-      <div className={`hidden lg:block absolute top-[80px] left-0 w-full bg-[#121212] border-t border-white/10 transition-all duration-300 overflow-hidden z-40 ${activeMenu === "desktops" ? "max-h-[600px] opacity-100 visible" : "max-h-0 opacity-0 invisible"}`}
+      <div className={`hidden lg:block absolute top-[80px] left-0 w-full bg-[#090909] border-t border-white/10 transition-all duration-300 overflow-hidden z-40 ${activeMenu === "desktops" ? "max-h-[600px] opacity-100 visible" : "max-h-0 opacity-0 invisible"}`}
            onMouseEnter={() => setActiveMenu("desktops")} onMouseLeave={() => setActiveMenu(null)}>
         <div className="max-w-[1400px] mx-auto py-20 grid grid-cols-4 divide-x divide-white/10 text-white text-center">
             <div className="px-4 flex flex-col items-center group">
@@ -325,7 +352,7 @@ export default function Navbar() {
       </div>
                   
       {/* 3. ACCESSORIES HOVER */}
-      <div className={`hidden lg:block absolute top-[80px] left-0 w-full bg-[#121212] border-t border-white/10 transition-all duration-300 overflow-hidden z-40 ${activeMenu === "accessories" ? "max-h-[600px] opacity-100 visible" : "max-h-0 opacity-0 invisible"}`}
+      <div className={`hidden lg:block absolute top-[80px] left-0 w-full bg-[#090909] border-t border-white/10 transition-all duration-300 overflow-hidden z-40 ${activeMenu === "accessories" ? "max-h-[600px] opacity-100 visible" : "max-h-0 opacity-0 invisible"}`}
            onMouseEnter={() => setActiveMenu("accessories")} onMouseLeave={() => setActiveMenu(null)}>
         <div className="max-w-[1200px] mx-auto py-16 px-8 flex gap-16">
             <div className="flex-shrink-0 w-1/4 border-r border-white/10 pr-12">
