@@ -191,14 +191,7 @@ export default function Navbar() {
     };
     getUser();
   }, []);
-  // Add this to stop background scrolling
-  useEffect(() => {
-    if (mobileMenuOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-  }, [mobileMenuOpen]);
+  
   
   return (
     <>
@@ -385,54 +378,16 @@ export default function Navbar() {
             </div>
         </div>
       </div>
-
-    </nav>
-
-    {/* ==============================
-        MOBILE DRAWERS 
-       ============================== */}
-
-    {/* MOBILE SEARCH */}
-    {mobileSearchOpen && (
-        <div className="fixed inset-0 z-[100] bg-[#121212] p-6 animate-in slide-in-from-top-10 duration-200 flex flex-col">
-            <div className="flex justify-between items-center mb-8">
-                <h2 className="text-xl font-orbitron text-white">Search</h2>
-                <button onClick={() => setMobileSearchOpen(false)} className="text-white text-2xl"><FaTimes /></button>
-            </div>
-            <div className="relative">
-                <input 
-                    type="text" 
-                    placeholder="Search anything..." 
-                    className="w-full bg-[#1A1A1A] border border-white/20 p-4 text-white font-saira focus:border-brand-purple outline-none rounded"
-                    value={search.query}
-                    onChange={(e) => search.setQuery(e.target.value)}
-                    autoFocus
-                />
-                <button className="absolute right-4 top-1/2 -translate-y-1/2 text-brand-purple">
-                    <FaSearch />
-                </button>
-            </div>
-            {/* Mobile Results */}
-            {search.suggestions.length > 0 && (
-                <div className="mt-4 bg-[#1A1A1A] border border-white/10 rounded flex-grow overflow-y-auto">
-                    {search.suggestions.map((p) => (
-                        <div key={p.id} onClick={() => { search.handleSearch(p.name); setMobileSearchOpen(false); }} className="p-4 border-b border-white/5 text-white flex justify-between">
-                            <span className="truncate pr-4">{p.name}</span>
-                            <span className="text-brand-purple font-bold">₹{p.price.toLocaleString("en-IN")}</span>
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
-    )}
-
-    {/* MOBILE MENU DRAWER (Now Inside Nav) */}
+      
+     {/* ... (Mobile menu drawer) ... */}   
+      
       <div className={`absolute top-0 left-0 w-full h-[100dvh] z-[90] bg-black/80 backdrop-blur-sm transition-opacity duration-300 ${mobileMenuOpen ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"}`} onClick={() => setMobileMenuOpen(false)}>
             <div 
                 className={`absolute top-0 left-0 h-[100dvh] w-[85%] max-w-[320px] bg-[#121212] border-r border-white/10 shadow-2xl p-6 transition-transform duration-300 flex flex-col ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}
                 onClick={(e) => e.stopPropagation()} 
             >
-                {/* HEADER */}
+                {/* ... (Keep all the inner content exactly the same) ... */}
+                
                 <div className="flex justify-between items-center mb-8 border-b border-white/10 pb-4">
                     <div className="relative h-10 w-10">
                         <Image src="/icons/navbar/logo.svg" alt="Logo" fill className="object-contain" />
@@ -483,6 +438,48 @@ export default function Navbar() {
                 </div>
             </div>
       </div>
+
+    </nav>
+
+    {/* ==============================
+        MOBILE DRAWERS 
+       ============================== */}
+
+    {/* MOBILE SEARCH */}
+    {mobileSearchOpen && (
+        <div className="fixed inset-0 z-[100] bg-[#121212] p-6 animate-in slide-in-from-top-10 duration-200 flex flex-col">
+            <div className="flex justify-between items-center mb-8">
+                <h2 className="text-xl font-orbitron text-white">Search</h2>
+                <button onClick={() => setMobileSearchOpen(false)} className="text-white text-2xl"><FaTimes /></button>
+            </div>
+            <div className="relative">
+                <input 
+                    type="text" 
+                    placeholder="Search anything..." 
+                    className="w-full bg-[#1A1A1A] border border-white/20 p-4 text-white font-saira focus:border-brand-purple outline-none rounded"
+                    value={search.query}
+                    onChange={(e) => search.setQuery(e.target.value)}
+                    autoFocus
+                />
+                <button className="absolute right-4 top-1/2 -translate-y-1/2 text-brand-purple">
+                    <FaSearch />
+                </button>
+            </div>
+            {/* Mobile Results */}
+            {search.suggestions.length > 0 && (
+                <div className="mt-4 bg-[#1A1A1A] border border-white/10 rounded flex-grow overflow-y-auto">
+                    {search.suggestions.map((p) => (
+                        <div key={p.id} onClick={() => { search.handleSearch(p.name); setMobileSearchOpen(false); }} className="p-4 border-b border-white/5 text-white flex justify-between">
+                            <span className="truncate pr-4">{p.name}</span>
+                            <span className="text-brand-purple font-bold">₹{p.price.toLocaleString("en-IN")}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    )}
+
+    
     </>
   );
 }
