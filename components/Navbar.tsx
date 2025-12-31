@@ -191,7 +191,15 @@ export default function Navbar() {
     };
     getUser();
   }, []);
-
+  // Add this to stop background scrolling
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+  }, [mobileMenuOpen]);
+  
   return (
     <>
     <nav className="sticky top-0 left-0 w-full z-50 bg-[#090909] border-b border-white/10 font-orbitron" onMouseLeave={() => setActiveMenu(null)}>
@@ -258,7 +266,7 @@ export default function Navbar() {
           </div>
         </div>
       </div>
-
+  
       {/* --- MEGA MENUS --- */}
 
       {/* 1. PRODUCTS HOVER */}
@@ -418,62 +426,63 @@ export default function Navbar() {
         </div>
     )}
 
-    {/* MOBILE MENU DRAWER */}
-    <div className={`fixed inset-0 z-[90] bg-black/80 backdrop-blur-sm transition-opacity duration-300 ${mobileMenuOpen ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"}`} onClick={() => setMobileMenuOpen(false)}>
-        <div 
-            className={`absolute top-0 left-0 h-full w-[85%] max-w-[320px] bg-[#121212] border-r border-white/10 shadow-2xl p-6 transition-transform duration-300 flex flex-col ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}
-            onClick={(e) => e.stopPropagation()} 
-        >
-            <div className="flex justify-between items-center mb-8 border-b border-white/10 pb-4">
-                <div className="relative h-10 w-10">
-                    <Image src="/icons/navbar/logo.svg" alt="Logo" fill className="object-contain" />
-                </div>
-                <button onClick={() => setMobileMenuOpen(false)} className="text-white text-2xl"><FaTimes /></button>
-            </div>
-
-            {/* ACTION GRID (Top Priority) */}
-            <div className="grid grid-cols-3 gap-3 mb-8">
-                <Link href={user ? "/dashboard" : "/signin"} onClick={() => setMobileMenuOpen(false)} className="flex flex-col items-center justify-center bg-[#1A1A1A] p-3 rounded border border-white/5 hover:border-brand-purple/50">
-                    <FaUser className="text-white mb-2" />
-                    <span className="text-[10px] text-brand-silver uppercase font-bold">{user ? "Account" : "Login"}</span>
-                </Link>
-                <Link href="/cart" onClick={() => setMobileMenuOpen(false)} className="flex flex-col items-center justify-center bg-[#1A1A1A] p-3 rounded border border-white/5 hover:border-brand-purple/50">
-                    <FaShoppingCart className="text-white mb-2" />
-                    <span className="text-[10px] text-brand-silver uppercase font-bold">Cart</span>
-                </Link>
-                <Link href="/configure" onClick={() => setMobileMenuOpen(false)} className="flex flex-col items-center justify-center bg-brand-purple p-3 rounded text-white">
-                    <span className="font-bold text-lg leading-none mb-1">+</span>
-                    <span className="text-[10px] uppercase font-bold">Build</span>
-                </Link>
-            </div>
-
-            {/* LINKS LIST */}
-            <div className="space-y-8 overflow-y-auto font-orbitron flex-grow pr-2">
-                <div>
-                    <h3 className="text-brand-purple text-xs font-bold uppercase tracking-widest mb-4 border-b border-white/5 pb-2">Main Menu</h3>
-                    <ul className="space-y-4 text-white text-lg">
-                        <li><Link href="/products" onClick={() => setMobileMenuOpen(false)}>Products</Link></li>
-                        <li><Link href="/accessories" onClick={() => setMobileMenuOpen(false)}>Accessories</Link></li>
-                        <li><Link href="/support" onClick={() => setMobileMenuOpen(false)}>Support</Link></li>
-                    </ul>
+    {/* MOBILE MENU DRAWER (Now Inside Nav) */}
+      <div className={`absolute top-0 left-0 w-full h-[100dvh] z-[90] bg-black/80 backdrop-blur-sm transition-opacity duration-300 ${mobileMenuOpen ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"}`} onClick={() => setMobileMenuOpen(false)}>
+            <div 
+                className={`absolute top-0 left-0 h-[100dvh] w-[85%] max-w-[320px] bg-[#121212] border-r border-white/10 shadow-2xl p-6 transition-transform duration-300 flex flex-col ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}
+                onClick={(e) => e.stopPropagation()} 
+            >
+                {/* HEADER */}
+                <div className="flex justify-between items-center mb-8 border-b border-white/10 pb-4">
+                    <div className="relative h-10 w-10">
+                        <Image src="/icons/navbar/logo.svg" alt="Logo" fill className="object-contain" />
+                    </div>
+                    <button onClick={() => setMobileMenuOpen(false)} className="text-white text-2xl"><FaTimes /></button>
                 </div>
 
-                <div>
-                    <h3 className="text-brand-purple text-xs font-bold uppercase tracking-widest mb-4 border-b border-white/5 pb-2">Desktops</h3>
-                    <ul className="space-y-4 text-white text-lg">
-                        <li><Link href="/ascend" onClick={() => setMobileMenuOpen(false)}>Ascend Series</Link></li>
-                        <li><Link href="/workpro" onClick={() => setMobileMenuOpen(false)}>WorkPro Series</Link></li>
-                        <li><Link href="/creator" onClick={() => setMobileMenuOpen(false)}>Creator Series</Link></li>
-                        <li><Link href="/signature" onClick={() => setMobileMenuOpen(false)}>Signature Edition</Link></li>
-                    </ul>
+                {/* ACTION GRID */}
+                <div className="grid grid-cols-3 gap-3 mb-8">
+                    <Link href={user ? "/dashboard" : "/signin"} onClick={() => setMobileMenuOpen(false)} className="flex flex-col items-center justify-center bg-[#1A1A1A] p-3 rounded border border-white/5 hover:border-brand-purple/50">
+                        <FaUser className="text-white mb-2" />
+                        <span className="text-[10px] text-brand-silver uppercase font-bold">{user ? "Account" : "Login"}</span>
+                    </Link>
+                    <Link href="/cart" onClick={() => setMobileMenuOpen(false)} className="flex flex-col items-center justify-center bg-[#1A1A1A] p-3 rounded border border-white/5 hover:border-brand-purple/50">
+                        <FaShoppingCart className="text-white mb-2" />
+                        <span className="text-[10px] text-brand-silver uppercase font-bold">Cart</span>
+                    </Link>
+                    <Link href="/configure" onClick={() => setMobileMenuOpen(false)} className="flex flex-col items-center justify-center bg-brand-purple p-3 rounded text-white">
+                        <span className="font-bold text-lg leading-none mb-1">+</span>
+                        <span className="text-[10px] uppercase font-bold">Build</span>
+                    </Link>
+                </div>
+
+                {/* LINKS LIST */}
+                <div className="space-y-8 overflow-y-auto font-orbitron flex-grow pr-2">
+                    <div>
+                        <h3 className="text-brand-purple text-xs font-bold uppercase tracking-widest mb-4 border-b border-white/5 pb-2">Main Menu</h3>
+                        <ul className="space-y-4 text-white text-lg">
+                            <li><Link href="/products" onClick={() => setMobileMenuOpen(false)}>Products</Link></li>
+                            <li><Link href="/accessories" onClick={() => setMobileMenuOpen(false)}>Accessories</Link></li>
+                            <li><Link href="/support" onClick={() => setMobileMenuOpen(false)}>Support</Link></li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h3 className="text-brand-purple text-xs font-bold uppercase tracking-widest mb-4 border-b border-white/5 pb-2">Desktops</h3>
+                        <ul className="space-y-4 text-white text-lg">
+                            <li><Link href="/ascend" onClick={() => setMobileMenuOpen(false)}>Ascend Series</Link></li>
+                            <li><Link href="/workpro" onClick={() => setMobileMenuOpen(false)}>WorkPro Series</Link></li>
+                            <li><Link href="/creator" onClick={() => setMobileMenuOpen(false)}>Creator Series</Link></li>
+                            <li><Link href="/signature" onClick={() => setMobileMenuOpen(false)}>Signature Edition</Link></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div className="mt-auto pt-6 text-center text-xs text-brand-silver/50 border-t border-white/10 font-saira">
+                    &copy; 2025 Rig Builders.
                 </div>
             </div>
-
-            <div className="mt-auto pt-6 text-center text-xs text-brand-silver/50 border-t border-white/10 font-saira">
-                &copy; 2025 Rig Builders.
-            </div>
-        </div>
-    </div>
+      </div>
     </>
   );
 }
