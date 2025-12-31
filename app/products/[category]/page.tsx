@@ -200,7 +200,7 @@ export default function CategoryPage({ params }: { params: Promise<{ category: s
                               </div>
                             )}
 
-                            <Link href={`/product/${product.id}`} className="relative h-64 overflow-hidden block w-full p-8 flex items-center justify-center bg-gradient-to-b from-[#1A1A1A] to-transparent">
+                            <Link href={`/product/${product.id}`} className="relative aspect-square w-full overflow-hidden block flex items-center justify-center bg-gradient-to-b from-[#1A1A1A] to-transparent">
                                <div className="absolute inset-0 bg-brand-purple/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-3xl z-0" />
                                
                                {product.image ? (
@@ -221,38 +221,31 @@ export default function CategoryPage({ params }: { params: Promise<{ category: s
                                    </h4>
                                 </Link>
 
-                                <div className="grid grid-cols-2 gap-y-2 gap-x-4 mb-8 mt-2">
-                                    {product.core_count && (
-                                        <div className="border-l border-white/10 pl-2">
-                                            <span className="block text-white/40 text-[9px] uppercase tracking-wider">Cores</span>
-                                            <span className="text-brand-silver text-xs font-bold">{product.core_count}</span>
-                                        </div>
-                                    )}
-                                    {product.boost_clock && (
-                                        <div className="border-l border-white/10 pl-2">
-                                            <span className="block text-white/40 text-[9px] uppercase tracking-wider">Clock</span>
-                                            <span className="text-brand-silver text-xs font-bold">{product.boost_clock}</span>
-                                        </div>
-                                    )}
-                                    {product.memory_size && (
-                                        <div className="border-l border-white/10 pl-2">
-                                            <span className="block text-white/40 text-[9px] uppercase tracking-wider">VRAM</span>
-                                            <span className="text-brand-silver text-xs font-bold">{product.memory_size}</span>
-                                        </div>
-                                    )}
-                                    {product.capacity && (
-                                        <div className="border-l border-white/10 pl-2">
-                                            <span className="block text-white/40 text-[9px] uppercase tracking-wider">Size</span>
-                                            <span className="text-brand-silver text-xs font-bold">{product.capacity}</span>
-                                        </div>
-                                    )}
-                                    {!product.core_count && !product.memory_size && !product.capacity && (
-                                        <div className="col-span-2 border-l border-white/10 pl-2">
-                                            <span className="block text-white/40 text-[9px] uppercase tracking-wider">Grade</span>
-                                            <span className="text-brand-silver text-xs font-bold">Professional</span>
-                                        </div>
-                                    )}
-                                </div>
+                                <div className="grid grid-cols-2 gap-y-2 gap-x-4 mb-8 mt-2 min-h-[40px]">
+    {/* DYNAMIC SPECS: Shows top 4 specs, but hides 'Wattage' as requested */}
+    {product.specs && Object.keys(product.specs).length > 0 ? (
+        Object.entries(product.specs)
+            // FILTER: This line removes "wattage" (case-insensitive) from the card display
+            .filter(([key]) => key.toLowerCase() !== 'wattage') 
+            .slice(0, 4)
+            .map(([key, value]: any) => (
+                <div key={key} className="border-l border-white/10 pl-2">
+                    <span className="block text-white/40 text-[9px] uppercase tracking-wider truncate">
+                        {key.replace(/_/g, " ")}
+                    </span>
+                    <span className="text-brand-silver text-xs font-bold truncate block">
+                        {value}
+                    </span>
+                </div>
+            ))
+    ) : (
+        /* Fallback if no specs exist */
+        <div className="col-span-2 border-l border-white/10 pl-2">
+            <span className="block text-white/40 text-[9px] uppercase tracking-wider">Details</span>
+            <span className="text-brand-silver text-xs font-bold">See Product Page</span>
+        </div>
+    )}
+</div>
 
                                 <div className="mt-auto pt-6 border-t border-white/5 flex items-end justify-between gap-4">
                                     <div>

@@ -1,11 +1,28 @@
 "use client";
 
 import Navbar from "@/components/Navbar";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
+import { FaChevronDown, FaChevronRight, FaTrash, FaEdit, FaPlus, FaImage } from "react-icons/fa";
 
 // --- CONSTANTS ---
+const GROUPS = [
+    { id: "components", name: "PC Components" },
+    { id: "desktops", name: "Pre-Built Desktops" },
+    { id: "accessories", name: "Accessories" }
+];
+
+// Mapping base categories to groups for auto-sorting existing data
+const BASE_CATEGORY_MAP: Record<string, string> = {
+    cpu: "components", gpu: "components", motherboard: "components", ram: "components",
+    storage: "components", psu: "components", cabinet: "components", cooler: "components",
+    os: "components",
+    prebuilt: "desktops",
+    monitor: "accessories", keyboard: "accessories", mouse: "accessories",
+    combo: "accessories", mousepad: "accessories", usb: "accessories"
+};
+
 const BASE_CATEGORIES = [
   { id: "prebuilt", name: "Pre-built Desktop" },
   { id: "cpu", name: "Processor" },
@@ -28,7 +45,6 @@ const BASE_CATEGORIES = [
 
 const SERIES_OPTS = ["ascend", "workpro", "creator", "signature"];
 const TIER_OPTS = ["5", "7", "9"];
-
 const BASE_SOCKETS = ["AM5", "AM4", "LGA1700", "LGA1851", "LGA1200", "TR4"];
 const BASE_MEMORY_TYPES = ["DDR5", "DDR4", "GDDR6", "GDDR6X", "GDDR7"];
 const STORAGE_TYPES = ["NVMe M.2 Gen4", "NVMe M.2 Gen3", "SATA SSD", "HDD (7200RPM)"];
@@ -53,22 +69,30 @@ export default function ProductManager() {
   const [isCustomSocket, setIsCustomSocket] = useState(false);
   const [isCustomMemory, setIsCustomMemory] = useState(false);
 
+  // --- EXPANDED FORM DATA ---
   const [formData, setFormData] = useState({
-    id: "", name: "", breadcrumb_name: "", price: "", category: "cpu", series: "", tier: "", brand: "", 
-    image_url: "", in_stock: true, description: "", features_text: "", gallery_text: "",
+    id: "", name: "", breadcrumb_name: "", price: "", 
+    category: "cpu", 
+    group: "components", // NEW: Track parent group
+    series: "", tier: "", brand: "", 
+    image_url: "", in_stock: true, description: "", features_text: "",
+    gallery_urls: [] as string[], // CHANGED: Array for multiple images
+    
     // SPECS
     socket: "", memory_type: "", wattage: "", capacity: "", form_factor: "", speed: "", storage_type: "",
-    length_mm: "",         // NEW: For GPU Length
-    max_gpu_length_mm: "", // NEW: For Cabinet Clearance
-    // RECIPE (Pre-builts)
+    length_mm: "", max_gpu_length_mm: "",
+    // RECIPE
     recipe_cpu: "", recipe_gpu: "", recipe_mobo: "", recipe_ram: "", recipe_storage: "", 
     recipe_psu: "", recipe_cooler: "", recipe_cabinet: "", recipe_os: ""
   });
 
+  // --- LIST VIEW STATE (Expanded Sections) ---
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({ components: true, desktops: true, accessories: true });
+  const [expandedCats, setExpandedCats] = useState<Record<string, boolean>>({});
+
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      // UPDATE THIS TO YOUR EMAIL
       const ADMIN_EMAIL = "rigbuilders123@gmail.com"; 
 
       if (!user || user.email !== ADMIN_EMAIL) {
@@ -90,7 +114,7 @@ export default function ProductManager() {
         setProducts(data);
         setInventory(data);
         
-        // LEARN FROM DB: Extract unique Brands, Sockets, Memory, AND Categories
+        // Extract unique data for dropdowns
         const brands = Array.from(new Set(data.map(p => p.brand).filter(Boolean)));
         setExistingBrands(brands.sort());
 
@@ -100,7 +124,7 @@ export default function ProductManager() {
         const mems = Array.from(new Set(data.map(p => p.specs?.memory_type).filter(Boolean)));
         setExistingMemory(Array.from(new Set([...BASE_MEMORY_TYPES, ...mems])));
 
-        // Merge Base Categories with any new ones found in DB
+        // Merge Categories
         const dbCats = Array.from(new Set(data.map(p => p.category).filter(Boolean)));
         const allCats = [...BASE_CATEGORIES];
         dbCats.forEach(c => {
@@ -114,15 +138,32 @@ export default function ProductManager() {
   };
 
   const getOptionsFor = (cat: string) => inventory.filter(p => p.category === cat);
-
   const cleanPath = (path: string) => {
     if (!path) return "";
-    let clean = path.replace(/\\/g, "/");
-    clean = clean.replace(/^\/?public\/?/i, "");
-    clean = clean.replace(/^"|"$/g, "");
+    let clean = path.replace(/\\/g, "/").replace(/^\/?public\/?/i, "").replace(/^"|"$/g, "");
     if (!clean.startsWith("/")) clean = "/" + clean;
     return clean;
   };
+
+  // --- HIERARCHICAL DATA ORGANIZATION ---
+  const organizedProducts = useMemo(() => {
+    const tree: Record<string, Record<string, Record<string, any[]>>> = {};
+
+    products.forEach(p => {
+        // [FIX]: Check p.group (DB column) OR p.specs?.group (Fallback inside JSON)
+        const group = p.group || p.specs?.group || BASE_CATEGORY_MAP[p.category] || "accessories";
+        
+        const catName = existingCategories.find(c => c.id === p.category)?.name || p.category;
+        const brand = p.brand || "Generic";
+
+        if (!tree[group]) tree[group] = {};
+        if (!tree[group][catName]) tree[group][catName] = {};
+        if (!tree[group][catName][brand]) tree[group][catName][brand] = [];
+
+        tree[group][catName][brand].push(p);
+    });
+    return tree;
+  }, [products, existingCategories]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,6 +172,12 @@ export default function ProductManager() {
     try {
       const specs: any = {};
       
+      // Determine correct group
+      const finalGroup = isCustomCategory ? formData.group : (BASE_CATEGORY_MAP[formData.category] || formData.group);
+
+      // [FIX]: We save 'group' inside 'specs' because your DB table likely doesn't have a 'group' column.
+      specs.group = finalGroup; 
+
       if (formData.category === 'prebuilt') {
          specs["Processor"] = formData.recipe_cpu;
          specs["Graphics Card"] = formData.recipe_gpu;
@@ -144,74 +191,56 @@ export default function ProductManager() {
       } else {
          if (formData.category !== 'os' && formData.wattage) specs.wattage = parseInt(formData.wattage);
          
-         // CPU
-         if (formData.category === 'cpu') {
-             specs.socket = formData.socket;
-         }
-         // GPU
+         // Standard Specs
+         if (formData.category === 'cpu' || formData.category === 'motherboard') specs.socket = formData.socket;
          if (formData.category === 'gpu') {
              specs.vram = formData.capacity;
              specs.memory_type = formData.memory_type;
-             if (formData.length_mm) specs.length_mm = parseInt(formData.length_mm); // SAVE LENGTH
+             if (formData.length_mm) specs.length_mm = parseInt(formData.length_mm);
          }
-         // Motherboard
-         if (formData.category === 'motherboard') { 
-             specs.socket = formData.socket; 
-             specs.memory_type = formData.memory_type; 
-             specs.form_factor = formData.form_factor; 
-         }
-         // RAM
-         if (formData.category === 'ram') { 
-             specs.memory_type = formData.memory_type; 
-             specs.capacity = formData.capacity; 
-         }
-         // Storage
-         if (formData.category === 'storage') { 
-             specs.capacity = formData.capacity; 
-             specs.storage_type = formData.storage_type; 
-         }
-         // Cabinet
-         if (formData.category === 'cabinet') {
-             if (formData.max_gpu_length_mm) specs.max_gpu_length_mm = parseInt(formData.max_gpu_length_mm); // SAVE CLEARANCE
-         }
+         if (formData.category === 'motherboard') { specs.memory_type = formData.memory_type; specs.form_factor = formData.form_factor; }
+         if (formData.category === 'ram') { specs.memory_type = formData.memory_type; specs.capacity = formData.capacity; }
+         if (formData.category === 'storage') { specs.capacity = formData.capacity; specs.storage_type = formData.storage_type; }
+         if (formData.category === 'cabinet' && formData.max_gpu_length_mm) specs.max_gpu_length_mm = parseInt(formData.max_gpu_length_mm);
       }
 
-      // Process Images
       const finalMainImage = cleanPath(formData.image_url);
-      const galleryArray = formData.gallery_text.split(',').map(url => cleanPath(url.trim())).filter(url => url !== "" && url !== "/");
+      const cleanedGallery = formData.gallery_urls.map(cleanPath).filter(url => url !== "" && url !== "/");
       const featuresArray = formData.features_text.split('\n').filter(line => line.trim() !== "");
 
       const payload = {
         name: formData.name,
         breadcrumb_name: formData.breadcrumb_name || null,
         price: parseFloat(formData.price),
-        category: formData.category, 
+        category: formData.category,
+        // group: finalGroup, // <--- REMOVED THIS LINE (It causes the crash)
         series: formData.series || null,
         tier: formData.tier ? parseInt(formData.tier) : null,
         brand: formData.brand,
         image_url: finalMainImage,
         in_stock: formData.in_stock,
-        specs: specs,
-        // Save dimensions to root columns if they exist in DB, else specs handles it
+        specs: specs, // <--- The group is now saved inside here safely
         length_mm: specs.length_mm || 0,
         max_gpu_length_mm: specs.max_gpu_length_mm || 0,
         description: formData.description,
         features: featuresArray,
-        gallery_urls: galleryArray
+        gallery_urls: cleanedGallery
       };
 
-      if (activeTab === "edit" && formData.id) {
-        await supabase.from('products').update(payload).eq('id', formData.id);
-      } else {
-        await supabase.from('products').insert(payload);
-      }
+      // [FIX]: Explicitly catch the error variable
+      const { error } = activeTab === "edit" && formData.id
+        ? await supabase.from('products').update(payload).eq('id', formData.id)
+        : await supabase.from('products').insert(payload);
+
+      if (error) throw error; // Throw to the catch block below
 
       alert(activeTab === "edit" ? "Updated!" : "Created!");
       resetForm();
       fetchProducts();
 
     } catch (err: any) {
-      alert("Error: " + err.message);
+      console.error(err);
+      alert("Error saving product: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -219,27 +248,23 @@ export default function ProductManager() {
 
   const handleEditClick = (product: any) => {
     const s = product.specs || {};
-    
-    // Check if values are custom
     const isBaseCat = BASE_CATEGORIES.some(c => c.id === product.category);
     setIsCustomCategory(!isBaseCat);
-
     setIsCustomBrand(!existingBrands.includes(product.brand));
     setIsCustomSocket(s.socket && !BASE_SOCKETS.includes(s.socket) && !existingSockets.includes(s.socket));
     setIsCustomMemory(s.memory_type && !BASE_MEMORY_TYPES.includes(s.memory_type) && !existingMemory.includes(s.memory_type));
 
     setFormData({
-      id: product.id, name: product.name, breadcrumb_name: product.breadcrumb_name || "", price: product.price.toString(), category: product.category,
+      id: product.id, name: product.name, breadcrumb_name: product.breadcrumb_name || "", price: product.price.toString(), 
+      category: product.category, group: product.group || BASE_CATEGORY_MAP[product.category] || "components",
       series: product.series || "", tier: product.tier ? product.tier.toString() : "",
       brand: product.brand, image_url: product.image_url || "", in_stock: product.in_stock ?? true,
       description: product.description || "",
       features_text: (product.features || []).join('\n'),
-      gallery_text: (product.gallery_urls || []).join(', '),
+      gallery_urls: product.gallery_urls || [],
       
-      socket: s.socket || "", memory_type: s.memory_type || "", wattage: s.wattage ? s.wattage.toString() : "",
+      socket: s.socket || "", memory_type: s.memory_type || s.memory_type || "", wattage: s.wattage ? s.wattage.toString() : "",
       capacity: s.capacity || s.vram || "", form_factor: s.form_factor || "", speed: s.speed || "", storage_type: s.storage_type || "",
-      
-      // NEW FIELDS PRE-FILL
       length_mm: s.length_mm ? s.length_mm.toString() : "",
       max_gpu_length_mm: s.max_gpu_length_mm ? s.max_gpu_length_mm.toString() : "",
       
@@ -252,15 +277,15 @@ export default function ProductManager() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete product?")) return;
+    if (!confirm("Delete product? This might remove empty custom categories.")) return;
     await supabase.from('products').delete().eq('id', id);
     fetchProducts();
   };
 
   const resetForm = () => {
     setFormData({
-      id: "", name: "", breadcrumb_name: "", price: "", category: "cpu", series: "", tier: "", brand: "", image_url: "", in_stock: true,
-      description: "", features_text: "", gallery_text: "",
+      id: "", name: "", breadcrumb_name: "", price: "", category: "cpu", group: "components", series: "", tier: "", brand: "", image_url: "", in_stock: true,
+      description: "", features_text: "", gallery_urls: [],
       socket: "", memory_type: "", wattage: "", capacity: "", form_factor: "", speed: "", storage_type: "",
       length_mm: "", max_gpu_length_mm: "",
       recipe_cpu: "", recipe_gpu: "", recipe_mobo: "", recipe_ram: "", recipe_storage: "", 
@@ -273,73 +298,106 @@ export default function ProductManager() {
     setActiveTab("add");
   };
 
+  // --- HELPERS FOR IMAGE ARRAY ---
+  const addGalleryImage = () => setFormData({ ...formData, gallery_urls: [...formData.gallery_urls, ""] });
+  const updateGalleryImage = (idx: number, val: string) => {
+    const updated = [...formData.gallery_urls];
+    updated[idx] = val;
+    setFormData({ ...formData, gallery_urls: updated });
+  };
+  const removeGalleryImage = (idx: number) => {
+    setFormData({ ...formData, gallery_urls: formData.gallery_urls.filter((_, i) => i !== idx) });
+  };
+
+  const toggleGroup = (grp: string) => setExpandedGroups(prev => ({ ...prev, [grp]: !prev[grp] }));
+  const toggleCat = (cat: string) => setExpandedCats(prev => ({ ...prev, [cat]: !prev[cat] }));
+
   if (!isAdmin) return null;
 
   return (
     <div className="min-h-screen bg-[#121212] text-white font-saira pb-20">
       <Navbar />
-      <div className="pt-32 px-6 max-w-7xl mx-auto">
+      <div className="pt-32 px-6 max-w-[1600px] mx-auto">
         <h1 className="font-orbitron text-3xl font-bold mb-8 text-brand-purple">ADMIN DASHBOARD</h1>
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* LEFT: FORM */}
-            <div className="lg:col-span-1">
-                <div className="bg-[#1A1A1A] p-6 rounded-xl border border-white/5 sticky top-28">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+            
+            {/* --- LEFT: ADD/EDIT FORM (4 cols) --- */}
+            <div className="xl:col-span-4">
+                <div className="bg-[#1A1A1A] p-6 rounded-xl border border-white/5 sticky top-28 shadow-xl">
                     <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
-                        <h2 className="font-bold text-xl">{activeTab === "edit" ? "Edit" : "Add"} Product</h2>
-                        <button onClick={resetForm} className="text-xs text-brand-purple hover:underline">Reset</button>
+                        <h2 className="font-bold text-xl flex items-center gap-2">
+                             {activeTab === "edit" ? <FaEdit className="text-brand-purple"/> : <FaPlus className="text-brand-purple"/>}
+                             {activeTab === "edit" ? "Edit Product" : "Add New Product"}
+                        </h2>
+                        <button onClick={resetForm} className="text-xs bg-white/5 px-3 py-1 rounded hover:bg-white/10">Reset Form</button>
                     </div>
                     
-                    <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar pr-2">
+                    <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto custom-scrollbar pr-2">
                         
-                        {/* CATEGORY & NAME */}
-                        {isCustomCategory ? (
-                            <div className="relative mb-2">
-                                <input 
-                                    placeholder="New Category ID (e.g. headphones)" 
-                                    className="w-full bg-[#121212] p-2 rounded border border-brand-purple text-white font-bold"
+                        {/* 1. CATEGORY SELECTION */}
+                        <div className="space-y-2">
+                            <label className="text-[10px] uppercase text-brand-silver font-bold tracking-wider">Classification</label>
+                            
+                            {isCustomCategory ? (
+                                <div className="p-3 bg-brand-purple/10 rounded border border-brand-purple/30 space-y-3">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs text-brand-purple font-bold">New Category</span>
+                                        <button type="button" onClick={() => setIsCustomCategory(false)} className="text-[10px] text-red-400 hover:underline">Cancel</button>
+                                    </div>
+                                    <input 
+                                        placeholder="ID (e.g. headphones)" 
+                                        className="w-full bg-[#121212] p-2 rounded border border-brand-purple text-white font-bold text-sm"
+                                        value={formData.category} 
+                                        onChange={e => setFormData({...formData, category: e.target.value.toLowerCase()})} 
+                                        autoFocus 
+                                    />
+                                    {/* PARENT GROUP SELECTOR FOR NEW CATEGORY */}
+                                    <select 
+                                        className="w-full bg-[#121212] p-2 rounded border border-white/20 text-xs"
+                                        value={formData.group}
+                                        onChange={e => setFormData({...formData, group: e.target.value})}
+                                    >
+                                        {GROUPS.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                                    </select>
+                                </div>
+                            ) : (
+                                <select className="w-full bg-[#121212] p-3 rounded border border-white/10 text-white font-bold focus:border-brand-purple transition-colors"
                                     value={formData.category} 
-                                    onChange={e => setFormData({...formData, category: e.target.value.toLowerCase()})} 
-                                    autoFocus 
-                                />
-                                <button type="button" onClick={() => setIsCustomCategory(false)} className="absolute right-2 top-2 text-[10px] text-red-400 font-bold">CANCEL</button>
-                                <p className="text-[9px] text-brand-silver mt-1">Use lowercase, no spaces (e.g. &apos;gaming-chair&apos;)</p>
-                            </div>
-                        ) : (
-                            <select className="w-full bg-[#121212] p-2 rounded border border-white/10 text-brand-purple font-bold"
-                                value={formData.category} 
-                                onChange={e => {
-                                    if(e.target.value === "NEW") {
-                                        setIsCustomCategory(true);
-                                        setFormData({...formData, category: ""});
-                                    } else {
-                                        setFormData({...formData, category: e.target.value});
-                                    }
-                                }}>
-                                {existingCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                <option value="NEW" className="text-white font-bold bg-brand-purple">+ Add New Category</option>
-                            </select>
-                        )}
-
-                        <input required placeholder="Product Name" className="w-full bg-[#121212] p-2 rounded border border-white/10" 
-                            value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-                        
-                        {/* NEW: BREADCRUMB NAME FIELD */}
-                        <div className="relative">
-                             <input placeholder="Breadcrumb Display Name (Optional)" className="w-full bg-[#1A1A1A] p-2 rounded border border-brand-purple/50 text-xs focus:border-brand-purple" 
-                                value={formData.breadcrumb_name} onChange={e => setFormData({...formData, breadcrumb_name: e.target.value})} />
-                             <p className="text-[9px] text-brand-silver mt-1 text-right">e.g. "Ascend 5 As001an"</p>
+                                    onChange={e => {
+                                        if(e.target.value === "NEW") {
+                                            setIsCustomCategory(true);
+                                            setFormData({...formData, category: ""});
+                                        } else {
+                                            setFormData({...formData, category: e.target.value});
+                                        }
+                                    }}>
+                                    {existingCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                    <option value="NEW" className="bg-brand-purple text-white font-bold">+ Create New Category</option>
+                                </select>
+                            )}
                         </div>
-                        
-                        {/* PRE-BUILT SERIES SELECTOR */}
+
+                        {/* 2. BASIC INFO */}
+                        <div className="space-y-2">
+                            <input required placeholder="Product Name" className="w-full bg-[#121212] p-3 rounded border border-white/10 focus:border-brand-purple outline-none" 
+                                value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                            
+                            <div className="relative">
+                                 <input placeholder="Breadcrumb Name (Optional)" className="w-full bg-[#121212] p-2 rounded border border-white/10 text-xs focus:border-brand-purple outline-none" 
+                                    value={formData.breadcrumb_name} onChange={e => setFormData({...formData, breadcrumb_name: e.target.value})} />
+                            </div>
+                        </div>
+
+                        {/* SERIES (For Pre-builts) */}
                         {formData.category === 'prebuilt' && (
-                            <div className="grid grid-cols-2 gap-4 bg-brand-purple/10 p-2 rounded border border-brand-purple/30">
-                                <select className="bg-transparent text-xs outline-none" value={formData.series} onChange={e => setFormData({...formData, series: e.target.value})}>
+                            <div className="grid grid-cols-2 gap-4 bg-brand-purple/5 p-3 rounded border border-brand-purple/20">
+                                <select className="bg-transparent text-xs outline-none text-brand-purple font-bold" value={formData.series} onChange={e => setFormData({...formData, series: e.target.value})}>
                                     <option value="">Select Series</option>
                                     {SERIES_OPTS.map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}
                                 </select>
                                 {formData.series !== 'signature' && (
-                                    <select className="bg-transparent text-xs outline-none" value={formData.tier} onChange={e => setFormData({...formData, tier: e.target.value})}>
+                                    <select className="bg-transparent text-xs outline-none text-white" value={formData.tier} onChange={e => setFormData({...formData, tier: e.target.value})}>
                                         <option value="">Select Tier</option>
                                         {TIER_OPTS.map(t => <option key={t} value={t}>Level {t}</option>)}
                                     </select>
@@ -347,52 +405,76 @@ export default function ProductManager() {
                             </div>
                         )}
 
-                        {/* PRICE & BRAND */}
+                        {/* 3. PRICE & BRAND */}
                         <div className="grid grid-cols-2 gap-4">
-                            <input required type="number" placeholder="Price (₹)" className="w-full bg-[#121212] p-2 rounded border border-white/10" 
-                                value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} />
+                            <div className="relative">
+                                <span className="absolute left-3 top-3 text-brand-silver">₹</span>
+                                <input required type="number" placeholder="Price" className="w-full bg-[#121212] p-3 pl-6 rounded border border-white/10" 
+                                    value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} />
+                            </div>
                             
                             {isCustomBrand ? (
                                 <div className="relative">
-                                    <input placeholder="New Brand Name" className="w-full bg-[#121212] p-2 rounded border border-brand-purple" 
-                                        value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})} autoFocus />
-                                    <button type="button" onClick={() => setIsCustomBrand(false)} className="absolute right-2 top-2 text-[10px] text-red-400">Cancel</button>
+                                    <input placeholder="New Brand" className="w-full bg-[#121212] p-3 rounded border border-brand-purple" 
+                                        value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})} />
+                                    <button type="button" onClick={() => setIsCustomBrand(false)} className="absolute right-2 top-3 text-[10px] text-red-400 font-bold">CANCEL</button>
                                 </div>
                             ) : (
-                                <select className="w-full bg-[#121212] p-2 rounded border border-white/10"
+                                <select className="w-full bg-[#121212] p-3 rounded border border-white/10"
                                     value={formData.brand} onChange={e => {
                                         if(e.target.value === "NEW") setIsCustomBrand(true);
                                         else setFormData({...formData, brand: e.target.value});
                                     }}>
                                     <option value="">Select Brand</option>
                                     {existingBrands.map(b => <option key={b} value={b}>{b}</option>)}
-                                    <option value="NEW" className="text-brand-purple font-bold">+ Add New</option>
+                                    <option value="NEW" className="text-brand-purple font-bold">+ Add Brand</option>
                                 </select>
                             )}
                         </div>
 
-                        {/* IMAGE */}
-                        <div>
-                            <input placeholder="Image Path (e.g. \public\images\pc.jpg)" className="w-full bg-[#121212] p-2 rounded border border-white/10 text-xs" 
-                                value={formData.image_url} onChange={e => setFormData({...formData, image_url: e.target.value})} />
-                            <p className="text-[9px] text-brand-purple mt-1 ml-1">Paste full Windows path. We will auto-fix it.</p>
-                        </div>
-
-                        {/* --- RESTORED SECTION: PAGE DETAILS --- */}
+                        {/* 4. IMAGES (Dynamic List) */}
                         <div className="bg-[#121212] p-3 rounded border border-white/5 space-y-3">
-                            <label className="text-xs text-brand-purple uppercase font-bold block">Page Details</label>
-                            <textarea placeholder="Description" className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs h-16"
-                                value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
-                            <textarea placeholder="Features (One per line)" className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs h-16"
-                                value={formData.features_text} onChange={e => setFormData({...formData, features_text: e.target.value})} />
-                            <input placeholder="Gallery URLs (comma separated)" className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs"
-                                value={formData.gallery_text} onChange={e => setFormData({...formData, gallery_text: e.target.value})} />
+                            <label className="text-xs text-brand-purple uppercase font-bold flex items-center gap-2"><FaImage/> Image Gallery</label>
+                            
+                            {/* Main Image */}
+                            <div className="space-y-1">
+                                <span className="text-[10px] text-brand-silver">Main Thumbnail</span>
+                                <input placeholder="Main Image Path..." className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs" 
+                                    value={formData.image_url} onChange={e => setFormData({...formData, image_url: e.target.value})} />
+                            </div>
+
+                            {/* Additional Images Loop */}
+                            <div className="space-y-2">
+                                <span className="text-[10px] text-brand-silver">Gallery Images</span>
+                                {formData.gallery_urls.map((url, idx) => (
+                                    <div key={idx} className="flex gap-2">
+                                        <input 
+                                            placeholder={`Image ${idx + 2} Path...`}
+                                            className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs"
+                                            value={url}
+                                            onChange={(e) => updateGalleryImage(idx, e.target.value)}
+                                        />
+                                        <button type="button" onClick={() => removeGalleryImage(idx)} className="text-red-500 hover:bg-red-500/10 p-2 rounded"><FaTrash size={10}/></button>
+                                    </div>
+                                ))}
+                                <button type="button" onClick={addGalleryImage} className="w-full py-2 border border-dashed border-white/20 text-xs text-brand-silver hover:text-white hover:border-brand-purple transition-colors rounded">
+                                    + Add Another Image
+                                </button>
+                            </div>
                         </div>
 
-                        {/* SPECS / RECIPE */}
+                        {/* 5. DESCRIPTION & FEATURES */}
+                        <div className="bg-[#121212] p-3 rounded border border-white/5 space-y-3">
+                            <textarea placeholder="Product Description..." className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs h-20"
+                                value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+                            <textarea placeholder="Features (One per line)" className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs h-20"
+                                value={formData.features_text} onChange={e => setFormData({...formData, features_text: e.target.value})} />
+                        </div>
+
+                        {/* 6. SPECS or RECIPE */}
                         {formData.category === 'prebuilt' ? (
                             <div className="bg-[#121212] p-3 rounded border border-brand-purple/30 space-y-3">
-                                <label className="text-xs text-brand-purple uppercase font-bold block">Build Recipe</label>
+                                <label className="text-xs text-brand-purple uppercase font-bold block">System Configuration</label>
                                 {[
                                     { label: "Processor", key: "recipe_cpu", cat: "cpu" },
                                     { label: "Graphics", key: "recipe_gpu", cat: "gpu" },
@@ -413,10 +495,9 @@ export default function ProductManager() {
                             </div>
                         ) : (
                             <div className="bg-[#121212] p-3 rounded border border-white/5 space-y-3">
-                                <label className="text-xs text-brand-purple uppercase font-bold block">Tech Specs</label>
-                                {formData.category !== 'os' && <input type="number" placeholder="Watts" className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs" value={formData.wattage} onChange={e => setFormData({...formData, wattage: e.target.value})} />}
+                                <label className="text-xs text-brand-purple uppercase font-bold block">Technical Specs</label>
+                                {formData.category !== 'os' && <input type="number" placeholder="Wattage (TDP)" className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs" value={formData.wattage} onChange={e => setFormData({...formData, wattage: e.target.value})} />}
                                 
-                                {/* NEW: GPU LENGTH INPUT */}
                                 {formData.category === 'gpu' && (
                                     <div className="bg-brand-purple/10 p-2 rounded border border-brand-purple/30">
                                         <label className="text-[10px] text-brand-purple font-bold">GPU Length (mm)</label>
@@ -424,8 +505,6 @@ export default function ProductManager() {
                                             value={formData.length_mm} onChange={e => setFormData({...formData, length_mm: e.target.value})} />
                                     </div>
                                 )}
-
-                                {/* NEW: CABINET CLEARANCE INPUT */}
                                 {formData.category === 'cabinet' && (
                                     <div className="bg-brand-purple/10 p-2 rounded border border-brand-purple/30">
                                         <label className="text-[10px] text-brand-purple font-bold">Max GPU Clearance (mm)</label>
@@ -434,89 +513,119 @@ export default function ProductManager() {
                                     </div>
                                 )}
 
+                                {/* DYNAMIC SOCKET & MEMORY INPUTS */}
                                 {(formData.category === 'cpu' || formData.category === 'motherboard') && (
                                     isCustomSocket ? (
-                                        <div className="flex gap-2">
-                                            <input placeholder="Type Socket" className="w-full bg-[#1A1A1A] p-2 rounded border border-brand-purple text-xs"
-                                                value={formData.socket} onChange={e => setFormData({...formData, socket: e.target.value})} />
-                                            <button type="button" onClick={() => setIsCustomSocket(false)} className="text-red-400 text-xs">X</button>
-                                        </div>
+                                        <div className="flex gap-2"><input placeholder="Type Socket" className="w-full bg-[#1A1A1A] p-2 rounded border border-brand-purple text-xs" value={formData.socket} onChange={e => setFormData({...formData, socket: e.target.value})} /><button type="button" onClick={() => setIsCustomSocket(false)} className="text-red-400 text-xs">X</button></div>
                                     ) : (
-                                        <select className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs"
-                                            value={formData.socket} onChange={e => { if(e.target.value==="NEW") setIsCustomSocket(true); else setFormData({...formData, socket: e.target.value}); }}>
-                                            <option value="">Select Socket</option>
-                                            {existingSockets.map(s => <option key={s} value={s}>{s}</option>)}
-                                            <option value="NEW" className="text-brand-purple">+ Add New</option>
+                                        <select className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs" value={formData.socket} onChange={e => { if(e.target.value==="NEW") setIsCustomSocket(true); else setFormData({...formData, socket: e.target.value}); }}>
+                                            <option value="">Select Socket</option>{existingSockets.map(s => <option key={s} value={s}>{s}</option>)}<option value="NEW" className="text-brand-purple">+ Add New</option>
                                         </select>
                                     )
                                 )}
-
                                 {(formData.category === 'ram' || formData.category === 'motherboard' || formData.category === 'gpu') && (
                                     isCustomMemory ? (
-                                        <div className="flex gap-2">
-                                            <input placeholder="Type DDR" className="w-full bg-[#1A1A1A] p-2 rounded border border-brand-purple text-xs"
-                                                value={formData.memory_type} onChange={e => setFormData({...formData, memory_type: e.target.value})} />
-                                            <button type="button" onClick={() => setIsCustomMemory(false)} className="text-red-400 text-xs">X</button>
-                                        </div>
+                                        <div className="flex gap-2"><input placeholder="Type DDR" className="w-full bg-[#1A1A1A] p-2 rounded border border-brand-purple text-xs" value={formData.memory_type} onChange={e => setFormData({...formData, memory_type: e.target.value})} /><button type="button" onClick={() => setIsCustomMemory(false)} className="text-red-400 text-xs">X</button></div>
                                     ) : (
-                                        <select className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs"
-                                            value={formData.memory_type} onChange={e => { if(e.target.value==="NEW") setIsCustomMemory(true); else setFormData({...formData, memory_type: e.target.value}); }}>
-                                            <option value="">Select Memory Type</option>
-                                            {existingMemory.map(m => <option key={m} value={m}>{m}</option>)}
-                                            <option value="NEW" className="text-brand-purple">+ Add New</option>
+                                        <select className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs" value={formData.memory_type} onChange={e => { if(e.target.value==="NEW") setIsCustomMemory(true); else setFormData({...formData, memory_type: e.target.value}); }}>
+                                            <option value="">Select Memory Type</option>{existingMemory.map(m => <option key={m} value={m}>{m}</option>)}<option value="NEW" className="text-brand-purple">+ Add New</option>
                                         </select>
                                     )
                                 )}
-
                                 {formData.category === 'storage' && (
-                                    <select className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs"
-                                        value={formData.storage_type} onChange={e => setFormData({...formData, storage_type: e.target.value})}>
-                                        <option value="">Select Storage Type</option>
-                                        {STORAGE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                                    <select className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs" value={formData.storage_type} onChange={e => setFormData({...formData, storage_type: e.target.value})}>
+                                        <option value="">Select Storage Type</option>{STORAGE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                     </select>
                                 )}
-
                                 {(formData.category === 'ram' || formData.category === 'gpu' || formData.category === 'storage') && (
-                                    <input placeholder="Capacity (e.g. 16GB)" className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs"
-                                        value={formData.capacity} onChange={e => setFormData({...formData, capacity: e.target.value})} />
+                                    <input placeholder="Capacity (e.g. 16GB)" className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs" value={formData.capacity} onChange={e => setFormData({...formData, capacity: e.target.value})} />
                                 )}
                             </div>
                         )}
 
-                        <label className="flex items-center gap-2 cursor-pointer pt-2">
+                        <label className="flex items-center gap-2 cursor-pointer pt-2 p-3 bg-white/5 rounded">
                             <input type="checkbox" className="w-4 h-4 accent-brand-purple" checked={formData.in_stock} onChange={e => setFormData({...formData, in_stock: e.target.checked})} />
                             <span className="text-sm text-brand-silver">Available in Stock</span>
                         </label>
 
-                        <button disabled={loading} className="w-full bg-brand-purple py-3 rounded font-bold hover:bg-white hover:text-black transition-all">
-                            {loading ? "Processing..." : activeTab === "edit" ? "Update" : "Create"}
+                        <button disabled={loading} className="w-full bg-brand-purple py-4 rounded font-bold hover:bg-white hover:text-black transition-all shadow-lg text-lg">
+                            {loading ? "Processing..." : activeTab === "edit" ? "UPDATE PRODUCT" : "CREATE PRODUCT"}
                         </button>
                     </form>
                 </div>
             </div>
 
-            {/* LIST */}
-            <div className="lg:col-span-2 space-y-3">
-                {products.map((p) => (
-                    <div key={p.id} className="bg-[#1A1A1A] p-4 rounded border border-white/5 flex justify-between items-center group">
-                        <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 bg-black/50 rounded flex items-center justify-center text-[10px] text-[#A0A0A0] uppercase font-bold border border-white/5">{p.category.substring(0,2)}</div>
-                            <div>
-                                <h3 className="font-bold text-white text-sm">{p.name}</h3>
-                                <div className="text-xs text-[#A0A0A0] flex gap-2">
-                                    <span className="text-brand-purple">{p.brand}</span>
-                                    <span>•</span>
-                                    <span>₹{p.price}</span>
-                                    {p.series && <span className="text-brand-purple uppercase ml-2">[{p.series} {p.tier}]</span>}
+            {/* --- RIGHT: HIERARCHICAL PRODUCT LIST (8 cols) --- */}
+            <div className="xl:col-span-8">
+                <div className="bg-[#1A1A1A] p-6 rounded-xl border border-white/5 min-h-[500px]">
+                    <h2 className="font-bold text-xl mb-6">Product Inventory</h2>
+                    
+                    {/* ROOT GROUPS (Components, Desktops, Accessories) */}
+                    <div className="space-y-4">
+                        {GROUPS.map((group) => {
+                            const groupHasProducts = organizedProducts[group.id];
+                            if(!groupHasProducts) return null;
+
+                            return (
+                                <div key={group.id} className="border border-white/10 rounded-lg overflow-hidden bg-[#121212]">
+                                    {/* GROUP HEADER */}
+                                    <div 
+                                        className="flex items-center justify-between p-4 bg-white/5 cursor-pointer hover:bg-white/10 transition-colors"
+                                        onClick={() => toggleGroup(group.id)}
+                                    >
+                                        <h3 className="font-orbitron font-bold text-lg text-brand-purple flex items-center gap-2">
+                                            {expandedGroups[group.id] ? <FaChevronDown size={12}/> : <FaChevronRight size={12}/>}
+                                            {group.name}
+                                        </h3>
+                                        <span className="text-xs text-brand-silver bg-black/50 px-2 py-1 rounded">
+                                            {Object.values(organizedProducts[group.id] || {}).reduce((acc:any, brands:any) => acc + Object.values(brands).flat().length, 0)} Items
+                                        </span>
+                                    </div>
+
+                                    {/* CATEGORIES INSIDE GROUP */}
+                                    {expandedGroups[group.id] && (
+                                        <div className="p-4 space-y-4 bg-black/20 border-t border-white/5">
+                                            {Object.entries(organizedProducts[group.id]).map(([catName, brands]) => (
+                                                <div key={catName} className="ml-2">
+                                                    {/* CATEGORY HEADER */}
+                                                    <div 
+                                                        className="flex items-center gap-2 text-sm font-bold text-white mb-3 cursor-pointer select-none"
+                                                        onClick={() => toggleCat(catName)}
+                                                    >
+                                                        {expandedCats[catName] ? <FaChevronDown size={10} className="text-brand-silver"/> : <FaChevronRight size={10} className="text-brand-silver"/>}
+                                                        <span className="uppercase tracking-wider">{catName}</span>
+                                                    </div>
+
+                                                    {/* BRANDS & PRODUCTS INSIDE CATEGORY */}
+                                                    {expandedCats[catName] && (
+                                                        <div className="ml-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                            {Object.entries(brands).map(([brandName, brandProducts]) => (
+                                                                <div key={brandName} className="bg-[#1A1A1A] border border-white/5 rounded p-3">
+                                                                    <h4 className="text-xs text-brand-silver font-bold mb-2 uppercase border-b border-white/5 pb-1">{brandName}</h4>
+                                                                    <div className="space-y-2">
+                                                                        {brandProducts.map((p) => (
+                                                                            <div key={p.id} className="flex justify-between items-center group/item hover:bg-white/5 p-1 rounded transition-colors">
+                                                                                <span className="text-xs text-white truncate max-w-[70%]">{p.name}</span>
+                                                                                <div className="flex gap-2 opacity-50 group-hover/item:opacity-100">
+                                                                                    <button onClick={() => handleEditClick(p)} className="text-brand-purple hover:text-white"><FaEdit size={12}/></button>
+                                                                                    <button onClick={() => handleDelete(p.id)} className="text-red-500 hover:text-red-400"><FaTrash size={12}/></button>
+                                                                                </div>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
-                        </div>
-                        <div className="flex gap-2">
-                            <button onClick={() => handleEditClick(p)} className="px-3 py-1 bg-white/5 hover:bg-white hover:text-black rounded text-[10px] font-bold uppercase">Edit</button>
-                            <button onClick={() => handleDelete(p.id)} className="px-3 py-1 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded text-[10px] font-bold uppercase">Del</button>
-                        </div>
+                            );
+                        })}
                     </div>
-                ))}
+                </div>
             </div>
         </div>
       </div>

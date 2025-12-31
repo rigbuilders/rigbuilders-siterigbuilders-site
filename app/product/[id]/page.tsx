@@ -9,7 +9,7 @@ import { useCart } from "@/app/context/CartContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { 
-  FaStar, FaShoppingCart, FaBolt, FaChevronRight, FaHome, FaRegStar 
+  FaStar, FaShoppingCart, FaBolt, FaChevronRight, FaChevronLeft, FaHome, FaRegStar 
 } from "react-icons/fa";
 import { Reveal } from "@/components/ui/MotionWrappers";
 import { toast } from "sonner"; 
@@ -173,25 +173,84 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
         {/* --- MAIN PRODUCT GRID --- */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 xl:gap-20 mb-24">
             
-            {/* LEFT: CINEMATIC GALLERY */}
+           {/* LEFT: CINEMATIC GALLERY (Final: No Padding, Full Fit Square) */}
             <Reveal>
-                <div className="space-y-6 sticky top-32">
-                    <div className="h-[400px] md:h-[500px] bg-gradient-to-b from-[#1A1A1A] to-[#121212] border border-white/5 rounded-2xl flex items-center justify-center overflow-hidden relative group shadow-2xl">
-                        <div className="absolute inset-0 bg-brand-purple/5 blur-[100px] opacity-50 group-hover:opacity-100 transition-opacity duration-700" />
-                        {activeImg ? (
-                            <img src={activeImg} alt={product.name} className="max-h-[85%] max-w-[85%] object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.5)] transform group-hover:scale-110 transition-transform duration-700 ease-out z-10" />
-                        ) : (
-                            <div className="text-white/20 font-orbitron text-4xl -rotate-12 select-none">{product.name}</div>
-                        )}
-                    </div>
-                    <div className="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
-                        {[product.image_url, ...(product.gallery_urls || [])].filter(Boolean).map((img: string, i: number) => (
-                            <div key={i} onClick={() => setActiveImg(img)} className={`w-20 h-20 md:w-24 md:h-24 border rounded-lg cursor-pointer flex-shrink-0 bg-[#1A1A1A] overflow-hidden transition-all duration-300 relative group ${activeImg === img ? "border-brand-purple ring-2 ring-brand-purple/20" : "border-white/10 hover:border-white/30"}`}>
-                                <img src={img} alt="Thumbnail" className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />
+                {(() => {
+                    const allImages = [product.image_url, ...(product.gallery_urls || [])].filter(Boolean);
+                    
+                    const handleNext = () => {
+                        const curr = allImages.indexOf(activeImg);
+                        const next = (curr + 1) % allImages.length;
+                        setActiveImg(allImages[next]);
+                    };
+
+                    const handlePrev = () => {
+                        const curr = allImages.indexOf(activeImg);
+                        const prev = (curr - 1 + allImages.length) % allImages.length;
+                        setActiveImg(allImages[prev]);
+                    };
+
+                    return (
+                        <div className="flex flex-col-reverse md:flex-row gap-4 sticky top-32">
+                            
+                            {/* 1. THUMBNAILS (Separate Column) */}
+                            <div className="flex md:flex-col gap-3 overflow-x-auto md:overflow-y-auto w-full md:w-[90px] md:max-h-[600px] custom-scrollbar shrink-0">
+                                {allImages.map((img: string, i: number) => (
+                                    <div 
+                                        key={i} 
+                                        onClick={() => setActiveImg(img)} 
+                                        className={`
+                                            relative w-20 h-20 md:w-full md:h-24 rounded-lg cursor-pointer flex-shrink-0 
+                                            bg-[#151515] border overflow-hidden transition-all duration-300
+                                            ${activeImg === img ? "border-brand-purple opacity-100 ring-1 ring-brand-purple/50" : "border-white/10 opacity-50 hover:opacity-100 hover:border-white/20"}
+                                        `}
+                                    >
+                                        <img src={img} alt="Thumb" className="w-full h-full object-cover" />
+                                    </div>
+                                ))}
                             </div>
-                        ))}
-                    </div>
-                </div>
+
+                            {/* 2. MAIN IMAGE (Square & Full Fit) */}
+                            {/* FIX: 'aspect-square' forces the 1:1 ratio. Removed all padding. */}
+                            <div className="relative w-full aspect-square bg-[#0a0a0a] border border-white/5 rounded-2xl flex items-center justify-center overflow-hidden group shadow-2xl">
+                                
+                                {/* Ambient Glow */}
+                                <div className="absolute inset-0 bg-radial-gradient from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+
+                                {/* MAIN IMAGE */}
+                                {activeImg ? (
+                                    <img 
+                                        src={activeImg} 
+                                        alt={product.name} 
+                                        // FIX: 'object-contain' + 'w-full h-full' ensures it touches edges if aspect ratio allows.
+                                        // If you want to force fill even if it cuts off parts, change to 'object-cover'.
+                                        className="w-full h-full object-contain z-10 transition-transform duration-500 ease-out group-hover:scale-105" 
+                                    />
+                                ) : (
+                                    <div className="text-white/20 font-orbitron text-2xl -rotate-12 select-none">No Preview</div>
+                                )}
+
+                                {/* ARROWS */}
+                                {allImages.length > 1 && (
+                                    <>
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); handlePrev(); }}
+                                            className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-[#121212]/80 border border-white/10 text-white flex items-center justify-center hover:bg-brand-purple hover:border-brand-purple transition-all opacity-0 group-hover:opacity-100 -translate-x-4 group-hover:translate-x-0 duration-300 shadow-lg"
+                                        >
+                                            <FaChevronLeft size={14} />
+                                        </button>
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); handleNext(); }}
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-[#121212]/80 border border-white/10 text-white flex items-center justify-center hover:bg-brand-purple hover:border-brand-purple transition-all opacity-0 group-hover:opacity-100 translate-x-4 group-hover:translate-x-0 duration-300 shadow-lg"
+                                        >
+                                            <FaChevronRight size={14} />
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })()}
             </Reveal>
 
             {/* RIGHT: DETAILS PANEL */}
@@ -252,20 +311,23 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
             </Reveal>
         </div>
         
-        {/* [REST OF THE PAGE REMAINS UNCHANGED: Gallery, Related, Reviews...] */}
-        {/* For brevity, I am excluding the lower sections as they don't need changes, 
-            but if you copy-paste, ensure you keep the Gallery, Related Products, 
-            and Reviews sections from the previous file I gave you. */}
-        {/* If you need the FULL file again, let me know, but this change is focused on the top half. */}
         
         {/* --- SECTION: CINEMATIC VISUAL GALLERY --- */}
-        <div className="mb-24 pt-16 border-t border-white/10">
+        <div className="mb-24 pt-16 border-t border-white/10 relative z-10">
             <Reveal>
                 <div className="text-center mb-10">
                     <h2 className="text-2xl font-orbitron font-bold text-white uppercase tracking-wider">PRODUCT <span className="text-brand-purple">GALLERY</span></h2>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-[500px] md:h-[600px]">
-                    <div className="md:col-span-2 md:row-span-2 relative rounded-2xl overflow-hidden border border-white/5 group bg-[#151515] flex items-center justify-center">
+                
+                {/* FIX: Removed fixed height on container. Used 'h-auto' so the container MUST expand to fit the children.
+                    We now control height via the children elements directly. */}
+                <div className="flex flex-col md:grid md:grid-cols-3 gap-4 h-auto">
+                    
+                    {/* Main Image:
+                        - Mobile: h-[400px] 
+                        - Desktop: h-[600px] (Explicit height prevents collapse)
+                    */}
+                    <div className="w-full h-[400px] md:h-[600px] md:col-span-2 relative rounded-2xl overflow-hidden border border-white/5 group bg-[#151515] flex items-center justify-center">
                         <div className="absolute inset-0 bg-gradient-to-t from-[#121212] via-transparent to-transparent opacity-60 z-10" />
                         {product.image_url ? (
                             <img src={product.image_url} alt="Main Showcase" className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transform group-hover:scale-105 transition-all duration-1000 ease-out relative z-0" />
@@ -274,7 +336,11 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                         )}
                     </div>
 
-                    <div className="flex flex-col gap-4 h-full">
+                    {/* Side Images Column:
+                        - Mobile: h-[300px] 
+                        - Desktop: h-[600px] (Matches main image height)
+                    */}
+                    <div className="w-full h-[300px] md:h-[600px] flex flex-col gap-4">
                         {(product.gallery_urls?.length ? product.gallery_urls : [product.image_url, product.image_url])
                             .filter((url: any) => url && url.length > 0)
                             .slice(0, 2)
