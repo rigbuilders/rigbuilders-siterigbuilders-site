@@ -214,6 +214,14 @@ export default function CheckoutPage() {
             handler: async function (response: any) {
                 const toastId = toast.loading("Verifying & Creating Account...");
 
+                // [FIX] Check if this address already exists in the user's saved list
+                // We compare basic fields (Line 1, Pincode, City) to detect duplicates
+                const addressExists = savedAddresses.some(addr => 
+                    addr.address_line1?.toLowerCase() === formData.addressLine1.toLowerCase() &&
+                    addr.pincode === formData.pincode &&
+                    addr.city?.toLowerCase() === formData.city.toLowerCase()
+                );
+
                 const verifyData = {
                     orderCreationId: orderData.id,
                     razorpayPaymentId: response.razorpay_payment_id,
@@ -224,7 +232,8 @@ export default function CheckoutPage() {
                     shippingAddress: formData,
                     billingAddress: finalBillingAddress,
                     isGuest: isGuest, 
-                    autoSaveAddress: true
+                    // [FIX] Only ask the API to save if the address doesn't exist locally
+                    autoSaveAddress: !addressExists 
                 };
 
                 const verifyRes = await fetch('/api/payment/verify', {
@@ -237,12 +246,11 @@ export default function CheckoutPage() {
                 toast.dismiss(toastId);
 
                 if (resData.msg === "success") {
-                    // [FIX] Set success flag BEFORE clearing cart
                     setPaymentSuccess(true);
 
                     localStorage.setItem("latestOrder", JSON.stringify({ 
-                    items: cart, 
-                    display_id: resData.displayId 
+                        items: cart, 
+                        display_id: resData.displayId 
                     }));
                     
                     await trackCouponUsage(activeCoupon);
@@ -258,7 +266,6 @@ export default function CheckoutPage() {
                         });
                     }
                     
-                    // Force navigation to avoid any React router state delay
                     window.location.href = `/order-success?id=${resData.displayId}`;
                 } else {
                     toast.error("Verification Failed", {
