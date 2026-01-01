@@ -195,7 +195,8 @@ export default function Navbar() {
   
   return (
     <>
-    <nav className="sticky top-0 left-0 w-full z-50 bg-[#090909] border-b border-white/10 font-orbitron" onMouseLeave={() => setActiveMenu(null)}>
+    <div className="w-full h-[80px] bg-[#090909]" />
+    <nav className="fixed top-0 left-0 w-full z-50 bg-[#090909] border-b border-white/10 font-orbitron" onMouseLeave={() => setActiveMenu(null)}>
       <div className="h-[80px] px-[30px] flex items-center justify-between relative bg-[#090909] z-50">
         {/* MOBILE HAMBURGER */}
         <div className="lg:hidden flex items-center">
