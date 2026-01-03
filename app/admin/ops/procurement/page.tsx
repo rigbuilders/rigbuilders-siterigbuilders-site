@@ -25,15 +25,17 @@ export default function ProcurementPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return router.push("/");
 
+    // HYBRID FETCH: Requests data from BOTH the new 'orders' table AND the old 'orders_ops' table
     const { data, error } = await supabase
       .from('procurement_items')
       .select(`
         *,
-        orders_ops ( order_display_id, source )
+        orders ( display_id, full_name ),
+        orders_ops ( order_display_id )
       `)
       .order('created_at', { ascending: false });
 
-    if (error) console.error(error);
+    if (error) console.error("Error fetching items:", error);
     else setItems(data || []);
     setLoading(false);
   };
@@ -41,30 +43,70 @@ export default function ProcurementPage() {
   // --- ACTIONS ---
 
   const markOrdered = async (itemId: string) => {
+    // 1. Get Inputs
+    const item = items.find(i => i.id === itemId);
+    if (!item) return;
+
     const dist = distributorInput[itemId];
     const cost = costInput[itemId];
-    const hsn = hsnInput[itemId] || '8471'; // Default to 8471 if empty
+    const hsn = hsnInput[itemId] || '8471'; 
 
     if (!dist || !cost) return alert("Please enter Distributor Name and Cost Price.");
 
+    // 2. Update Procurement Item
     const { error } = await supabase
       .from('procurement_items')
       .update({ 
         status: 'ordered',
         distributor_name: dist,
         cost_price: parseFloat(cost),
-        hsn_code: hsn // <--- SAVING HSN HERE
+        hsn_code: hsn 
       })
       .eq('id', itemId);
 
-    if (error) alert("Error updating: " + error.message);
-    else fetchItems();
+    if (error) {
+        alert("Error updating: " + error.message);
+        return;
+    }
+
+    // 3. SYNC HSN TO MAIN ORDER (Crucial for PDF)
+    try {
+        const { data: orderData } = await supabase
+            .from('orders')
+            .select('items')
+            .eq('id', item.order_id)
+            .single();
+
+        if (orderData && orderData.items) {
+            // Find the item in the JSON array and add the HSN code
+            const updatedItems = orderData.items.map((orderItem: any) => {
+                if (orderItem.name === item.product_name) {
+                    return { ...orderItem, hsn_code: hsn }; 
+                }
+                return orderItem;
+            });
+
+            // Save back to Orders table
+            await supabase
+                .from('orders')
+                .update({ items: updatedItems })
+                .eq('id', item.order_id);
+        }
+    } catch (err) {
+        console.error("HSN Sync Failed:", err);
+    }
+
+    fetchItems();
   };
 
   const markReceived = async (itemId: string) => {
+    const item = items.find(i => i.id === itemId);
+    if (!item) return;
+
     const serial = serialInput[itemId];
     if (!serial) return alert("Serial Number is MANDATORY for warranty tracking.");
 
+    // 1. Update status
     const { error } = await supabase
       .from('procurement_items')
       .update({ 
@@ -73,8 +115,38 @@ export default function ProcurementPage() {
       })
       .eq('id', itemId);
 
-    if (error) alert("Error updating: " + error.message);
-    else fetchItems();
+    if (error) {
+        alert("Error updating: " + error.message);
+        return;
+    }
+
+    // 2. TRIGGER: Only run for NEW orders (that have a linked order_id)
+    if (item.order_id) {
+        try {
+            // Check all parts for this specific order
+            const { data: orderParts } = await supabase
+                .from('procurement_items')
+                .select('status')
+                .eq('order_id', item.order_id);
+
+            // If every single part is now 'received'
+            const allReceived = orderParts?.every((p: any) => p.status === 'received');
+
+            if (allReceived) {
+                // Update Main Order Status to 'procurement' (Signals Build Station)
+                await supabase
+                    .from('orders')
+                    .update({ status: 'procurement' })
+                    .eq('id', item.order_id);
+                
+                alert("📦 All parts received! Order sent to Build Station.");
+            }
+        } catch (err) {
+            console.error("Auto-status update failed:", err);
+        }
+    }
+
+    fetchItems();
   };
 
   if (loading) return <div className="min-h-screen bg-[#121212] text-white flex items-center justify-center">Loading Operations...</div>;
@@ -102,7 +174,9 @@ export default function ProcurementPage() {
                 {pendingItems.map(item => (
                     <div key={item.id} className="bg-black/40 p-3 rounded border border-white/10 hover:border-red-500/50 transition-colors">
                         <div className="flex justify-between items-start mb-2">
-                            <span className="text-xs font-bold text-brand-silver bg-white/5 px-2 py-1 rounded">{item.orders_ops?.order_display_id}</span>
+                            <span className="text-xs font-bold text-brand-silver bg-white/5 px-2 py-1 rounded">
+                            {item.orders?.display_id || item.orders_ops?.order_display_id || "N/A"}
+                            </span>
                             <span className="text-[10px] uppercase text-brand-purple font-bold">{item.category}</span>
                         </div>
                         <h3 className="text-sm font-bold text-white mb-3">{item.product_name}</h3>

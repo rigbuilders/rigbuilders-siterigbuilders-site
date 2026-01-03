@@ -195,7 +195,13 @@ export default function Navbar() {
   
   return (
     <>
+    {/* SPACER DIV: Matches Navbar height (80px). 
+        Required because 'fixed' takes the nav out of the layout, 
+        so this div prevents content from hiding behind it on Desktop & Mobile. */}
     <div className="w-full h-[80px] bg-[#090909]" />
+
+    {/* NAVBAR: 'fixed' applies to ALL screens (Desktop + Mobile). 
+        It forces the nav to stay at top-0 no matter what page or scroll position. */}
     <nav className="fixed top-0 left-0 w-full z-50 bg-[#090909] border-b border-white/10 font-orbitron" onMouseLeave={() => setActiveMenu(null)}>
       <div className="h-[80px] px-[30px] flex items-center justify-between relative bg-[#090909] z-50">
         {/* MOBILE HAMBURGER */}

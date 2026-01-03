@@ -73,7 +73,16 @@ export const OrderPDF = ({ order }: { order: any }) => {
   const items = order?.items || [];
   const taxDetails = order?.tax_details || {};
   // FIX: Check billing_address OR shipping_address
-  const address = order?.billing_address || order?.shipping_address || {};
+  // FIX: Handle both Database format (name/address) and PDF format (fullName/addressLine1)
+  const rawAddr = order?.billing_address || order?.shipping_address || {};
+  
+  const address = {
+      fullName: rawAddr.fullName || rawAddr.name || order?.full_name || "Guest",
+      addressLine1: rawAddr.addressLine1 || rawAddr.address || "",
+      city: rawAddr.city || "",
+      state: rawAddr.state || "",
+      pincode: rawAddr.pincode || ""
+  };
   const date = new Date(order?.created_at || Date.now()).toLocaleDateString('en-IN');
   const isInterState = (taxDetails.igst > 0); 
 
@@ -103,9 +112,12 @@ export const OrderPDF = ({ order }: { order: any }) => {
                     <View style={styles.titleBox}><Text style={styles.titleText}>TAX INVOICE</Text></View>
                     <View style={styles.rightInfoBox}>
                         <Text style={styles.labelBold}>SALES CHANNEL :</Text>
-                        <Text style={styles.textNormal}>WEBSITE</Text>
+                        {/* FIX: Make Source Dynamic (Offline/Amazon/Website) */}
+                        <Text style={styles.textNormal}>{(order?.source || "WEBSITE").toUpperCase()}</Text>
+                        
                         <Text style={styles.labelBold}>PAYMENT MODE :</Text>
-                        <Text style={styles.textNormal}>{order?.payment_mode || "ONLINE"}</Text>
+                        <Text style={styles.textNormal}>{(order?.payment_mode || "ONLINE").toUpperCase()}</Text>
+                        
                         <Text style={styles.labelBold}>DELIVERY MODE :</Text>
                         <Text style={styles.textNormal}>COURIER</Text>
                     </View>
@@ -135,23 +147,47 @@ export const OrderPDF = ({ order }: { order: any }) => {
                 </View>
 
                 {items.map((item: any, i: number) => {
-                    const unitPrice = item.price; 
-                    const basicPrice = Math.round(unitPrice / 1.18);
-                    const taxAmt = Math.round(unitPrice - basicPrice);
-                    const totalLine = unitPrice * item.quantity;
+                    // 1. Get Values & Handle "NaN" safety
+                    const unitPrice = Number(item.price) || 0;
+                    const qty = Number(item.quantity) || 1; 
+
+                    // 2. GST Calculation (No Math.round)
+                    // We keep the exact decimal values for calculation
+                    const basicPrice = unitPrice / 1.18;
+                    const totalTaxAmt = unitPrice - basicPrice;
+                    const totalLine = unitPrice * qty;
 
                     return (
                         <View key={i} style={styles.tableRow}>
                             <Text style={[styles.td, styles.colSr]}>{i + 1}</Text>
                             <Text style={[styles.td, styles.colDesc]}>{item.name}</Text>
                             <Text style={[styles.td, styles.colHsn]}>{item.hsn_code || '8471'}</Text>
-                            <Text style={[styles.td, styles.colQty]}>{item.quantity}</Text>
+                            <Text style={[styles.td, styles.colQty]}>{qty}</Text>
                             <Text style={[styles.td, styles.colUnit]}>PCS</Text>
-                            <Text style={[styles.td, styles.colPrice]}>{basicPrice}</Text>
-                            <Text style={[styles.td, styles.colTax]}>{isInterState ? 0 : taxAmt/2}</Text>
-                            <Text style={[styles.td, styles.colTax2]}>{isInterState ? 0 : taxAmt/2}</Text>
-                            <Text style={[styles.td, styles.colTax3]}>{isInterState ? taxAmt : 0}</Text>
-                            <Text style={[styles.td, styles.colTotal, { borderRight: 'none' }]}>{totalLine}</Text>
+                            
+                            {/* 3. Display with .toFixed(2) for 2 decimal places */}
+                            <Text style={[styles.td, styles.colPrice]}>
+                                {basicPrice.toFixed(2)}
+                            </Text>
+
+                            {/* CGST (Half of Tax) */}
+                            <Text style={[styles.td, styles.colTax]}>
+                                {isInterState ? "0.00" : (totalTaxAmt / 2).toFixed(2)}
+                            </Text>
+
+                            {/* SGST (Half of Tax) */}
+                            <Text style={[styles.td, styles.colTax2]}>
+                                {isInterState ? "0.00" : (totalTaxAmt / 2).toFixed(2)}
+                            </Text>
+
+                            {/* IGST (Full Tax if Interstate) */}
+                            <Text style={[styles.td, styles.colTax3]}>
+                                {isInterState ? totalTaxAmt.toFixed(2) : "0.00"}
+                            </Text>
+
+                            <Text style={[styles.td, styles.colTotal, { borderRight: 'none' }]}>
+                                {totalLine.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </Text>
                         </View>
                     );
                 })}
@@ -163,7 +199,10 @@ export const OrderPDF = ({ order }: { order: any }) => {
                         <Text style={{ textAlign: 'right', fontWeight: 'bold' }}>GRAND TOTAL</Text>
                     </View>
                     <View style={{ width: '13%' }}>
-                        <Text style={{ textAlign: 'center', fontWeight: 'bold' }}>{order?.total_amount}</Text>
+                        <Text style={{ textAlign: 'center', fontWeight: 'bold' }}>
+                            {/* FIX: Ensure number format */}
+                            {Number(order?.total_amount || 0).toLocaleString('en-IN')}
+                        </Text>
                     </View>
                 </View>
             </View>
@@ -176,13 +215,13 @@ export const OrderPDF = ({ order }: { order: any }) => {
             {/* 5. ADDRESSES (Fixed Variable) */}
             <View style={styles.footerSplit}>
                 <View style={[styles.footerHalf, styles.borderRight]}>
-                    <Text style={styles.labelBold}>BILLING ADDRESS :</Text>
+                    <Text style={styles.labelBold}>BILLED TO :</Text>
                     <Text style={styles.textNormal}>{address.fullName}</Text>
                     <Text style={styles.textNormal}>{address.addressLine1}</Text>
                     <Text style={styles.textNormal}>{address.city}, {address.state} - {address.pincode}</Text>
                 </View>
                 <View style={styles.footerHalf}>
-                    <Text style={styles.labelBold}>SHIPPING ADDRESS :</Text>
+                    <Text style={styles.labelBold}>SHIPPED TO :</Text>
                     <Text style={styles.textNormal}>{address.fullName}</Text>
                     <Text style={styles.textNormal}>{address.addressLine1}</Text>
                     <Text style={styles.textNormal}>{address.city}, {address.state} - {address.pincode}</Text>

@@ -4,9 +4,9 @@ import Navbar from "@/components/Navbar";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import { FaFileInvoice, FaPrint, FaSearch } from "react-icons/fa";
+import { FaFileInvoice, FaPrint, FaSearch, FaTruck } from "react-icons/fa";
 import { PDFDownloadLink, PDFViewer } from "@react-pdf/renderer";
-import { OrderPDF } from "./OrderPDF"; // Importing the template we fixed
+import { OrderPDF } from "./OrderPDF"; 
 
 export default function DocumentsPage() {
   const router = useRouter();
@@ -23,7 +23,7 @@ export default function DocumentsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return router.push("/");
 
-    // FATAL FIX: We must explicitly select new columns like 'invoice_no', 'tax_details', etc.
+    // Fetching from 'orders' table
     const { data, error } = await supabase
       .from('orders')
       .select('*') 
@@ -34,29 +34,31 @@ export default function DocumentsPage() {
     setLoading(false);
   };
 
-  // --- GENERATE INVOICE NUMBER IF MISSING ---
+  // --- 1. GENERATE INVOICE NUMBER ---
   const generateInvoice = async (order: any) => {
     if (order.invoice_no) {
       setSelectedOrder(order);
       return;
     }
 
-    if (!confirm("This order has no Invoice Number. Generate one now?")) return;
+    if (!confirm("Generate Invoice Number for this order?")) return;
 
-    // 1. Get next sequence
+    // Get next sequence from counters
     const { data: counter } = await supabase.from('counters').select('current_value').eq('name', 'invoice').single();
     const nextVal = (counter?.current_value || 0) + 1;
+    
     const year = new Date().getFullYear().toString().slice(-2);
     const newInvoiceNo = `INV-RB-${year}-${String(nextVal).padStart(3, '0')}`;
 
-    // 2. Update Order
+    // Update Order
     const { error } = await supabase
       .from('orders')
       .update({ 
         invoice_no: newInvoiceNo,
+        // Rough tax calculation for the DB (The PDF calculates it precisely)
         tax_details: { 
-            cgst: order.total_amount * 0.09, // Rough calc for display 
-            sgst: order.total_amount * 0.09,
+            cgst: Math.round(order.total_amount * 0.09), 
+            sgst: Math.round(order.total_amount * 0.09),
             igst: 0 
         }
       })
@@ -65,23 +67,42 @@ export default function DocumentsPage() {
     if (error) {
       alert("Failed to generate: " + error.message);
     } else {
-      // 3. Update Counter
-      await supabase.from('counters').update({ current_value: nextVal }).eq('name', 'invoice');
+      // Update Counter
+      await supabase.from('counters').upsert({ name: 'invoice', current_value: nextVal });
       
-      // 4. Refresh & Select
       alert(`Generated Invoice: ${newInvoiceNo}`);
       fetchOrders();
-      // We need to re-fetch the specific order to get the new data
+      
+      // Select the order immediately to show preview
       const { data: freshOrder } = await supabase.from('orders').select('*').eq('id', order.id).single();
       setSelectedOrder(freshOrder);
     }
   };
 
+  // --- 2. NEW ACTION: DISPATCH ORDER ---
+  const markShipped = async (order: any) => {
+    if(!confirm("Confirm Dispatch? This will mark the order as 'Shipped'.")) return;
+
+    const { error } = await supabase
+        .from('orders')
+        .update({ status: 'shipped' })
+        .eq('id', order.id);
+
+    if (error) alert(error.message);
+    else {
+        alert("Order Dispatched!");
+        // Update local state immediately to reflect change in the UI
+        setOrders(orders.map(o => o.id === order.id ? { ...o, status: 'shipped' } : o));
+        setSelectedOrder({ ...order, status: 'shipped' });
+    }
+  };
+
   if (loading) return <div className="min-h-screen bg-[#121212] text-white flex items-center justify-center">Loading Documents...</div>;
 
+  // Filter Logic: Updated to use 'full_name' instead of 'billing_address.fullName'
   const filteredOrders = orders.filter(o => 
-    o.display_id?.toLowerCase().includes(search.toLowerCase()) || 
-    o.billing_address?.fullName?.toLowerCase().includes(search.toLowerCase())
+    (o.display_id || "").toLowerCase().includes(search.toLowerCase()) || 
+    (o.full_name || "").toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -89,8 +110,8 @@ export default function DocumentsPage() {
       <Navbar />
       <div className="pt-32 px-4 max-w-7xl mx-auto">
         
-        <h1 className="font-orbitron text-3xl font-bold text-brand-purple mb-2">INVOICE GENERATOR</h1>
-        <p className="text-brand-silver mb-8">Select an order to generate and print the Official Tax Invoice.</p>
+        <h1 className="font-orbitron text-3xl font-bold text-brand-purple mb-2">DOCUMENTS & DISPATCH</h1>
+        <p className="text-brand-silver mb-8">Phase 5: Generate Invoice, Print Bill & Mark Dispatched.</p>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
@@ -114,35 +135,52 @@ export default function DocumentsPage() {
                     >
                         <div className="flex justify-between items-start">
                             <span className="font-bold text-white">{order.display_id}</span>
-                            <span className={`text-[10px] px-2 py-0.5 rounded ${order.invoice_no ? 'bg-green-500/20 text-green-500' : 'bg-yellow-500/20 text-yellow-500'}`}>
-                                {order.invoice_no ? "INVOICED" : "PENDING"}
+                            <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${order.status === 'shipped' ? 'bg-blue-500 text-white' : (order.invoice_no ? 'bg-green-500/20 text-green-500' : 'bg-yellow-500/20 text-yellow-500')}`}>
+                                {order.status === 'shipped' ? "SHIPPED" : (order.invoice_no ? "INVOICED" : "PENDING")}
                             </span>
                         </div>
-                        <div className="text-xs text-gray-400 mt-1">{order.billing_address?.fullName || "Guest User"}</div>
+                        {/* FIX: Using full_name directly from DB column */}
+                        <div className="text-xs text-gray-400 mt-1">{order.full_name || "Guest User"}</div>
                         <div className="text-xs text-brand-silver mt-1 font-mono">₹{order.total_amount?.toLocaleString()}</div>
                     </div>
                 ))}
             </div>
           </div>
 
-          {/* RIGHT: PDF PREVIEW */}
+          {/* RIGHT: PDF PREVIEW & ACTIONS */}
           <div className="lg:col-span-2 bg-[#525659] rounded-xl border border-white/5 flex flex-col h-[75vh] overflow-hidden">
             {selectedOrder ? (
                 <>
                     <div className="bg-[#323639] p-3 flex justify-between items-center shadow-lg z-10">
                         <div className="text-sm font-bold text-white">
-                            PREVIEW: {selectedOrder.invoice_no || "DRAFT MODE"}
+                            {selectedOrder.invoice_no || "DRAFT PREVIEW"}
                         </div>
-                        <PDFDownloadLink 
-                            document={<OrderPDF order={selectedOrder} />} 
-                            fileName={`Invoice_${selectedOrder.display_id}.pdf`}
-                            className="bg-brand-purple hover:bg-brand-purple/80 text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2"
-                        >
-                            {({ loading }) => loading ? 'Generating...' : <><FaPrint /> Download PDF</>}
-                        </PDFDownloadLink>
+                        
+                        <div className="flex gap-3">
+                            {/* DISPATCH BUTTON */}
+                            {selectedOrder.invoice_no && selectedOrder.status !== 'shipped' && (
+                                <button 
+                                    onClick={() => markShipped(selectedOrder)}
+                                    className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2"
+                                >
+                                    <FaTruck /> Dispatch
+                                </button>
+                            )}
+
+                            {/* DOWNLOAD BUTTON */}
+                            <PDFDownloadLink 
+                                document={<OrderPDF order={selectedOrder} />} 
+                                fileName={`Invoice_${selectedOrder.display_id}.pdf`}
+                                className="bg-brand-purple hover:bg-brand-purple/80 text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2"
+                            >
+                                {({ loading }) => loading ? 'Generating...' : <><FaPrint /> Download PDF</>}
+                            </PDFDownloadLink>
+                        </div>
                     </div>
+
                     <div className="flex-grow w-full h-full">
                         <PDFViewer width="100%" height="100%" className="w-full h-full">
+                            {/* Using the order object directly since user confirmed addresses are fine */}
                             <OrderPDF order={selectedOrder} />
                         </PDFViewer>
                     </div>

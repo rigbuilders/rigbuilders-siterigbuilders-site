@@ -15,9 +15,9 @@ export default function FinancePage() {
   }, []);
 
   const fetchFinancials = async () => {
-    // 1. Get Orders with their items (to sum up costs)
+    // 1. FIX: Fetch from 'orders' table instead of 'orders_ops'
     const { data } = await supabase
-      .from('orders_ops')
+      .from('orders')
       .select(`
         *,
         procurement_items ( cost_price, product_name )
@@ -40,8 +40,8 @@ export default function FinancePage() {
         // Revenue
         totalRev += Number(order.total_amount) || 0;
         
-        // Cost (Sum of all items in that order)
-        const orderCost = order.procurement_items.reduce((sum: number, item: any) => sum + (Number(item.cost_price) || 0), 0);
+        // Cost (Sum of all items in that order from Procurement Phase)
+        const orderCost = order.procurement_items?.reduce((sum: number, item: any) => sum + (Number(item.cost_price) || 0), 0) || 0;
         totalCost += orderCost;
     });
 
@@ -58,17 +58,82 @@ export default function FinancePage() {
 
   // --- CA EXPORT FUNCTION ---
   const downloadReport = () => {
-    // 1. Create CSV Header
-    let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "Order ID,Date,Customer,Source,Sale Amount (Revenue),Cost Basis (Expenses),Net Profit,Status\n";
+    // 1. Create CSV Header (Tally/Busy Compatible Format)
+    const headers = [
+        "Invoice Date",
+        "Invoice No",
+        "Order ID",
+        "Customer Name",
+        "Place of Supply (State)",
+        "Taxable Value (Sale)",
+        "IGST Charged",
+        "CGST Charged",
+        "SGST Charged",
+        "Total Invoice Amount",
+        "Total Purchase Cost (Incl. Tax)",
+        "Est. Input GST (Paid)",
+        "Gross Profit",
+        "Payment Mode",
+        "Source"
+    ];
+    
+    let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n";
 
     // 2. Add Rows
     orders.forEach(order => {
-        const cost = order.procurement_items.reduce((sum: number, item: any) => sum + (Number(item.cost_price) || 0), 0);
-        const profit = (Number(order.total_amount) || 0) - cost;
-        const date = new Date(order.created_at).toLocaleDateString();
+        // A. Basic Data
+        const date = new Date(order.created_at).toLocaleDateString("en-IN");
+        const invNo = order.invoice_no || "PENDING";
+        const orderId = order.display_id || "N/A";
+        const customer = (order.full_name || "Guest").replace(/,/g, " "); // Remove commas for CSV safety
         
-        const row = `${order.order_display_id},${date},${order.guest_info?.name || "User"},${order.source},${order.total_amount},${cost},${profit},${order.status}`;
+        // B. State Logic (Detect Punjab for SGST/CGST)
+        // Checks the JSON state field OR looks for 'Punjab' in the address text
+        const stateRaw = order.shipping_address?.state || order.address || "";
+        const isPunjab = stateRaw.toLowerCase().includes("punjab");
+        const placeOfSupply = isPunjab ? "Punjab" : "Inter-State";
+
+        // C. Sales Tax Calculations (Output GST)
+        const totalSale = Number(order.total_amount) || 0;
+        const taxableSale = totalSale / 1.18;
+        const totalTaxCharged = totalSale - taxableSale;
+
+        let igst = 0, cgst = 0, sgst = 0;
+        if (isPunjab) {
+            cgst = totalTaxCharged / 2;
+            sgst = totalTaxCharged / 2;
+        } else {
+            igst = totalTaxCharged;
+        }
+
+        // D. Purchase Tax Calculations (Input GST - Est. 18% of Cost)
+        // Note: This assumes your parts are bought at 18% GST.
+        const totalCost = order.procurement_items?.reduce((sum: number, item: any) => sum + (Number(item.cost_price) || 0), 0) || 0;
+        const taxableCost = totalCost / 1.18;
+        const inputGstPaid = totalCost - taxableCost;
+        
+        // E. Profit
+        const profit = totalSale - totalCost;
+
+        // F. Create Row String
+        const row = [
+            date,
+            invNo,
+            orderId,
+            customer,
+            placeOfSupply,
+            taxableSale.toFixed(2),
+            igst.toFixed(2),
+            cgst.toFixed(2),
+            sgst.toFixed(2),
+            totalSale.toFixed(2),
+            totalCost.toFixed(2),
+            inputGstPaid.toFixed(2),
+            profit.toFixed(2),
+            order.payment_mode,
+            order.source
+        ].join(",");
+
         csvContent += row + "\n";
     });
 
@@ -76,7 +141,7 @@ export default function FinancePage() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `RigBuilders_Finance_Report_${new Date().toISOString().slice(0,10)}.csv`);
+    link.setAttribute("download", `RigBuilders_Sales_Register_${new Date().toISOString().slice(0,10)}.csv`);
     document.body.appendChild(link);
     link.click();
   };
@@ -140,19 +205,20 @@ export default function FinancePage() {
                     </thead>
                     <tbody className="divide-y divide-white/5">
                         {orders.map(order => {
-                            const cost = order.procurement_items.reduce((sum: number, item: any) => sum + (Number(item.cost_price) || 0), 0);
+                            const cost = order.procurement_items?.reduce((sum: number, item: any) => sum + (Number(item.cost_price) || 0), 0) || 0;
                             const profit = (Number(order.total_amount) || 0) - cost;
                             const isProfitable = profit >= 0;
 
                             return (
                                 <tr key={order.id} className="hover:bg-white/5 transition-colors">
-                                    <td className="p-4 font-bold">{order.order_display_id}</td>
+                                    {/* FIX: Use 'display_id' */}
+                                    <td className="p-4 font-bold">{order.display_id}</td>
                                     <td className="p-4">
                                         <span className={`text-[10px] uppercase px-2 py-1 rounded font-bold ${order.source === 'amazon' ? 'bg-orange-500/20 text-orange-500' : 'bg-blue-500/20 text-blue-500'}`}>
                                             {order.source}
                                         </span>
                                     </td>
-                                    <td className="p-4 text-right font-mono">₹{order.total_amount.toLocaleString("en-IN")}</td>
+                                    <td className="p-4 text-right font-mono">₹{order.total_amount?.toLocaleString("en-IN")}</td>
                                     <td className="p-4 text-right font-mono text-brand-silver">₹{cost.toLocaleString("en-IN")}</td>
                                     <td className={`p-4 text-right font-mono font-bold ${isProfitable ? 'text-green-400' : 'text-red-400'}`}>
                                         {isProfitable ? '+' : ''}₹{profit.toLocaleString("en-IN")}

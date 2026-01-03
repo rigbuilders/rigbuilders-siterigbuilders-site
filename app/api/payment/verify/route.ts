@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend"; 
 import OrderConfirmationEmail from "@/components/emails/OrderConfirmationEmail"; 
+import { generateOrderId, generateInvoiceId } from "@/lib/id-generator";
 
 // --- CONFIGURATION ---
 const COMPANY_STATE = "Punjab"; // Used to decide IGST vs CGST/SGST
@@ -30,22 +31,6 @@ const supabaseAdmin = createClient(
   }
 );
 
-// --- HELPER: GET NEXT SEQUENCE ID ---
-async function getNextId(counterName: string, prefix: string) {
-  // Try using the safe RPC function first
-  const { data, error } = await supabaseAdmin.rpc('increment_counter', { row_name: counterName });
-  
-  // Fallback if RPC doesn't exist yet
-  if (error || data === null) {
-     console.warn(`RPC failed for ${counterName}, using fallback manual update.`);
-     const { data: curr } = await supabaseAdmin.from('counters').select('current_value').eq('name', counterName).single();
-     const nextVal = (curr?.current_value || 0) + 1;
-     await supabaseAdmin.from('counters').update({ current_value: nextVal }).eq('name', counterName);
-     return `${prefix}${String(nextVal).padStart(3, '0')}`;
-  }
-  
-  return `${prefix}${String(data).padStart(3, '0')}`;
-}
 
 // --- HELPER: TAX CALCULATOR ---
 function calculateTax(totalAmount: number, userState: string) {
@@ -88,24 +73,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ msg: "failure", error: "Invalid Signature" }, { status: 400 });
     }
 
-    // --- STEP 2: GENERATE IDs & TAX (NEW LOGIC) ---
-    // A. Detect Order Type for ID Generation
-    let idType = 'component';
-    let idPrefix = `RB-CP-${CURRENT_YEAR_SHORT}-`;
+    // --- STEP 2: GENERATE IDs & TAX (STANDARDIZED) ---
+    // A. Detect Order Type
+    let orderType: 'PB' | 'CB' | 'CS' = 'CS'; // Default to Parts (RB-CS)
 
-    const hasPrebuilt = cartItems.some((i: any) => i.category === 'prebuilt' || i.name?.toLowerCase().includes('prebuilt')); 
+    // Check for Prebuilt
+    const hasPrebuilt = cartItems.some((i: any) => i.category === 'prebuilt' || i.name?.toLowerCase().includes('prebuilt'));
+    // Check for Custom Rig
     const hasCustom = cartItems.some((i: any) => i.name?.toLowerCase().includes('custom pc'));
 
-    if (hasPrebuilt) { idType = 'prebuilt'; idPrefix = `RB-PB-${CURRENT_YEAR_SHORT}-`; }
-    else if (hasCustom) { idType = 'custom'; idPrefix = `RB-CS-${CURRENT_YEAR_SHORT}-`; }
+    if (hasPrebuilt) { 
+        orderType = 'PB'; 
+    } else if (hasCustom) { 
+        orderType = 'CB'; 
+    }
 
-    // B. Get Sequences
-    const invoiceNo = await getNextId('invoice', 'INV-RB-'); // e.g. INV-RB-005
-    const displayId = await getNextId(idType, idPrefix);     // e.g. RB-PB-25-001
+    // B. Generate IDs using Shared Library (Source of Truth)
+    const displayId = await generateOrderId(supabaseAdmin, orderType);
+    const invoiceNo = await generateInvoiceId(supabaseAdmin);
 
-    // C. Calculate Tax
+    // C. Calculate Tax (Keep existing logic)
     const taxDetails = calculateTax(totalAmount, shippingAddress.state);
-
 
     // --- STEP 3: HANDLE USER (Fail-Safe) ---
     let finalUserId = userId; 

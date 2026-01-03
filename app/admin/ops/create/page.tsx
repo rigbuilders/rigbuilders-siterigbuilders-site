@@ -4,7 +4,9 @@ import Navbar from "@/components/Navbar";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import { FaSearch, FaPlus, FaTrash, FaAmazon, FaStore, FaGlobe } from "react-icons/fa";
+import { FaSearch, FaPlus, FaTrash, FaAmazon, FaStore, FaGlobe, FaUser, FaPhone, FaMapMarker, FaEnvelope, FaDesktop, FaGamepad, FaMicrochip } from "react-icons/fa";
+import { toast } from "sonner";
+import { generateOrderId } from "@/lib/id-generator";
 
 export default function CreateOrderPage() {
   const router = useRouter();
@@ -13,7 +15,10 @@ export default function CreateOrderPage() {
   
   // Form State
   const [source, setSource] = useState<"offline" | "amazon" | "website">("offline");
-  const [customer, setCustomer] = useState({ name: "", email: "", phone: "", address: "" });
+  // NEW: Order Type State (PB = Prebuilt, CB = Custom Build, CS = Components)
+  const [orderType, setOrderType] = useState<"PB" | "CB" | "CS">("CS");
+  
+  const [customer, setCustomer] = useState({ name: "", email: "", phone: "", address: "", state: "", city: "", pincode: "" });
   const [externalId, setExternalId] = useState(""); // For Amazon Order IDs
   
   // Cart State
@@ -25,8 +30,7 @@ export default function CreateOrderPage() {
   useEffect(() => {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      // Replace with your actual admin email check
-      if (user?.email !== "rigbuilders123@gmail.com") {
+      if (!user) {
         router.push("/");
       } else {
         setIsAdmin(true);
@@ -35,91 +39,135 @@ export default function CreateOrderPage() {
     checkUser();
   }, [router]);
 
-  // Product Search
+  // Search Products
   useEffect(() => {
     const search = async () => {
-      if (searchQuery.length < 2) {
-        setSearchResults([]);
-        return;
-      }
-      const { data } = await supabase
-        .from('products')
-        .select('id, name, price, category, brand, image_url')
-        .ilike('name', `%${searchQuery}%`)
-        .limit(5);
-      
-      if (data) setSearchResults(data);
-    };
-    const delayDebounce = setTimeout(search, 300);
-    return () => clearTimeout(delayDebounce);
+        if(searchQuery.length < 2) {
+            setSearchResults([]);
+            return;
+        }
+        const { data } = await supabase.from('products').select('*').ilike('name', `%${searchQuery}%`).limit(5);
+        if(data) setSearchResults(data);
+    }
+    const delay = setTimeout(search, 300);
+    return () => clearTimeout(delay);
   }, [searchQuery]);
 
   const addToCart = (product: any) => {
-    setCart([...cart, { ...product, tempId: Math.random() }]); // Add simple duplicate handling
+    setCart([...cart, { ...product, tempId: Math.random() }]); 
     setSearchQuery("");
     setSearchResults([]);
   };
 
   const removeFromCart = (tempId: number) => {
-    setCart(cart.filter(item => item.tempId !== tempId));
+    setCart(cart.filter(c => c.tempId !== tempId));
   };
 
-  const calculateTotal = () => cart.reduce((sum, item) => sum + item.price, 0);
+  // --- ID GENERATION ---
+  const generateNextId = async (type: string) => {
+    try {
+        const { data: existing } = await supabase.from('counters').select('*').eq('name', type).single();
+
+        if (existing) {
+            const nextVal = existing.current_value + 1;
+            await supabase.from('counters').update({ current_value: nextVal }).eq('name', type);
+            return nextVal;
+        } else {
+            // Start at 1 for new logic (will appear as 001)
+            const startVal = 1; 
+            await supabase.from('counters').insert([{ name: type, current_value: startVal }]);
+            return startVal;
+        }
+    } catch (err: any) {
+        console.error("Counter Logic Failed:", err);
+        return Math.floor(Date.now() / 1000); 
+    }
+  };
 
   const handleSubmit = async () => {
-    if (cart.length === 0) return alert("Cart is empty!");
-    if (!customer.name) return alert("Customer Name is required");
-    
     setLoading(true);
-    try {
-        // 1. Generate Custom ID (Simple Random for now, later we do RB-2425-001 logic)
-        const orderDisplayId = `RB-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const toastId = toast.loading("Creating Order & Procurement Items...");
 
-        // 2. Create the Order Row
-        const { data: orderData, error: orderError } = await supabase
-            .from('orders_ops')
-            .insert({
-                order_display_id: orderDisplayId,
-                source: source,
-                status: 'payment_received', // Assuming manual entry means paid or cash
-                type: 'component', // Defaulting to component for now
-                guest_info: customer,
-                total_amount: calculateTotal(),
-                payment_status: 'paid', // Mark paid immediately for offline/amazon
-                // Store external ID if Amazon
-                ...(source === 'amazon' && { note: `Amazon Ref: ${externalId}` })
-            })
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if(!user) throw new Error("No user found");
+
+        let finalDisplayId = "";
+        let finalStatus = "processing"; 
+
+        // 1. Generate ID Logic
+        if (source === 'amazon') {
+            if (!externalId) throw new Error("Amazon Order ID is required");
+            finalDisplayId = externalId; 
+        } 
+      else {
+            // USE SHARED GENERATOR (Matches Website Logic)
+            finalDisplayId = await generateOrderId(supabase, orderType);
+        }
+        const totalAmount = cart.reduce((sum, item) => sum + item.price, 0);
+
+        // 2. Insert Order (MAIN TABLE)
+        const orderPayload = {
+            user_id: user.id,
+            full_name: customer.name,
+            email: customer.email,
+            phone: customer.phone,
+            address: `${customer.address}, ${customer.city}, ${customer.state} - ${customer.pincode}`,
+            source: source, 
+            display_id: finalDisplayId,
+            status: finalStatus,
+            payment_mode: source === 'offline' ? 'CASH/UPI' : 'AMAZON_PAY',
+            total_amount: totalAmount,
+            shipping_address: customer, 
+            items: cart, 
+            created_at: new Date().toISOString()
+        };
+
+        // IMPORTANT: We use .select() here to get the new Order's UUID
+        const { data: newOrder, error: orderError } = await supabase
+            .from('orders')
+            .insert([orderPayload])
             .select()
             .single();
 
         if (orderError) throw orderError;
+        if (!newOrder) throw new Error("Order created but no ID returned");
 
-        // 3. Create Procurement Items (The "To Buy" List)
+        // 3. Insert Procurement Items (PHASE 2 TRIGGER)
+        // This maps every item in the cart to a row in the procurement table
         const procurementPayload = cart.map(item => ({
-            order_id: orderData.id,
+            order_id: newOrder.id,           // Links to the order above
             product_name: item.name,
-            sku: item.id, // Using product ID as SKU for now
-            category: item.category,
-            status: 'pending', // Needs to be bought
-            distributor_name: null, // Unknown yet
-            cost_price: 0 // Unknown yet
+            category: item.category || 'other',
+            status: 'pending',               // Default status for Phase 2
+            quantity: 1,                     // Individual tracking
+            cost_price: 0,                   // To be filled in Phase 2
+            created_at: new Date().toISOString()
         }));
 
         const { error: procError } = await supabase
             .from('procurement_items')
             .insert(procurementPayload);
 
-        if (procError) throw procError;
+        if (procError) {
+            console.error("Procurement Error:", procError);
+            toast.warning("Order created, but failed to add items to Procurement list.");
+        }
 
-        alert(`Order Created! ID: ${orderDisplayId}`);
-        // Reset Form
+        toast.dismiss(toastId);
+        toast.success(`Order ${finalDisplayId} Created!`, {
+            description: "Items moved to Procurement Phase."
+        });
+
+        // Reset
         setCart([]);
-        setCustomer({ name: "", email: "", phone: "", address: "" });
+        setCustomer({ name: "", email: "", phone: "", address: "", state: "", city: "", pincode: "" });
         setExternalId("");
-
+        
     } catch (err: any) {
-        console.error(err);
-        alert("Failed: " + err.message);
+        console.error("Creation Error:", err);
+        toast.dismiss(toastId);
+        toast.error("Failed to create order", { description: err.message });
     } finally {
         setLoading(false);
     }
@@ -130,131 +178,184 @@ export default function CreateOrderPage() {
   return (
     <div className="min-h-screen bg-[#121212] text-white font-saira pb-20">
       <Navbar />
-      <div className="pt-32 px-6 max-w-6xl mx-auto">
+      <div className="pt-32 px-6 max-w-[1200px] mx-auto">
+        <h1 className="font-orbitron text-3xl font-bold mb-2 text-brand-purple">CREATE ORDER</h1>
+        <p className="text-brand-silver mb-8 text-sm">Phase 1: Entry • Manual Order Creation</p>
         
-        {/* HEADER */}
-        <div className="flex justify-between items-end mb-8 border-b border-white/10 pb-6">
-            <div>
-                <h1 className="font-orbitron text-3xl font-bold text-brand-purple">NEW ORDER ENTRY</h1>
-                <p className="text-brand-silver text-sm mt-1">Manual logging for Walk-ins & Amazon</p>
-            </div>
-            <div className="text-right">
-                <div className="text-xs text-brand-silver uppercase font-bold tracking-widest mb-1">Total Amount</div>
-                <div className="text-4xl font-orbitron font-bold">₹{calculateTotal().toLocaleString("en-IN")}</div>
-            </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             
-            {/* LEFT: CUSTOMER & SOURCE */}
-            <div className="lg:col-span-1 space-y-6">
+            {/* LEFT: FORM (7 Cols) */}
+            <div className="lg:col-span-7 space-y-6">
                 
-                {/* Source Selector */}
-                <div className="bg-[#1A1A1A] p-4 rounded-xl border border-white/5">
-                    <label className="text-xs text-brand-purple uppercase font-bold mb-3 block">Order Source</label>
-                    <div className="grid grid-cols-3 gap-2">
-                        <button onClick={() => setSource("offline")} className={`flex flex-col items-center justify-center p-3 rounded border transition-all ${source === "offline" ? "bg-brand-purple text-white border-brand-purple" : "border-white/10 hover:bg-white/5"}`}>
-                            <FaStore className="mb-1" /> <span className="text-[10px] font-bold">STORE</span>
+                {/* Source Selection */}
+                <div className="bg-[#1A1A1A] p-6 rounded-xl border border-white/5">
+                    <h3 className="text-sm font-bold text-white mb-4 uppercase tracking-wider">Order Source</h3>
+                    <div className="grid grid-cols-3 gap-4">
+                        <button onClick={() => setSource("offline")} className={`flex flex-col items-center justify-center p-4 rounded border transition-all ${source === "offline" ? "bg-brand-purple border-brand-purple text-white" : "bg-black border-white/10 text-brand-silver hover:border-brand-purple"}`}>
+                            <FaStore className="mb-2 text-xl" />
+                            <span className="text-xs font-bold">OFFLINE</span>
                         </button>
-                        <button onClick={() => setSource("amazon")} className={`flex flex-col items-center justify-center p-3 rounded border transition-all ${source === "amazon" ? "bg-[#FF9900] text-black border-[#FF9900]" : "border-white/10 hover:bg-white/5"}`}>
-                            <FaAmazon className="mb-1" /> <span className="text-[10px] font-bold">AMAZON</span>
+                        <button onClick={() => setSource("amazon")} className={`flex flex-col items-center justify-center p-4 rounded border transition-all ${source === "amazon" ? "bg-[#FF9900] border-[#FF9900] text-black" : "bg-black border-white/10 text-brand-silver hover:border-[#FF9900]"}`}>
+                            <FaAmazon className="mb-2 text-xl" />
+                            <span className="text-xs font-bold">AMAZON</span>
                         </button>
-                        <button onClick={() => setSource("website")} className={`flex flex-col items-center justify-center p-3 rounded border transition-all ${source === "website" ? "bg-blue-600 text-white border-blue-600" : "border-white/10 hover:bg-white/5"}`}>
-                            <FaGlobe className="mb-1" /> <span className="text-[10px] font-bold">WEB</span>
+                        <button onClick={() => setSource("website")} className={`flex flex-col items-center justify-center p-4 rounded border transition-all ${source === "website" ? "bg-blue-600 border-blue-600 text-white" : "bg-black border-white/10 text-brand-silver hover:border-blue-600"}`}>
+                            <FaGlobe className="mb-2 text-xl" />
+                            <span className="text-xs font-bold">WEBSITE</span>
                         </button>
                     </div>
-                    {source === 'amazon' && (
-                        <input 
-                            placeholder="Amazon Order ID (e.g. 404-1234567)" 
-                            className="w-full mt-4 bg-black/40 border border-white/10 rounded p-2 text-sm"
-                            value={externalId}
-                            onChange={(e) => setExternalId(e.target.value)}
-                        />
+
+                    {source === "amazon" && (
+                        <div className="mt-4 animate-in fade-in slide-in-from-top-2">
+                            <label className="text-xs text-[#FF9900] font-bold mb-1 block">Amazon Order ID</label>
+                            <input 
+                                type="text" 
+                                placeholder="e.g. 404-1234567-1234567" 
+                                className="w-full bg-black border border-[#FF9900]/50 p-3 rounded text-white font-mono focus:border-[#FF9900] outline-none"
+                                value={externalId}
+                                onChange={(e) => setExternalId(e.target.value)}
+                            />
+                        </div>
                     )}
                 </div>
+                
+                {/* 2. ORDER TYPE SELECTION (NEW) */}
+                {/* This hides the buttons if 'Amazon' is selected, because Amazon orders don't use RB-XX IDs */}
+                {source !== 'amazon' && (
+                    <div className="bg-[#1A1A1A] p-6 rounded-xl border border-white/5">
+                        <h3 className="text-sm font-bold text-white mb-4 uppercase tracking-wider">Order Type</h3>
+                        <div className="grid grid-cols-3 gap-4">
+                            {/* Button 1: Pre-Built */}
+                            <button onClick={() => setOrderType("PB")} className={`flex flex-col items-center justify-center p-4 rounded border transition-all ${orderType === "PB" ? "bg-blue-500 border-blue-500 text-white" : "bg-black border-white/10 text-brand-silver hover:border-blue-500"}`}>
+                                <FaDesktop className="mb-2 text-xl" />
+                                <span className="text-xs font-bold">PRE-BUILT (PB)</span>
+                            </button>
+                            
+                            {/* Button 2: Custom Rig */}
+                            <button onClick={() => setOrderType("CB")} className={`flex flex-col items-center justify-center p-4 rounded border transition-all ${orderType === "CB" ? "bg-purple-500 border-purple-500 text-white" : "bg-black border-white/10 text-brand-silver hover:border-purple-500"}`}>
+                                <FaGamepad className="mb-2 text-xl" />
+                                <span className="text-xs font-bold">CUSTOM (CB)</span>
+                            </button>
+                            
+                            {/* Button 3: Components/Parts */}
+                            <button onClick={() => setOrderType("CS")} className={`flex flex-col items-center justify-center p-4 rounded border transition-all ${orderType === "CS" ? "bg-green-500 border-green-500 text-white" : "bg-black border-white/10 text-brand-silver hover:border-green-500"}`}>
+                                <FaMicrochip className="mb-2 text-xl" />
+                                <span className="text-xs font-bold">PARTS (CS)</span>
+                            </button>
+                        </div>
+                        
+                        {/* ID Preview Text */}
+                        <p className="text-[10px] text-brand-silver mt-3 font-mono">
+                            Preview ID: <span className="text-white font-bold">RB-{orderType}-{new Date().getFullYear().toString().slice(-2)}-XXX</span>
+                        </p>
+                    </div>
+                )} 
 
                 {/* Customer Details */}
-                <div className="bg-[#1A1A1A] p-4 rounded-xl border border-white/5 space-y-3">
-                    <label className="text-xs text-brand-purple uppercase font-bold mb-1 block">Customer Details</label>
-                    <input placeholder="Full Name" className="w-full bg-black/40 border border-white/10 rounded p-2 text-sm" 
-                        value={customer.name} onChange={e => setCustomer({...customer, name: e.target.value})} />
-                    <input placeholder="Phone Number" className="w-full bg-black/40 border border-white/10 rounded p-2 text-sm" 
-                        value={customer.phone} onChange={e => setCustomer({...customer, phone: e.target.value})} />
-                    <input placeholder="Email (Optional)" className="w-full bg-black/40 border border-white/10 rounded p-2 text-sm" 
-                        value={customer.email} onChange={e => setCustomer({...customer, email: e.target.value})} />
-                    <textarea placeholder="Billing Address" className="w-full bg-black/40 border border-white/10 rounded p-2 text-sm h-20 resize-none" 
-                        value={customer.address} onChange={e => setCustomer({...customer, address: e.target.value})} />
+                <div className="bg-[#1A1A1A] p-6 rounded-xl border border-white/5">
+                    <h3 className="text-sm font-bold text-white mb-4 uppercase tracking-wider">Customer Details</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="col-span-2 relative">
+                            <FaUser className="absolute left-3 top-3.5 text-brand-silver/50 text-xs"/>
+                            <input placeholder="Full Name" className="w-full bg-black border border-white/10 p-3 pl-8 rounded text-sm focus:border-brand-purple outline-none"
+                                value={customer.name} onChange={e => setCustomer({...customer, name: e.target.value})} />
+                        </div>
+                        <div className="relative">
+                            <FaEnvelope className="absolute left-3 top-3.5 text-brand-silver/50 text-xs"/>
+                            <input placeholder="Email" className="w-full bg-black border border-white/10 p-3 pl-8 rounded text-sm focus:border-brand-purple outline-none"
+                                value={customer.email} onChange={e => setCustomer({...customer, email: e.target.value})} />
+                        </div>
+                        <div className="relative">
+                            <FaPhone className="absolute left-3 top-3.5 text-brand-silver/50 text-xs"/>
+                            <input placeholder="Phone" className="w-full bg-black border border-white/10 p-3 pl-8 rounded text-sm focus:border-brand-purple outline-none"
+                                value={customer.phone} onChange={e => setCustomer({...customer, phone: e.target.value})} />
+                        </div>
+                        <div className="col-span-2 relative">
+                            <FaMapMarker className="absolute left-3 top-3.5 text-brand-silver/50 text-xs"/>
+                            <input placeholder="Street Address" className="w-full bg-black border border-white/10 p-3 pl-8 rounded text-sm focus:border-brand-purple outline-none"
+                                value={customer.address} onChange={e => setCustomer({...customer, address: e.target.value})} />
+                        </div>
+                        <input placeholder="City" className="bg-black border border-white/10 p-3 rounded text-sm focus:border-brand-purple outline-none"
+                                value={customer.city} onChange={e => setCustomer({...customer, city: e.target.value})} />
+                        <input placeholder="State" className="bg-black border border-white/10 p-3 rounded text-sm focus:border-brand-purple outline-none"
+                                value={customer.state} onChange={e => setCustomer({...customer, state: e.target.value})} />
+                        <input placeholder="Pincode" className="bg-black border border-white/10 p-3 rounded text-sm focus:border-brand-purple outline-none"
+                                value={customer.pincode} onChange={e => setCustomer({...customer, pincode: e.target.value})} />
+                    </div>
                 </div>
             </div>
 
-            {/* RIGHT: PRODUCT SEARCH & CART */}
-            <div className="lg:col-span-2 flex flex-col h-full">
+            {/* RIGHT: CART (5 Cols) */}
+            <div className="lg:col-span-5 space-y-6">
                 
-                {/* Search Bar */}
-                <div className="relative mb-4">
-                    <FaSearch className="absolute left-4 top-3.5 text-brand-silver" />
-                    <input 
-                        placeholder="Search products to add..." 
-                        className="w-full bg-[#1A1A1A] border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white focus:border-brand-purple outline-none transition-all"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                    {/* Live Results Dropdown */}
+                {/* Search */}
+                <div className="bg-[#1A1A1A] p-6 rounded-xl border border-white/5 relative">
+                    <h3 className="text-sm font-bold text-white mb-4 uppercase tracking-wider">Add Items</h3>
+                    <div className="relative">
+                        <input 
+                            type="text" 
+                            placeholder="Search products..." 
+                            className="w-full bg-black border border-white/10 p-3 pl-10 rounded text-sm focus:border-brand-purple outline-none"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                        <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-silver" />
+                    </div>
+                    {/* Dropdown */}
                     {searchResults.length > 0 && (
-                        <div className="absolute top-14 left-0 w-full bg-[#1A1A1A] border border-white/10 rounded-xl shadow-2xl z-20 overflow-hidden max-h-60 overflow-y-auto">
+                        <div className="absolute top-full left-0 w-full bg-[#202020] border border-white/10 shadow-xl z-20 rounded-b-xl overflow-hidden mt-1">
                             {searchResults.map(p => (
-                                <div key={p.id} onClick={() => addToCart(p)} className="flex items-center gap-4 p-3 hover:bg-brand-purple/20 cursor-pointer border-b border-white/5 last:border-0 transition-colors">
-                                    <div className="w-8 h-8 bg-white/5 rounded flex items-center justify-center text-[10px]">{p.category.substring(0,2).toUpperCase()}</div>
-                                    <div className="flex-grow">
-                                        <div className="text-sm font-bold">{p.name}</div>
-                                        <div className="text-xs text-brand-silver">₹{p.price}</div>
-                                    </div>
-                                    <FaPlus className="text-brand-purple" />
+                                <div key={p.id} onClick={() => addToCart(p)} className="p-3 border-b border-white/5 hover:bg-brand-purple hover:text-white cursor-pointer flex justify-between items-center group">
+                                    <span className="text-sm font-bold truncate w-3/4">{p.name}</span>
+                                    <FaPlus className="text-xs opacity-50 group-hover:opacity-100" />
                                 </div>
                             ))}
                         </div>
                     )}
                 </div>
 
-                {/* Cart List */}
-                <div className="flex-grow bg-[#1A1A1A] rounded-xl border border-white/5 p-4 overflow-hidden flex flex-col">
-                    <div className="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
-                        <span className="text-xs font-bold text-brand-silver uppercase">Items ({cart.length})</span>
-                        <span className="text-xs font-bold text-brand-silver uppercase">Price</span>
-                    </div>
+                {/* Summary */}
+                <div className="bg-[#1A1A1A] p-6 rounded-xl border border-white/5 min-h-[300px] flex flex-col">
+                    <h3 className="text-sm font-bold text-white mb-4 uppercase tracking-wider flex justify-between">
+                        <span>Order Items</span>
+                        <span className="text-brand-purple">{cart.length}</span>
+                    </h3>
                     
-                    <div className="flex-grow overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                    <div className="flex-grow space-y-3 overflow-y-auto max-h-[300px] custom-scrollbar pr-2">
                         {cart.length === 0 ? (
-                            <div className="h-full flex flex-col items-center justify-center text-brand-silver/30 space-y-2">
-                                <FaStore size={40} />
-                                <p className="text-sm">Cart is empty</p>
-                            </div>
+                            <div className="text-center text-brand-silver/30 text-xs py-10 italic">Cart is empty</div>
                         ) : (
                             cart.map((item) => (
-                                <div key={item.tempId} className="flex items-center justify-between bg-black/20 p-3 rounded border border-white/5 group hover:border-white/20">
-                                    <div className="flex items-center gap-3">
-                                        <button onClick={() => removeFromCart(item.tempId)} className="text-red-500/50 hover:text-red-500 transition-colors">
+                                <div key={item.tempId} className="flex justify-between items-center bg-black/40 p-3 rounded border border-white/5">
+                                    <div className="flex items-center gap-3 overflow-hidden">
+                                        <button onClick={() => removeFromCart(item.tempId)} className="text-red-500/50 hover:text-red-500 transition-colors shrink-0">
                                             <FaTrash size={12} />
                                         </button>
-                                        <div>
-                                            <div className="text-sm font-bold text-white">{item.name}</div>
+                                        <div className="truncate">
+                                            <div className="text-sm font-bold text-white truncate">{item.name}</div>
                                             <div className="text-[10px] text-brand-silver uppercase">{item.brand} • {item.category}</div>
                                         </div>
                                     </div>
-                                    <div className="font-orbitron font-bold">₹{item.price.toLocaleString("en-IN")}</div>
+                                    <div className="font-orbitron font-bold text-sm shrink-0">₹{item.price.toLocaleString("en-IN")}</div>
                                 </div>
                             ))
                         )}
                     </div>
+
+                    <div className="border-t border-white/10 mt-4 pt-4">
+                        <div className="flex justify-between items-center text-xl font-bold font-orbitron">
+                            <span>Total</span>
+                            <span>₹{cart.reduce((a,b) => a + b.price, 0).toLocaleString("en-IN")}</span>
+                        </div>
+                    </div>
                 </div>
 
-                {/* Submit Button */}
                 <button 
                     onClick={handleSubmit} 
-                    disabled={loading || cart.length === 0}
-                    className="w-full bg-brand-purple hover:bg-white hover:text-black text-white py-4 rounded-xl font-orbitron font-bold uppercase tracking-widest mt-6 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={loading || cart.length === 0 || (source === 'amazon' && !externalId)}
+                    className="w-full bg-brand-purple hover:bg-white hover:text-black text-white py-4 rounded-xl font-orbitron font-bold uppercase tracking-widest mt-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                 >
-                    {loading ? "Processing..." : "Create Order"}
+                    {loading ? "Processing..." : "Create Order & Entry"}
                 </button>
 
             </div>
