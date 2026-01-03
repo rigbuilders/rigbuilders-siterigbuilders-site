@@ -25,9 +25,9 @@ const BASE_CATEGORY_MAP: Record<string, string> = {
 
 const BASE_CATEGORIES = [
   { id: "prebuilt", name: "Pre-built Desktop" },
-  { id: "cpu", name: "Processor" },
+  { id: "cpu", name: "Processor" },         
   { id: "gpu", name: "Graphics Card" },
-  { id: "motherboard", name: "Motherboard" },
+  { id: "motherboard", name: "Motherboard" },   
   { id: "ram", name: "Memory (RAM)" },
   { id: "storage", name: "Storage" },
   { id: "psu", name: "Power Supply" },
@@ -85,7 +85,7 @@ export default function ProductManager() {
     recipe_cpu: "", recipe_gpu: "", recipe_mobo: "", recipe_ram: "", recipe_storage: "", 
     recipe_psu: "", recipe_cooler: "", recipe_cabinet: "", recipe_os: ""
   });
-
+    
   // --- LIST VIEW STATE (Expanded Sections) ---
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({ components: true, desktops: true, accessories: true });
   const [expandedCats, setExpandedCats] = useState<Record<string, boolean>>({});
@@ -136,7 +136,7 @@ export default function ProductManager() {
     }
     setLoading(false);
   };
-
+ 
   const getOptionsFor = (cat: string) => inventory.filter(p => p.category === cat);
   const cleanPath = (path: string) => {
     if (!path) return "";
@@ -317,7 +317,7 @@ export default function ProductManager() {
   return (
     <div className="min-h-screen bg-[#121212] text-white font-saira pb-20">
       <Navbar />
-      <div className="pt-32 px-6 max-w-[1600px] mx-auto">
+      <div className="pt-14 px-6 max-w-[1600px] mx-auto">
         <h1 className="font-orbitron text-3xl font-bold mb-8 text-brand-purple">ADMIN DASHBOARD</h1>
         
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
