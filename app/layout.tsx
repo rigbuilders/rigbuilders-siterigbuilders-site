@@ -24,19 +24,26 @@ const orbitron = Orbitron({
 // app/layout.tsx
 
 export const metadata: Metadata = {
-  title: "Rig Builders | Custom PC Commissions",
-  description: "India's premium custom PC building service. Professional workstations, gaming rigs, and signature series.",
-  icons: {
-    icon: [
-      { url: '/favicon.ico' },
-      { url: '/favicon.svg', type: 'image/svg+xml' },
-      { url: '/favicon-96x96.png', type: 'image/png', sizes: '96x96' },
-    ],
-    apple: [
-      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
-    ],
+  // 1. THE SITE NAME (Replaces "rigbuilders.in")
+  title: {
+    default: "Rig Builders | Premium Custom PC Commissions", // Shows on Home Page
+    template: "%s | Rig Builders", // Shows on other pages (e.g., "RTX 4090 Build | Rig Builders")
   },
-  manifest: '/site.webmanifest', // Links the manifest file for PWA/Android support
+  
+  // 2. THE DESCRIPTION (Replaces the "stress-tested" text)
+  description: "India's premium custom PC builder. We craft high-performance workstations and gaming rigs with studio-quality aesthetics and thermal validation.",
+  
+  // 3. EXTRA HINTS FOR GOOGLE
+  applicationName: "Rig Builders",
+  keywords: ["Custom PC", "Gaming PC India", "Workstation Build", "Rig Builders"],
+  openGraph: {
+    title: "Rig Builders",
+    description: "Premium Custom PCs built for performance.",
+    type: "website",
+    locale: "en_IN",
+    url: "https://rigbuilders.in",
+    siteName: "Rig Builders",
+  },
 };
 
 export default function RootLayout({
