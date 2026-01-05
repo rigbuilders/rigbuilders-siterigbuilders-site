@@ -81,17 +81,26 @@ export default function DocumentsPage() {
 
   // --- 2. NEW ACTION: DISPATCH ORDER ---
   const markShipped = async (order: any) => {
+    // 1. Ask for Tracking ID (Optional)
+    const trackingId = prompt("Enter Tracking ID / AWB Number:", "");
+    if (trackingId === null) return; // Cancelled
+
     if(!confirm("Confirm Dispatch? This will mark the order as 'Shipped'.")) return;
 
+    // 2. Update Database
     const { error } = await supabase
         .from('orders')
-        .update({ status: 'shipped' })
+        .update({ 
+            status: 'shipped',
+            // Save Tracking ID into the address data
+            shipping_address: { ...order.shipping_address, tracking_id: trackingId } 
+        })
         .eq('id', order.id);
 
     if (error) alert(error.message);
     else {
-        alert("Order Dispatched!");
-        // Update local state immediately to reflect change in the UI
+        alert("Order Dispatched successfully!");
+        // Update UI immediately
         setOrders(orders.map(o => o.id === order.id ? { ...o, status: 'shipped' } : o));
         setSelectedOrder({ ...order, status: 'shipped' });
     }
@@ -158,6 +167,7 @@ export default function DocumentsPage() {
                         
                         <div className="flex gap-3">
                             {/* DISPATCH BUTTON */}
+                            {/* Shows if: 1. Invoice Exists, 2. Not yet shipped */}
                             {selectedOrder.invoice_no && selectedOrder.status !== 'shipped' && (
                                 <button 
                                     onClick={() => markShipped(selectedOrder)}
