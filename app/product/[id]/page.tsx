@@ -2,46 +2,49 @@
 import { supabase } from "@/lib/supabaseClient";
 import ProductClient from "./ProductClient";
 import { Metadata } from "next";
+import { notFound } from "next/navigation";
 
-// Fetch data once on the server
+// 1. Define the props type as a Promise (Next.js 15 Requirement)
+type Props = {
+  params: Promise<{ id: string }>;
+};
+
+// Fetch data helper
 async function getProduct(id: string) {
   const { data } = await supabase.from('products').select('*').eq('id', id).single();
   return data;
 }
 
-// 1. DYNAMIC METADATA (The "Meta" Layer)
-// This puts your Main Keyword (Product Name) in the browser tab and Google Link
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const product = await getProduct(params.id);
+// 2. DYNAMIC METADATA (Async)
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id } = await params; // <--- MUST AWAIT PARAMS HERE
+  const product = await getProduct(id);
   
   if (!product) return { title: "Product Not Found" };
 
   return {
-    title: `${product.name} | Premium Gaming PC | Rig Builders`, // <--- KEYWORDS HERE
-    description: `Buy the ${product.name}. Features: ${product.specs?.gpu || 'High Performance'}, ${product.specs?.cpu}. Best price in India.`, // <--- KEYWORDS HERE
-    openGraph: {
-      images: [product.image_url], // Shows this image when shared on WhatsApp/Twitter
-    },
+    title: `${product.name} | Premium Gaming PC | Rig Builders`,
+    description: `Buy the ${product.name}. Features: ${product.specs?.gpu || 'High Performance'}.`,
+    openGraph: { images: [product.image_url] },
   };
 }
 
-export default async function ProductPage({ params }: { params: { id: string } }) {
-  const product = await getProduct(params.id);
+// 3. MAIN PAGE COMPONENT (Async)
+export default async function ProductPage({ params }: Props) {
+  const { id } = await params; // <--- MUST AWAIT PARAMS HERE
+  const product = await getProduct(id);
 
-  if (!product) return <div>Product not found</div>;
+  if (!product) {
+    notFound(); 
+  }
 
-  // 2. JSON-LD SCHEMA (The "Schema" Layer)
-  // This is invisible to users but GOLD for Google.
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: product.name,
     image: product.image_url,
     description: product.description,
-    brand: {
-      '@type': 'Brand',
-      name: 'Rig Builders',
-    },
+    brand: { '@type': 'Brand', name: 'Rig Builders' },
     offers: {
       '@type': 'Offer',
       priceCurrency: 'INR',
@@ -52,15 +55,11 @@ export default async function ProductPage({ params }: { params: { id: string } }
 
   return (
     <>
-      {/* Inject the Schema for Google */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      
-      {/* 3. THE VISIBLE CONTENT (The "Content" Layer) */}
-      {/* We pass the data here so the HTML is pre-filled with keywords when it loads */}
-      <ProductClient initialProduct={product} id={params.id} />
+      <ProductClient initialProduct={product} id={id} />
     </>
   );
 }
