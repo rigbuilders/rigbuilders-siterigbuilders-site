@@ -13,6 +13,7 @@ export default function DashboardPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const [savedConfigs, setSavedConfigs] = useState<any[]>([]);
 
   useEffect(() => {
     let channelOrders: any;
@@ -26,7 +27,7 @@ export default function DashboardPage() {
       }
       setUser(user);
 
-      // 1. FETCH NEW ORDERS (Website/Amazon) - Contains 'items' JSON with images
+      // 1. FETCH ORDERS (Existing Logic)
       const { data: newOrdersData } = await supabase
         .from('orders')
         .select('*')
@@ -34,7 +35,6 @@ export default function DashboardPage() {
         .neq('status', 'cancelled')
         .order('created_at', { ascending: false });
 
-      // 2. FETCH OLD ORDERS (Legacy) - Contains 'procurement_items' relation
       const { data: oldOrdersData } = await supabase
         .from('orders_ops')
         .select(`*, procurement_items ( product_name, category )`)
@@ -42,40 +42,27 @@ export default function DashboardPage() {
         .neq('status', 'cancelled')
         .order('created_at', { ascending: false });
 
-      // 3. NORMALIZE & MERGE DATA
+      // Normalize & Merge Orders
       const formattedNew = (newOrdersData || []).map(o => ({
-        id: o.id,
-        display_id: o.display_id, 
-        created_at: o.created_at,
-        total_amount: o.total_amount,
-        status: o.status,
-        source_table: 'orders',
-        // MAP ITEMS & EXTRACT IMAGE
-        itemsList: o.items?.map((i: any) => ({ 
-            product_name: i.name || i.product_name, 
-            category: i.category,
-            // Grab image from JSON (supports 'image', 'image_url', or 'img')
-            image: i.image_url || i.image || i.img || null 
-        })) || []
+        id: o.id, display_id: o.display_id, created_at: o.created_at, total_amount: o.total_amount, status: o.status, source_table: 'orders',
+        itemsList: o.items?.map((i: any) => ({ product_name: i.name || i.product_name, category: i.category, image: i.image_url || i.image || i.img || null })) || []
       }));
 
       const formattedOld = (oldOrdersData || []).map(o => ({
-        id: o.id,
-        display_id: o.order_display_id,
-        created_at: o.created_at,
-        total_amount: o.total_amount,
-        status: o.status,
-        source_table: 'orders_ops',
-        // Old items don't have images easily accessible, keep logic simple
+        id: o.id, display_id: o.order_display_id, created_at: o.created_at, total_amount: o.total_amount, status: o.status, source_table: 'orders_ops',
         itemsList: o.procurement_items || []
       }));
 
-      // Combine and Sort
-      const combined = [...formattedNew, ...formattedOld].sort((a, b) => 
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
+      setOrders([...formattedNew, ...formattedOld].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
 
-      setOrders(combined);
+      // 2. FETCH SAVED CONFIGURATIONS (New Logic)
+      const { data: savedData } = await supabase
+        .from('saved_configurations')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      
+      setSavedConfigs(savedData || []);
       setLoading(false);
 
       // --- REAL-TIME LISTENERS ---
@@ -87,7 +74,6 @@ export default function DashboardPage() {
           (payload) => {
              setOrders(prev => prev.map(o => {
                  if (o.id === payload.new.id && o.source_table === 'orders') {
-                     // Preserve the itemsList when updating status
                      return { ...o, ...payload.new, status: payload.new.status, itemsList: o.itemsList };
                  }
                  return o;
@@ -280,7 +266,68 @@ export default function DashboardPage() {
           )}
 
           {activeTab === "saved" && (
-            <div className="text-center text-brand-silver">Saved configs coming soon.</div>
+            <div className="space-y-6">
+              <h2 className="font-orbitron text-2xl font-bold mb-6">Saved Configurations</h2>
+              
+              {savedConfigs.length === 0 ? (
+                  <div className="text-center py-12 border border-dashed border-white/10 rounded">
+                      <p className="text-[#A0A0A0]">No saved configurations found.</p>
+                      <Link href="/configure" className="text-brand-purple text-sm mt-2 inline-block">Create New Build</Link>
+                  </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {savedConfigs.map((config, index) => (
+                        <div key={config.id} className="bg-[#121212] border border-white/10 rounded-lg p-5 hover:border-brand-purple/50 transition-colors group relative">
+                            {/* Header */}
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    {/* CHANGED: Naming convention to 'Build 1, 2...' */}
+                                    <h3 className="font-bold text-white font-orbitron text-lg">Build {index + 1}</h3>
+                                    <p className="text-xs text-[#A0A0A0]">Saved on {new Date(config.created_at).toLocaleDateString()}</p>
+                                </div>
+                                <button onClick={() => {
+                                    if(confirm("Delete this config?")) {
+                                        supabase.from('saved_configurations').delete().eq('id', config.id).then(() => {
+                                            setSavedConfigs(prev => prev.filter(c => c.id !== config.id));
+                                        });
+                                    }
+                                }} className="text-[#A0A0A0] hover:text-red-500 transition-colors p-2">
+                                    <FaTrash size={14} />
+                                </button>
+                            </div>
+                            
+                            {/* Specs Preview (Icons) */}
+                            <div className="space-y-2 mb-4">
+                                <div className="flex items-center gap-3 bg-[#1A1A1A] p-2 rounded border border-white/5">
+                                    <div className="w-8 h-8 bg-black/50 rounded flex items-center justify-center text-[#4E2C8B]"><FaMicrochip /></div>
+                                    <div className="overflow-hidden">
+                                        <p className="text-xs text-white truncate">{config.specs?.cpu?.name || "No CPU Selected"}</p>
+                                        <p className="text-[10px] text-[#A0A0A0]">Processor</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3 bg-[#1A1A1A] p-2 rounded border border-white/5">
+                                    <div className="w-8 h-8 bg-black/50 rounded flex items-center justify-center text-[#4E2C8B]"><FaBoxOpen /></div>
+                                    <div className="overflow-hidden">
+                                        <p className="text-xs text-white truncate">{config.specs?.gpu?.name || "No GPU Selected"}</p>
+                                        <p className="text-[10px] text-[#A0A0A0]">Graphics Card</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="flex justify-between items-center pt-2 border-t border-white/5">
+                                {/* CHANGED: Price color to text-white */}
+                                <span className="text-white font-bold font-orbitron">₹{Number(config.total_price).toLocaleString("en-IN")}</span>
+                                {/* CHANGED: Link navigates to the new cinematic page */}
+                                <Link href={`/build/${config.id}`} className="text-[10px] uppercase font-bold tracking-wider text-white hover:text-brand-purple transition-colors">
+                                    View Config →
+                                </Link>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>

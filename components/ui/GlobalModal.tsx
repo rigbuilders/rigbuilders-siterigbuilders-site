@@ -4,6 +4,7 @@ import { useModal } from "@/app/context/ModalContext";
 import { AnimatePresence, motion } from "framer-motion";
 import { FaCheckCircle, FaExclamationTriangle, FaInfoCircle, FaTimes, FaTimesCircle } from "react-icons/fa";
 
+
 export default function GlobalModal() {
   const { isOpen, modalContent, closeModal } = useModal();
   const { title, message, type, onConfirm } = modalContent;

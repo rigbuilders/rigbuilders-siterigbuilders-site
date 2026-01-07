@@ -9,6 +9,8 @@ import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import { FaChevronDown, FaChevronUp, FaInfoCircle, FaCheck, FaWindows, FaLinux, FaSave, FaShoppingCart, FaDesktop, FaKeyboard, FaMouse } from "react-icons/fa";
 import { Reveal, StaggerGrid, StaggerItem } from "@/components/ui/MotionWrappers";
+import { toast } from "sonner";
+import { generateSpecSheetPDF } from "@/utils/generatePdf";
 
 // --- TYPES ---
 interface Product {
@@ -206,28 +208,36 @@ export default function ConfiguratorPage() {
 
   const handleSaveConfiguration = async () => {
     if (!user) {
-        alert("Please login to save configurations.");
+        toast.error("Access Denied", { description: "You must be logged in to save configurations." });
         router.push("/signin");
         return;
     }
+    
     setSaving(true);
-    const { error } = await supabase.from('saved_configurations').insert({
+    
+    // Create the payload
+    const configData = {
         user_id: user.id,
         name: `${selections.cpu?.name || 'Custom'} + ${selections.gpu?.name || 'Build'}`,
         specs: selections,
         total_price: totalPrice
-    });
+    };
 
-    if (error) alert("Failed to save.");
-    else alert("Configuration Saved to Dashboard!");
+    const { error } = await supabase.from('saved_configurations').insert(configData);
+
+    if (error) {
+        console.error("Supabase Error:", error);
+        toast.error("Failed to Save", { 
+            description: error.message || "Could not save to your dashboard." 
+        });
+    } else {
+        toast.success("Configuration Saved", { 
+            description: "You can view this build in your User Dashboard." 
+        });
+    }
+    
     setSaving(false);
   };
-
-  if (loading) return (
-    <div className="min-h-screen bg-[#121212] flex items-center justify-center">
-        <div className="text-brand-purple font-orbitron animate-pulse">Initializing Configurator Engine...</div>
-    </div>
-  );
 
   return (
     // FIX: Changed overflow-hidden to overflow-x-hidden for Sticky support
@@ -309,13 +319,53 @@ export default function ConfiguratorPage() {
                             </div>
                             
                             <div className="grid grid-cols-2 gap-3">
-                                <button onClick={handleSaveConfiguration} disabled={saving} className="col-span-1 py-4 bg-white/5 border border-white/10 text-white font-bold font-orbitron uppercase tracking-widest text-[10px] hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-1">
+                                {/* SAVE CONFIG: Redirects guests to signin, Saves for users */}
+                                <button 
+                                    onClick={() => {
+                                        if (!user) {
+                                            router.push("/signin");
+                                        } else {
+                                            handleSaveConfiguration();
+                                        }
+                                    }}
+                                    disabled={saving} 
+                                    className="col-span-1 py-4 bg-white/5 border border-white/10 text-white font-bold font-orbitron uppercase tracking-widest text-[10px] hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-1"
+                                >
                                     <FaSave className="text-sm" />
-                                    {saving ? "Saving..." : "Save Config"}
+                                    {user ? (saving ? "Saving..." : "Save Config") : "Login to Save"}
                                 </button>
+
+                                {/* ADD TO CART */}
                                 <button onClick={handleAddToCart} disabled={!selections.cpu || !selections.motherboard} className="col-span-1 py-4 bg-brand-purple text-white font-bold font-orbitron uppercase tracking-widest text-[10px] hover:bg-brand-purple/80 transition-all flex flex-col items-center justify-center gap-1 disabled:opacity-50 disabled:grayscale">
                                     <FaShoppingCart className="text-sm" />
                                     Add to Cart
+                                </button>
+
+                                {/* DOWNLOAD PDF */}
+                                <button 
+                                   onClick={() => {
+                                      // Check if at least one component is selected
+                                      const hasSelection = Object.values(selections).some(item => item !== null);
+
+                                      if (!hasSelection) {
+                                          toast.error("Selection Empty", { 
+                                              description: "Please select at least one component to generate the PDF." 
+                                          });
+                                          return;
+                                      }
+
+                                      // Construct config object for PDF generator
+                                      const pdfData = {
+                                           id: "custom",
+                                           name: "Custom Configuration",
+                                           total_price: totalPrice,
+                                           specs: selections 
+                                      };
+                                      generateSpecSheetPDF(pdfData);
+                                   }} 
+                                   className="col-span-2 py-3 bg-[#121212] border border-white/20 text-brand-silver hover:text-white hover:border-white font-bold font-orbitron uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 active:scale-95"
+                                >
+                                     <span>↓</span> Download Specification PDF
                                 </button>
                             </div>
                         </div>
