@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { Saira, Orbitron } from "next/font/google"; 
 import "./globals.css";
-// IMPORT THE CART PROVIDER
 import { CartProvider } from "./context/CartContext"; 
 import { ModalProvider } from "./context/ModalContext"; 
 import GlobalModal from "@/components/ui/GlobalModal";   
+import Navbar from "@/components/Navbar"; // <--- 1. IMPORT NAVBAR
 import { Toaster } from 'sonner';
 
 const saira = Saira({
@@ -21,19 +21,12 @@ const orbitron = Orbitron({
   display: "swap",
 });
 
-// app/layout.tsx
-
 export const metadata: Metadata = {
-  // 1. THE SITE NAME (Replaces "rigbuilders.in")
   title: {
-    default: "Rig Builders | Premium Custom PC Commissions", // Shows on Home Page
-    template: "%s | Rig Builders", // Shows on other pages (e.g., "RTX 4090 Build | Rig Builders")
+    default: "Rig Builders | Premium Custom PC Commissions",
+    template: "%s | Rig Builders",
   },
-  
-  // 2. THE DESCRIPTION (Replaces the "stress-tested" text)
-  description: "India's premium custom PC builder. We craft high-performance workstations and gaming rigs with studio-quality aesthetics and thermal validation.",
-  
-  // 3. EXTRA HINTS FOR GOOGLE
+  description: "India's premium custom PC builder.",
   applicationName: "Rig Builders",
   keywords: ["Custom PC", "Gaming PC India", "Workstation Build", "Rig Builders"],
   openGraph: {
@@ -57,15 +50,14 @@ export default function RootLayout({
         suppressHydrationWarning={true}
         className={`${saira.variable} ${orbitron.variable} font-saira antialiased bg-brand-black text-brand-silver`}
       >
-        {/* WRAP THE APP IN CART PROVIDER */}
         <ModalProvider>
           <CartProvider>
             <GlobalModal />
+             {/* <--- 2. ADD NAVBAR HERE (Outside the children) */}
             {children}
           </CartProvider>
         </ModalProvider>
         
-        {/* UPDATED TOASTER CONFIGURATION */}
         <Toaster 
           position="top-center" 
           theme="dark" 

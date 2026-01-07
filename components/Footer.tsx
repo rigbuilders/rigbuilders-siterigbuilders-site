@@ -73,7 +73,7 @@ export default function Footer() {
 
       {/* Copyright Bar */}
       <div className="max-w-7xl mx-auto px-6 pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center text-xs text-brand-silver/50 font-saira gap-4 md:gap-0">
-        <p>© 2025 Rig Builders. All Rights Reserved.</p>
+        <p>© {new Date().getFullYear()} Rig Builders. All Rights Reserved.</p>
         <p>Designed for Performance.</p>
       </div>
     </footer>
