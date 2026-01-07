@@ -5,7 +5,8 @@ import Footer from "@/components/Footer";
 import Link from "next/link";
 import Image from "next/image";
 import { Reveal } from "@/components/ui/MotionWrappers";
-import { FaPhoneAlt, FaEnvelope, FaClock, FaHeadset, FaVideo, FaShieldAlt, FaTicketAlt, FaWhatsapp } from "react-icons/fa";
+import { FaPhoneAlt, FaEnvelope, FaClock, FaHeadset, FaVideo, FaShieldAlt, FaTicketAlt, FaWhatsapp, FaClipboardCheck } from "react-icons/fa";
+
 
 export default function SupportPage() {
   return (
@@ -100,8 +101,11 @@ export default function SupportPage() {
                         <a href="https://wa.me/917707801014" target="_blank" rel="noopener noreferrer" className="px-8 py-5 bg-green-600/10 border border-green-500/30 text-green-500 font-orbitron font-bold text-sm uppercase tracking-widest hover:bg-green-600 hover:text-white hover:border-green-600 transition-all flex items-center justify-center gap-3 rounded-sm">
                             <FaWhatsapp size={20} /> WhatsApp
                         </a>
-                        <a href="mailto:info@rigbuilders.in?subject=Support%20Ticket%20Request" className="px-8 py-5 bg-white/5 border border-white/10 text-white font-orbitron font-bold text-sm uppercase tracking-widest hover:bg-white hover:text-black hover:border-white transition-all flex items-center justify-center gap-3 rounded-sm shadow-[0_0_20px_rgba(255,255,255,0.05)] hover:shadow-[0_0_20px_rgba(255,255,255,0.2)]">
-                            <FaTicketAlt size={20} /> Raise Ticket
+                        <a 
+                            href="mailto:info@rigbuilders.in?subject=Diagnostics%20Request%20-%20[Order%20ID]" 
+                            className="px-8 py-5 bg-white/5 border border-white/10 text-white font-orbitron font-bold text-sm uppercase tracking-widest hover:bg-white hover:text-black hover:border-white transition-all flex items-center justify-center gap-3 rounded-sm shadow-[0_0_20px_rgba(255,255,255,0.05)] hover:shadow-[0_0_20px_rgba(255,255,255,0.2)]"
+                        >
+                            <FaClipboardCheck size={20} /> Support Assistance
                         </a>
                     </div>
                 </Reveal>
