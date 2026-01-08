@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { User } from "@supabase/supabase-js";
 import { allProducts } from "@/app/data/products"; 
 import { FaBars, FaTimes, FaSearch, FaShoppingCart, FaUser } from "react-icons/fa";
+import GlobalSearch from "@/components/GlobalSearch";
 
 // --- SEARCH HOOK ---
 const useGlobalSearch = () => {
@@ -105,33 +106,15 @@ const UserAccountMenu = ({ user }: { user: User | null }) => {
 
 // 2. Search Menu (Top Right Hover)
 const SearchMenu = () => {
-  const { query, setQuery, suggestions, handleSearch } = useGlobalSearch();
-
   return (
-    // Added 'pt-2' here as well to fix the gap issue for search too
     <div className="absolute top-full right-0 w-[400px] pt-0 z-50"> 
         <div className="bg-[#090909] border border-white/10 shadow-2xl p-6 font-saira text-white">
-            <div className="relative mb-6">
-                <Image src="/icons/navbar/search.svg" alt="Search" width={16} height={16} className="absolute left-4 top-1/2 -translate-y-1/2 opacity-70" />
-                <input 
-                    type="text" 
+            <div className="mb-6">
+                {/* Replaced manual input with GlobalSearch */}
+                <GlobalSearch 
                     placeholder="Search rigbuilders.in..." 
-                    className="w-full bg-[#090909] border border-white/20 text-white text-sm py-3 pl-12 focus:outline-none focus:border-brand-purple transition-colors rounded-sm"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    onKeyDown={(e) => handleSearch(e)}
-                    autoFocus
+                    variant="standard"
                 />
-                {suggestions.length > 0 && (
-                    <div className="absolute top-full left-0 w-full bg-[#1A1A1A] border border-white/10 mt-1 rounded shadow-xl z-[60]">
-                        {suggestions.map((product) => (
-                            <div key={product.id} onClick={() => handleSearch(product.name)} className="px-4 py-3 hover:bg-white/5 cursor-pointer flex justify-between items-center text-xs border-b border-white/5 last:border-0">
-                                <span className="text-white truncate">{product.name}</span>
-                                <span className="text-brand-purple font-bold">₹{product.price.toLocaleString("en-IN")}</span>
-                            </div>
-                        ))}
-                    </div>
-                )}
             </div>
             <div>
                 <h4 className="font-orbitron font-bold text-xs text-white mb-4 uppercase tracking-widest">Quick Links</h4>
@@ -314,10 +297,12 @@ export default function Navbar() {
 
             {/* Quick Links + Search */}
             <div className="px-8">
-                <div className="relative mb-8">
-                    <Image src="/icons/navbar/search.svg" alt="Search" width={14} height={14} className="absolute left-4 top-1/2 -translate-y-1/2 opacity-50" />
-                    <input type="text" placeholder="Search..." className="w-full bg-white/5 border border-white/10 text-white text-sm py-2 pl-10 focus:outline-none focus:border-brand-purple rounded-sm"
-                        value={megaMenuSearch.query} onChange={(e) => megaMenuSearch.setQuery(e.target.value)} onKeyDown={megaMenuSearch.handleSearch} />
+                <div className="mb-8">
+                     {/* Replaced manual input with GlobalSearch */}
+                    <GlobalSearch 
+                        placeholder="Search components..." 
+                        variant="minimal"
+                    />
                 </div>
                 <h3 className="font-orbitron text-lg font-bold mb-4 text-white uppercase tracking-wider">Quick Links</h3>
                 <ul className="space-y-3 text-sm text-brand-silver">
@@ -453,30 +438,16 @@ export default function Navbar() {
                 <h2 className="text-xl font-orbitron text-white">Search</h2>
                 <button onClick={() => setMobileSearchOpen(false)} className="text-white text-2xl"><FaTimes /></button>
             </div>
-            <div className="relative">
-                <input 
-                    type="text" 
+            
+            {/* Replaced Manual Mobile Logic with Component */}
+            <div className="mt-4">
+                <GlobalSearch 
                     placeholder="Search anything..." 
-                    className="w-full bg-[#1A1A1A] border border-white/20 p-4 text-white font-saira focus:border-brand-purple outline-none rounded"
-                    value={search.query}
-                    onChange={(e) => search.setQuery(e.target.value)}
-                    autoFocus
+                    variant="standard"
+                    onSearchSubmit={() => setMobileSearchOpen(false)}
+                    className="w-full"
                 />
-                <button className="absolute right-4 top-1/2 -translate-y-1/2 text-brand-purple">
-                    <FaSearch />
-                </button>
             </div>
-            {/* Mobile Results */}
-            {search.suggestions.length > 0 && (
-                <div className="mt-4 bg-[#1A1A1A] border border-white/10 rounded flex-grow overflow-y-auto">
-                    {search.suggestions.map((p) => (
-                        <div key={p.id} onClick={() => { search.handleSearch(p.name); setMobileSearchOpen(false); }} className="p-4 border-b border-white/5 text-white flex justify-between">
-                            <span className="truncate pr-4">{p.name}</span>
-                            <span className="text-brand-purple font-bold">₹{p.price.toLocaleString("en-IN")}</span>
-                        </div>
-                    ))}
-                </div>
-            )}
         </div>
     )}
 
