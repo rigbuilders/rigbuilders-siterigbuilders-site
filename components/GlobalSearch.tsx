@@ -57,7 +57,7 @@ export default function GlobalSearch({
     };
 
     // Wait 400ms after user stops typing to avoid spamming the DB
-    const delayDebounceFn = setTimeout(fetchResults, 400);
+    const delayDebounceFn = setTimeout(fetchResults, 2000);
 
     return () => clearTimeout(delayDebounceFn);
   }, [query]);

@@ -12,6 +12,7 @@ import {
 } from "react-icons/fa";
 import { Reveal } from "@/components/ui/MotionWrappers";
 import { toast } from "sonner"; 
+import ProductBreadcrumb from "@/components/ProductBreadcrumb";
 
 interface ProductClientProps {
     initialProduct: any;
@@ -102,46 +103,14 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
 
       <Navbar />
 
-      {/* --- BREADCRUMB NAVIGATOR --- */}
-      <div className="pt-[40px] pb-4 px-[20px] md:px-[40px] 2xl:px-[100px] relative z-10 border-b border-white/5 bg-[#121212]">
-          <div className="flex flex-wrap items-center gap-2 text-sm text-brand-silver font-medium">
-              <Link href="/" className="hover:text-brand-purple transition-colors flex items-center gap-1"><FaHome /> Home</Link>
-              <FaChevronRight size={10} className="opacity-50" />
-
-              {product.category === 'prebuilt' ? (
-                  <>
-                    <Link href="/products/prebuilt" className="hover:text-brand-purple transition-colors">Desktops</Link>
-                    {product.series && (
-                        <>
-                            <FaChevronRight size={10} className="opacity-50" />
-                            <span className="capitalize">{product.series} Series</span>
-                        </>
-                    )}
-                    {product.series && product.tier && (
-                        <>
-                            <FaChevronRight size={10} className="opacity-50" />
-                            <span className="capitalize">{product.series} {product.tier}</span>
-                        </>
-                    )}
-                  </>
-              ) : (
-                  <>
-                    <Link href="/products" className="hover:text-brand-purple transition-colors">Components</Link>
-                    <FaChevronRight size={10} className="opacity-50" />
-                    <Link href={`/products/${product.category}`} className="hover:text-brand-purple transition-colors capitalize">
-                        {product.category === 'gpu' ? 'Graphics Card' : 
-                         product.category === 'cpu' ? 'Processor' : 
-                         product.category === 'psu' ? 'Power Supply' : 
-                         product.category}
-                    </Link>
-                  </>
-              )}
-              <FaChevronRight size={10} className="opacity-50" />
-              <span className="text-white truncate max-w-[200px] capitalize">
-                  {product.breadcrumb_name ? product.breadcrumb_name : product.name.toLowerCase()}
-              </span>
-          </div>
-      </div>
+      {/* --- REPLACEMENT BREADCRUMB --- */}
+      <ProductBreadcrumb 
+        category={product.category}
+        name={product.name}
+        series={product.series}
+        tier={product.tier}
+        breadcrumbName={product.breadcrumb_name}
+      />
 
       <div className="flex-grow pt-12 pb-12 px-[20px] md:px-[40px] 2xl:px-[100px] relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 xl:gap-20 mb-24">
