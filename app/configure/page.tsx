@@ -11,6 +11,7 @@ import { FaChevronDown, FaChevronUp, FaInfoCircle, FaCheck, FaWindows, FaLinux, 
 import { Reveal, StaggerGrid, StaggerItem } from "@/components/ui/MotionWrappers";
 import { toast } from "sonner";
 import { generateSpecSheetPDF } from "@/utils/generatePdf";
+import { createPortal } from "react-dom";
 
 // --- TYPES ---
 interface Product {
@@ -41,18 +42,23 @@ export default function ConfiguratorPage() {
   const [saving, setSaving] = useState(false);
   const [showMobileBar, setShowMobileBar] = useState(false);
   const [showMobileList, setShowMobileList] = useState(false); // To toggle the product list popup
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
-  // SCROLL LISTENER FOR MOBILE WIDGET
+  // SCROLL LISTENER (Updated)
   useEffect(() => {
     const handleScroll = () => {
-      // Show bar after scrolling past the top summary (approx 500px)
-      if (window.scrollY > 500) {
-        setShowMobileBar(true);
-      } else {
-        setShowMobileBar(false);
-      }
+      // Show bar after scrolling just 100px (approx 1 swipe)
+      const shouldShow = window.scrollY > 100;
+      setShowMobileBar(shouldShow);
     };
+
+    // Attach listener
     window.addEventListener("scroll", handleScroll);
+    
+    // Check initially in case we land on the page already scrolled
+    handleScroll();
+
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
@@ -438,51 +444,62 @@ export default function ConfiguratorPage() {
             </div>
         </div>
       </div>
-       {/* --- MOBILE FLOATING SUMMARY WIDGET (Shows on Scroll) --- */}
-      <div className={`fixed bottom-0 left-0 w-full bg-[#121212] border-t border-white/10 p-4 z-50 md:hidden transition-transform duration-300 ${showMobileBar ? "translate-y-0" : "translate-y-full"}`}>
-          
-          {/* POPUP LIST (Shows when clicking 'View List') */}
-          {showMobileList && (
-            <div className="absolute bottom-full left-0 w-full bg-[#1A1A1A] border-t border-white/10 p-4 rounded-t-xl shadow-2xl max-h-[50vh] overflow-y-auto animate-in slide-in-from-bottom-5">
-                <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-2">
-                    <h4 className="font-orbitron text-sm text-brand-purple uppercase">Selected Components</h4>
-                    <button onClick={() => setShowMobileList(false)} className="text-xs text-brand-silver hover:text-white">Close</button>
+       {/* --- MOBILE FLOATING SUMMARY WIDGET (PORTAL) --- */}
+      {/* Uses createPortal to attach directly to body, bypassing parent transforms/animations */}
+      {mounted && createPortal(
+        <div 
+            className={`fixed bottom-0 left-0 w-full bg-[#121212] border-t border-white/20 p-4 z-[9999] md:hidden transition-transform duration-300 ease-out shadow-[0_-5px_20px_rgba(0,0,0,0.8)] ${showMobileBar ? "translate-y-0" : "translate-y-[120%]"}`}
+        >
+            
+            {/* POPUP LIST (Shows when clicking 'View List') */}
+            {showMobileList && (
+                <div className="absolute bottom-full left-0 w-full bg-[#1A1A1A] border-t border-white/10 p-4 rounded-t-xl shadow-2xl max-h-[50vh] overflow-y-auto animate-in slide-in-from-bottom-5">
+                    <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-2">
+                        <h4 className="font-orbitron text-sm text-brand-purple uppercase">Selected Components</h4>
+                        <button onClick={() => setShowMobileList(false)} className="text-xs text-brand-silver hover:text-white bg-white/10 px-2 py-1 rounded">Close</button>
+                    </div>
+                    <div className="space-y-2 text-xs">
+                        {Object.entries(selections).map(([key, val]) => {
+                            if (!val || key === 'osSecondary') return null;
+                            return (
+                                <div key={key} className="flex justify-between items-center border-b border-white/5 pb-1">
+                                    <span className="text-brand-silver capitalize">{key}</span>
+                                    <span className="text-white truncate max-w-[150px] font-bold">{val.name}</span>
+                                </div>
+                            );
+                        })}
+                        {!selections.cpu && !selections.cabinet && <div className="text-white/30 italic">No parts selected yet.</div>}
+                    </div>
                 </div>
-                <div className="space-y-2 text-xs">
-                    {Object.entries(selections).map(([key, val]) => {
-                         if (!val || key === 'osSecondary') return null;
-                         return (
-                            <div key={key} className="flex justify-between">
-                                <span className="text-brand-silver capitalize">{key}</span>
-                                <span className="text-white truncate max-w-[150px]">{val.name}</span>
-                            </div>
-                         );
-                    })}
-                </div>
-            </div>
-          )}
+            )}
 
-          {/* MAIN BAR CONTENT */}
-          <div className="flex justify-between items-center gap-4">
-              <div className="flex flex-col">
-                  <span className="text-lg font-bold font-orbitron text-white">₹{totalPrice.toLocaleString("en-IN")}</span>
-                  <div className="flex items-center gap-2 text-[10px] text-brand-silver uppercase tracking-wider">
-                      <span>{totalTDP}W Power</span>
-                      <span className="w-[1px] h-3 bg-white/20"></span>
-                      <button onClick={() => setShowMobileList(!showMobileList)} className="text-brand-purple underline decoration-dotted underline-offset-2">
-                          {showMobileList ? "Hide List" : "View List"}
-                      </button>
-                  </div>
-              </div>
-              <button 
-                  onClick={handleAddToCart}
-                  disabled={!selections.cpu || !selections.motherboard}
-                  className="bg-brand-purple px-6 py-3 rounded text-xs font-bold font-orbitron uppercase tracking-widest text-white hover:bg-brand-purple/90 disabled:opacity-50 disabled:grayscale"
-              >
-                  Add to Cart
-              </button>
-          </div>
-      </div>
+            {/* MAIN BAR CONTENT */}
+            <div className="flex justify-between items-center gap-3">
+                <div className="flex flex-col">
+                    <span className="text-lg font-bold font-orbitron text-white leading-none">₹{totalPrice.toLocaleString("en-IN")}</span>
+                    <div className="flex items-center gap-2 text-[10px] text-brand-silver uppercase tracking-wider mt-1">
+                        <span className={`${!isPowerSufficient ? "text-red-500 font-bold" : ""}`}>{totalTDP}W Power</span>
+                        <span className="w-[1px] h-3 bg-white/20"></span>
+                        <button 
+                            onClick={() => setShowMobileList(!showMobileList)} 
+                            className="text-brand-purple underline decoration-dotted underline-offset-2 font-bold"
+                        >
+                            {showMobileList ? "Hide List" : "View List"}
+                        </button>
+                    </div>
+                </div>
+                
+                <button 
+                    onClick={handleAddToCart}
+                    disabled={!selections.cpu || !selections.motherboard}
+                    className="bg-brand-purple px-5 py-3 rounded text-xs font-bold font-orbitron uppercase tracking-widest text-white hover:bg-brand-purple/90 disabled:opacity-50 disabled:grayscale shadow-[0_0_15px_rgba(124,58,237,0.3)]"
+                >
+                    Add to Cart
+                </button>
+            </div>
+        </div>,
+        document.body // <--- Target the body tag directly
+      )}
       <Footer />
     </div>
   );
