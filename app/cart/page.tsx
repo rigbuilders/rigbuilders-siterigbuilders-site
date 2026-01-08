@@ -52,7 +52,7 @@ export default function CartPage() {
           <Reveal>
             <div className="text-center py-24 border border-dashed border-white/10 rounded-xl bg-white/5 backdrop-blur-sm">
               <p className="font-orbitron text-brand-silver text-xl md:text-2xl mb-8">Your cart is empty.</p>
-              <Link href="/products">
+              <Link href="/configure">
                 <button className="px-10 py-4 bg-brand-purple hover:bg-white hover:text-black rounded font-bold uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(78,44,139,0.4)] hover:shadow-none">
                   Start Configuration
                 </button>
