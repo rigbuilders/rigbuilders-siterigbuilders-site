@@ -348,7 +348,7 @@ export default function CheckoutPage() {
                                 <div className="md:col-span-2">
                                     <label className="text-xs text-brand-silver mb-2 font-bold block">Full Name</label>
                                     <input required type="text" className="w-full bg-black/40 border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none" 
-                                        value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} placeholder="John Doe" />
+                                        value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} placeholder="Your Name" />
                                 </div>
                                 <div>
                                     <label className="text-xs text-brand-silver mb-2 font-bold block">Phone Number</label>
