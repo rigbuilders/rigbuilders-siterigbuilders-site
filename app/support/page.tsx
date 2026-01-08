@@ -98,7 +98,7 @@ export default function SupportPage() {
                     </div>
 
                     <div className="mt-16 flex flex-col sm:flex-row gap-5">
-                        <a href="https://wa.me/917707801014" target="_blank" rel="noopener noreferrer" className="px-8 py-5 bg-green-600/10 border border-green-500/30 text-green-500 font-orbitron font-bold text-sm uppercase tracking-widest hover:bg-green-600 hover:text-white hover:border-green-600 transition-all flex items-center justify-center gap-3 rounded-sm">
+                        <a href="https://wa.me/917707801014?text=Hi" target="_blank" rel="noopener noreferrer" className="px-8 py-5 bg-green-600/10 border border-green-500/30 text-green-500 font-orbitron font-bold text-sm uppercase tracking-widest hover:bg-green-600 hover:text-white hover:border-green-600 transition-all flex items-center justify-center gap-3 rounded-sm">
                             <FaWhatsapp size={20} /> WhatsApp
                         </a>
                         <a 

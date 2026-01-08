@@ -66,12 +66,12 @@ export default function RootLayout({
 
             {/* --- 2. FLOATING SUPPORT BUTTON (Updated) --- */}
             <a 
-              href="https://wa.me/917707801014?text=Hi%20Rig%20Builders,%20I%20need%20help%20with..."
+              href="https://wa.me/917707801014?text=Hi%0AI%20need%20consultation%20for%20my%20PC%20Build"
               target="_blank"
               rel="noopener noreferrer"
               // Responsive classes: p-3 for mobile, md:p-4 for desktop
               className="fixed bottom-6 right-6 z-[999] bg-white text-black p-3 md:p-4 rounded-full shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-110 hover:shadow-[0_0_30px_rgba(255,255,255,0.5)] transition-all duration-300 group flex items-center justify-center"
-              title="Help & Support"
+              title="Consult an Expert"
             >
               {/* Responsive Icon Size: w-6 (24px) for mobile, w-8 (32px) for desktop */}
               <Headset className="w-6 h-6 md:w-8 md:h-8" />
