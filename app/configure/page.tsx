@@ -39,6 +39,22 @@ export default function ConfiguratorPage() {
   const [inventory, setInventory] = useState<Product[]>([]);
   const [user, setUser] = useState<any>(null);
   const [saving, setSaving] = useState(false);
+  const [showMobileBar, setShowMobileBar] = useState(false);
+  const [showMobileList, setShowMobileList] = useState(false); // To toggle the product list popup
+
+  // SCROLL LISTENER FOR MOBILE WIDGET
+  useEffect(() => {
+    const handleScroll = () => {
+      // Show bar after scrolling past the top summary (approx 500px)
+      if (window.scrollY > 500) {
+        setShowMobileBar(true);
+      } else {
+        setShowMobileBar(false);
+      }
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   // SELECTION STATE
   const [selections, setSelections] = useState({
@@ -422,6 +438,51 @@ export default function ConfiguratorPage() {
             </div>
         </div>
       </div>
+       {/* --- MOBILE FLOATING SUMMARY WIDGET (Shows on Scroll) --- */}
+      <div className={`fixed bottom-0 left-0 w-full bg-[#121212] border-t border-white/10 p-4 z-50 md:hidden transition-transform duration-300 ${showMobileBar ? "translate-y-0" : "translate-y-full"}`}>
+          
+          {/* POPUP LIST (Shows when clicking 'View List') */}
+          {showMobileList && (
+            <div className="absolute bottom-full left-0 w-full bg-[#1A1A1A] border-t border-white/10 p-4 rounded-t-xl shadow-2xl max-h-[50vh] overflow-y-auto animate-in slide-in-from-bottom-5">
+                <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-2">
+                    <h4 className="font-orbitron text-sm text-brand-purple uppercase">Selected Components</h4>
+                    <button onClick={() => setShowMobileList(false)} className="text-xs text-brand-silver hover:text-white">Close</button>
+                </div>
+                <div className="space-y-2 text-xs">
+                    {Object.entries(selections).map(([key, val]) => {
+                         if (!val || key === 'osSecondary') return null;
+                         return (
+                            <div key={key} className="flex justify-between">
+                                <span className="text-brand-silver capitalize">{key}</span>
+                                <span className="text-white truncate max-w-[150px]">{val.name}</span>
+                            </div>
+                         );
+                    })}
+                </div>
+            </div>
+          )}
+
+          {/* MAIN BAR CONTENT */}
+          <div className="flex justify-between items-center gap-4">
+              <div className="flex flex-col">
+                  <span className="text-lg font-bold font-orbitron text-white">₹{totalPrice.toLocaleString("en-IN")}</span>
+                  <div className="flex items-center gap-2 text-[10px] text-brand-silver uppercase tracking-wider">
+                      <span>{totalTDP}W Power</span>
+                      <span className="w-[1px] h-3 bg-white/20"></span>
+                      <button onClick={() => setShowMobileList(!showMobileList)} className="text-brand-purple underline decoration-dotted underline-offset-2">
+                          {showMobileList ? "Hide List" : "View List"}
+                      </button>
+                  </div>
+              </div>
+              <button 
+                  onClick={handleAddToCart}
+                  disabled={!selections.cpu || !selections.motherboard}
+                  className="bg-brand-purple px-6 py-3 rounded text-xs font-bold font-orbitron uppercase tracking-widest text-white hover:bg-brand-purple/90 disabled:opacity-50 disabled:grayscale"
+              >
+                  Add to Cart
+              </button>
+          </div>
+      </div>
       <Footer />
     </div>
   );
@@ -515,51 +576,110 @@ const MiniOsCard = ({ item, isSelected, onClick }: any) => (
 );
 
 const Grid = ({ items, selectedId, onSelect, warning }: any) => {
-    if (items.length === 0) return <div className="text-center text-brand-silver text-sm py-8 bg-white/5 rounded border border-dashed border-white/10 italic">No compatible items found.</div>;
-    
-    return (
-        <>
-            {warning && <div className="mb-4 text-xs text-brand-purple flex items-center gap-2"><FaInfoCircle /> {warning}</div>}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {items.map((item: any) => {
-                    const isCompatible = item.isCompatible !== false; 
-                    const isDisabled = (item.category !== 'os' && !item.inStock) || !isCompatible;
-                    
-                    return (
-                        <div key={item.id} 
-                            onClick={() => { if (!isDisabled) onSelect(item); }} 
-                            className={`relative p-4 rounded-lg border transition-all flex flex-col justify-between min-h-[100px] group 
-                            ${selectedId === item.id 
-                                ? "bg-brand-purple/10 border-brand-purple shadow-[0_0_15px_rgba(78,44,139,0.3)]" 
-                                : isDisabled 
-                                    ? "bg-black/20 border-white/5 opacity-50 cursor-not-allowed grayscale" 
-                                    : "bg-[#121212] border-white/10 hover:border-white/30 hover:bg-[#151515] cursor-pointer"
-                            }`}
-                        >
-                            <div className="flex justify-between items-start mb-2">
-                                <span className="text-[10px] font-bold text-brand-silver uppercase tracking-wider">{item.brand || "Part"}</span>
-                                {selectedId === item.id && <div className="text-brand-purple"><FaCheck /></div>}
-                            </div>
-                            
-                            <div>
-                                <h4 className="font-bold text-sm text-white mb-1 leading-tight">{item.name}</h4>
-                                <div className="text-[10px] text-brand-silver mb-3 space-y-1">
-                                    {!isCompatible && (
-                                        <div className="text-red-400 font-bold flex items-center gap-1 mt-2">
-                                            <FaInfoCircle size={10} /> {item.compatibilityMsg || "Incompatible"}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
+    // State to track which brands are expanded
+    // Default is {} (empty), meaning all keys return undefined/false -> CLOSED
+    const [expandedBrands, setExpandedBrands] = useState<Record<string, boolean>>({});
 
-                            <div className="flex justify-between items-center pt-3 border-t border-white/5">
-                                <span className="font-bold text-white">{item.price === 0 ? "FREE" : `₹${item.price.toLocaleString("en-IN")}`}</span>
-                                {item.category !== 'os' && !item.inStock && (<span className="text-[9px] font-bold text-red-500 uppercase px-2 py-1 bg-red-500/10 rounded">Out of Stock</span>)}
-                            </div>
-                        </div>
-                    );
-                })}
+    // 1. STRICT FILTER: Remove incompatible items
+    const validItems = items.filter((item: any) => item.isCompatible !== false);
+
+    if (validItems.length === 0) {
+        return (
+            <div className="text-center text-brand-silver text-sm py-8 bg-white/5 rounded border border-dashed border-white/10 italic">
+                No compatible items found for your selection.
             </div>
-        </>
+        );
+    }
+
+    // 2. GROUP BY BRAND
+    const groupedItems = validItems.reduce((acc: any, item: any) => {
+        const brand = item.brand || "Other"; 
+        if (!acc[brand]) acc[brand] = [];
+        acc[brand].push(item);
+        return acc;
+    }, {});
+
+    const sortedBrands = Object.keys(groupedItems).sort();
+
+    // --- CHANGE: REMOVED THE USEEFFECT THAT FORCED THEM OPEN ---
+
+    const toggleBrand = (brand: string) => {
+        setExpandedBrands(prev => ({
+            ...prev,
+            [brand]: !prev[brand]
+        }));
+    };
+
+    return (
+        <div className="space-y-4">
+            {warning && (
+                <div className="p-3 bg-brand-purple/10 border border-brand-purple/20 rounded text-xs text-brand-purple flex items-center gap-2 mb-4">
+                    <FaInfoCircle /> {warning}
+                </div>
+            )}
+
+            {sortedBrands.map((brand) => {
+                const isOpen = expandedBrands[brand]; // defaults to false
+                const count = groupedItems[brand].length;
+                
+                return (
+                <div key={brand} className="bg-[#151515] border border-white/5 rounded-lg overflow-hidden">
+                    {/* Brand Header (Clickable) */}
+                    <button 
+                        onClick={() => toggleBrand(brand)}
+                        className={`w-full px-4 py-3 flex justify-between items-center transition-colors ${isOpen ? "bg-white/10" : "bg-white/5 hover:bg-white/10"}`}
+                    >
+                        <div className="flex items-center gap-3">
+                            <span className="font-orbitron text-sm font-bold uppercase tracking-wider text-white">
+                                {brand}
+                            </span>
+                            <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-brand-silver">
+                                {count}
+                            </span>
+                        </div>
+                        <div className={`text-brand-silver transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}>
+                            <FaChevronDown size={12} />
+                        </div>
+                    </button>
+
+                    {/* Items Grid (Collapsible) */}
+                    <div className={`transition-all duration-300 ease-in-out ${isOpen ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0 overflow-hidden"}`}>
+                        <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 border-t border-white/5">
+                            {groupedItems[brand].map((item: any) => {
+                                const isDisabled = (item.category !== 'os' && !item.inStock);
+                                
+                                return (
+                                    <div key={item.id} 
+                                        onClick={() => { if (!isDisabled) onSelect(item); }} 
+                                        className={`relative p-4 rounded-lg border transition-all flex flex-col justify-between min-h-[100px] group 
+                                        ${selectedId === item.id 
+                                            ? "bg-brand-purple/10 border-brand-purple shadow-[0_0_15px_rgba(78,44,139,0.3)]" 
+                                            : isDisabled 
+                                                ? "bg-black/20 border-white/5 opacity-50 cursor-not-allowed grayscale" 
+                                                : "bg-[#121212] border-white/10 hover:border-white/30 hover:bg-[#151515] cursor-pointer"
+                                        }`}
+                                    >
+                                        <div className="flex justify-between items-start mb-2">
+                                            <span className="text-[10px] font-bold text-brand-silver uppercase tracking-wider">{item.category}</span>
+                                            {selectedId === item.id && <div className="text-brand-purple"><FaCheck /></div>}
+                                        </div>
+                                        
+                                        <div>
+                                            <h4 className="font-bold text-sm text-white mb-1 leading-tight">{item.name}</h4>
+                                        </div>
+
+                                        <div className="flex justify-between items-center pt-3 border-t border-white/5 mt-3">
+                                            <span className="font-bold text-white font-orbitron text-sm">{item.price === 0 ? "FREE" : `₹${item.price.toLocaleString("en-IN")}`}</span>
+                                            {item.category !== 'os' && !item.inStock && (<span className="text-[9px] font-bold text-red-500 uppercase px-2 py-1 bg-red-500/10 rounded">Out of Stock</span>)}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+                );
+            })}
+        </div>
     );
 };
