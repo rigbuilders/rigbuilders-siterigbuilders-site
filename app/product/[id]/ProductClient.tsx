@@ -182,10 +182,20 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
                     </div>
 
                     <div className="flex gap-4 mb-8">
-                        <button onClick={() => handleAction(false)} disabled={!product.in_stock} className="flex-1 py-5 border border-white/20 hover:border-white hover:bg-white hover:text-black font-orbitron font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed rounded">
-                            <FaShoppingCart /> Add to Cart
+                        <button 
+                            onClick={() => handleAction(false)} 
+                            disabled={!product.in_stock} 
+                            /* FIX: Added 'px-4' to prevent icon from touching the left edge on mobile */
+                            className="flex-1 py-5 px-4 border border-white/20 hover:border-white hover:bg-white hover:text-black font-orbitron font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed rounded"
+                        >
+                            <FaShoppingCart /> <span className="truncate">Add to Cart</span>
                         </button>
-                        <button onClick={() => handleAction(true)} disabled={!product.in_stock} className="flex-1 py-5 bg-brand-purple hover:bg-white hover:text-black text-white font-orbitron font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-[0_0_20px_rgba(78,44,139,0.4)] hover:shadow-none disabled:opacity-50 disabled:cursor-not-allowed rounded">
+                        
+                        <button 
+                            onClick={() => handleAction(true)} 
+                            disabled={!product.in_stock} 
+                            className="flex-1 py-5 px-4 bg-brand-purple hover:bg-white hover:text-black text-white font-orbitron font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-[0_0_20px_rgba(78,44,139,0.4)] hover:shadow-none disabled:opacity-50 disabled:cursor-not-allowed rounded"
+                        >
                             Buy Now
                         </button>
                     </div>

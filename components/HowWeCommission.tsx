@@ -53,14 +53,16 @@ export default function HowWeCommission() {
       <div className="max-w-7xl mx-auto px-6 relative z-10 text-center">
         
         {/* HEADLINE */}
-        <Reveal className="mb-20 flex flex-col items-center justify-center">
-            <div className="w-fit text-left">
-                <span className="block font-saira text-white text-[25px] leading-none mb-2 ml-1">
+        <Reveal className="mb-12 md:mb-20 flex flex-col items-center justify-center">
+            {/* Mobile: w-full & text-center | Desktop: w-fit & text-left */}
+            <div className="w-full text-center md:w-fit md:text-left">
+                <span className="block font-saira text-white text-[20px] md:text-[25px] leading-none mb-2 md:ml-1">
                     How do we
                 </span>
                 <h2 className="font-orbitron text-white leading-none">
-                    <span className="text-[40px] md:text-[50px] font-bold tracking-wide block md:inline">COMMISSION</span>
-                    <span className="font-saira text-[25px] ml-3 font-normal">your RIG?</span>
+                    <span className="text-[32px] md:text-[50px] font-bold tracking-wide block md:inline">COMMISSION</span>
+                    {/* Mobile: Block (new line) & No Margin | Desktop: Inline & Left Margin */}
+                    <span className="font-saira text-[20px] md:text-[25px] block md:inline md:ml-3 font-normal mt-1 md:mt-0">your RIG?</span>
                 </h2>
             </div>
         </Reveal>

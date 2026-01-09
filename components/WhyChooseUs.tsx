@@ -27,7 +27,8 @@ export default function WhyChooseUs() {
     <section className="relative min-h-[800px] flex items-center bg-[#121212] overflow-hidden">
       
       {/* 1. RIGHT SIDE: FULL HEIGHT IMAGE (Absolute Positioned) */}
-      <div className="absolute top-0 right-0 w-full lg:w-[55%] h-full z-0">
+      {/* FIX: Added 'opacity-30 lg:opacity-100' to handle mobile transparency requirement */}
+      <div className="absolute top-0 right-0 w-full lg:w-[55%] h-full z-0 opacity-30 lg:opacity-100 transition-opacity duration-300 pointer-events-none">
         <Image 
           src="/images/homepage/why us/1.jpg" 
           alt="Rig Builders Craftsmanship" 
@@ -38,13 +39,11 @@ export default function WhyChooseUs() {
         
         {/* The "Merge" Gradient: Fades from solid background (Left) to transparent (Right) */}
         <div className="absolute inset-0 bg-gradient-to-r from-[#121212] via-[#121212]/80 to-transparent lg:via-[#121212]/40" />
-        
-        {/* Bottom Fade for Mobile */}
-        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#121212] to-transparent lg:hidden" />
       </div>
 
       {/* 2. LEFT SIDE: CONTENT (Aligned to 1440px Grid) */}
-      <div className="max-w-[1440px] mx-auto px-4 lg:px-[30px] w-full relative z-10 pt-20 lg:pt-0">
+      {/* FIX: Added 'pb-24' to ensure content doesn't hit the bottom edge on mobile */}
+      <div className="max-w-[1440px] mx-auto px-4 lg:px-[30px] w-full relative z-10 pt-20 pb-24 lg:py-0">
         <div className="lg:w-1/2">
           <Reveal>
             <h2 className="font-orbitron text-4xl md:text-5xl text-white mb-10 leading-tight">
