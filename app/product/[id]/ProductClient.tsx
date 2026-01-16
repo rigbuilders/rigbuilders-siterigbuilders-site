@@ -8,11 +8,13 @@ import { useCart } from "@/app/context/CartContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { 
-  FaStar, FaShoppingCart, FaBolt, FaChevronRight, FaChevronLeft, FaHome, FaRegStar 
+  FaStar, FaShoppingCart, FaBolt, FaChevronRight, FaChevronLeft, FaHome, FaRegStar,
+  FaExchangeAlt, FaShieldAlt, FaTruck, FaHandHoldingUsd // <--- NEW ICONS ADDED
 } from "react-icons/fa";
 import { Reveal } from "@/components/ui/MotionWrappers";
 import { toast } from "sonner"; 
 import ProductBreadcrumb from "@/components/ProductBreadcrumb";
+
 
 interface ProductClientProps {
     initialProduct: any;
@@ -150,14 +152,14 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
 
                     <h1 className="text-1xl md:text-3xl font-saira font-bold mb-4 leading-tight">{product.name}</h1>
                     
-                    <div className="flex items-end gap-4 mb-4 pb-4 border-b border-white/10">
+                    <div className="flex items-end gap-4 mb-8 pb-4 border-b border-white/10">
                         <div className="text-2xl font-medium text-white font-saira">₹{product.price.toLocaleString("en-IN")}</div>
                         <div className="text-brand-silver text-sm mb-1">Inclusive of all taxes</div>
                     </div>
 
-                    <p className="text-brand-silver leading-relaxed mb-8 whitespace-pre-line text-lg font-light">{product.description}</p>
+                    {/* MOVED: Description removed from here */}
 
-                    <div className="mb-10 bg-[#1A1A1A]/50 p-6 rounded-xl border border-white/5">
+                    <div className="mb-6 bg-[#1A1A1A]/50 p-6 rounded-xl border border-white/5">
                         <h3 className="font-orbitron font-bold text-white mb-6 uppercase tracking-widest text-sm flex items-center gap-2">
                             <FaBolt className="text-brand-purple" /> {isPreBuilt ? "System Specifications" : "Technical Highlights"}
                         </h3>
@@ -179,6 +181,30 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
                                 ))}
                             </div>
                         )}
+                    </div>
+
+                    {/* --- NEW SECTION: SERVICE HIGHLIGHTS --- */}
+                    <div className="grid grid-cols-2 gap-3 mb-8">
+                        <div className="flex flex-col gap-1 p-3 border border-white/5 rounded bg-white/5 hover:border-brand-purple/30 transition-colors">
+                            <FaExchangeAlt className="text-brand-purple text-lg mb-1" />
+                            <span className="text-white text-xs font-bold uppercase">7 Days</span>
+                            <span className="text-[10px] text-brand-silver">Replacement Policy</span>
+                        </div>
+                        <div className="flex flex-col gap-1 p-3 border border-white/5 rounded bg-white/5 hover:border-brand-purple/30 transition-colors">
+                            <FaShieldAlt className="text-brand-purple text-lg mb-1" />
+                            <span className="text-white text-xs font-bold uppercase">{product.warranty_years || "3"} Years</span>
+                            <span className="text-[10px] text-brand-silver">Official Warranty</span>
+                        </div>
+                        <div className="flex flex-col gap-1 p-3 border border-white/5 rounded bg-white/5 hover:border-brand-purple/30 transition-colors">
+                            <FaTruck className="text-brand-purple text-lg mb-1" />
+                            <span className="text-white text-xs font-bold uppercase">Safe Shipping</span>
+                            <span className="text-[10px] text-brand-silver">Insured Delivery</span>
+                        </div>
+                        <div className="flex flex-col gap-1 p-3 border border-white/5 rounded bg-white/5 hover:border-brand-purple/30 transition-colors">
+                            <FaHandHoldingUsd className="text-brand-purple text-lg mb-1" />
+                            <span className="text-white text-xs font-bold uppercase">COD Available</span>
+                            <span className="text-[10px] text-brand-silver">Pay on Delivery</span>
+                        </div>
                     </div>
 
                     <div className="flex gap-4 mb-8">
@@ -243,6 +269,16 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
                         ))}
                     </div>
                 </div>
+            </Reveal>
+        </div>
+
+        {/* --- MOVED SECTION: PRODUCT DESCRIPTION --- */}
+        <div className="mb-24 max-w-4xl mx-auto border-t border-white/10 pt-12">
+            <Reveal>
+                <h3 className="font-orbitron font-bold text-xl mb-6 text-white uppercase tracking-widest">Product <span className="text-brand-purple">Description</span></h3>
+                <p className="text-brand-silver leading-loose whitespace-pre-line text-sm md:text-base font-light opacity-80">
+                    {product.description}
+                </p>
             </Reveal>
         </div>
 
