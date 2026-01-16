@@ -4,10 +4,10 @@ import ProductClient from "./ProductClient";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const id = params.id;
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  // FIX: Await the params promise
+  const { id } = await params;
   
-  // Fetch single product for SEO
   const { data: product } = await supabase
     .from('products')
     .select('name, description, image_url')
@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   }
 
   return {
-    title: product.name, // Will become: "NVIDIA RTX 4090 | Rig Builders India"
+    title: product.name,
     description: product.description?.slice(0, 160) || "View this product on Rig Builders.",
     openGraph: {
       images: [product.image_url || "/images/og-default.jpg"],
@@ -39,7 +39,7 @@ async function getProduct(id: string) {
 }
 
 // 3. MAIN PAGE COMPONENT (Async)
-export default async function ProductPage({ params }: Props) {
+export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params; // <--- MUST AWAIT PARAMS HERE
   const product = await getProduct(id);
 
