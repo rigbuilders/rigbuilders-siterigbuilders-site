@@ -186,22 +186,22 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
                     {/* --- NEW SECTION: SERVICE HIGHLIGHTS --- */}
                     <div className="grid grid-cols-2 gap-3 mb-8">
                         <div className="flex flex-col gap-1 p-3 border border-white/5 rounded bg-white/5 hover:border-brand-purple/30 transition-colors">
-                            <FaExchangeAlt className="text-brand-purple text-lg mb-1" />
+                            <FaExchangeAlt className="text-brand-white text-lg mb-1" />
                             <span className="text-white text-xs font-bold uppercase">7 Days</span>
                             <span className="text-[10px] text-brand-silver">Replacement Policy</span>
                         </div>
                         <div className="flex flex-col gap-1 p-3 border border-white/5 rounded bg-white/5 hover:border-brand-purple/30 transition-colors">
-                            <FaShieldAlt className="text-brand-purple text-lg mb-1" />
+                            <FaShieldAlt className="text-brand-white text-lg mb-1" />
                             <span className="text-white text-xs font-bold uppercase">{product.warranty_years || "3"} Years</span>
-                            <span className="text-[10px] text-brand-silver">Official Warranty</span>
+                            <span className="text-[10px] text-brand-silver">Warranty</span>
                         </div>
                         <div className="flex flex-col gap-1 p-3 border border-white/5 rounded bg-white/5 hover:border-brand-purple/30 transition-colors">
-                            <FaTruck className="text-brand-purple text-lg mb-1" />
+                            <FaTruck className="text-brand-white text-lg mb-1" />
                             <span className="text-white text-xs font-bold uppercase">Safe Shipping</span>
                             <span className="text-[10px] text-brand-silver">Insured Delivery</span>
                         </div>
                         <div className="flex flex-col gap-1 p-3 border border-white/5 rounded bg-white/5 hover:border-brand-purple/30 transition-colors">
-                            <FaHandHoldingUsd className="text-brand-purple text-lg mb-1" />
+                            <FaHandHoldingUsd className="text-brand-white text-lg mb-1" />
                             <span className="text-white text-xs font-bold uppercase">COD Available</span>
                             <span className="text-[10px] text-brand-silver">Pay on Delivery</span>
                         </div>

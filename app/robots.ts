@@ -5,8 +5,8 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/admin', '/private'], // Hide admin routes from Google
+      disallow: ['/dashboard/', '/admin/'], // Protect private routes
     },
-    sitemap: 'https://www.rigbuilders.in/sitemap.xml', // Update with your domain
+    sitemap: 'https://www.rigbuilders.in/sitemap.xml',
   };
 }

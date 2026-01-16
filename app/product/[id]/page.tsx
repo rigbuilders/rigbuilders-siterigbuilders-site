@@ -4,6 +4,29 @@ import ProductClient from "./ProductClient";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  const id = params.id;
+  
+  // Fetch single product for SEO
+  const { data: product } = await supabase
+    .from('products')
+    .select('name, description, image_url')
+    .eq('id', id)
+    .single();
+
+  if (!product) {
+    return { title: "Product Not Found" };
+  }
+
+  return {
+    title: product.name, // Will become: "NVIDIA RTX 4090 | Rig Builders India"
+    description: product.description?.slice(0, 160) || "View this product on Rig Builders.",
+    openGraph: {
+      images: [product.image_url || "/images/og-default.jpg"],
+    },
+  };
+}
+
 // 1. Define the props type as a Promise (Next.js 15 Requirement)
 type Props = {
   params: Promise<{ id: string }>;
@@ -13,20 +36,6 @@ type Props = {
 async function getProduct(id: string) {
   const { data } = await supabase.from('products').select('*').eq('id', id).single();
   return data;
-}
-
-// 2. DYNAMIC METADATA (Async)
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { id } = await params; // <--- MUST AWAIT PARAMS HERE
-  const product = await getProduct(id);
-  
-  if (!product) return { title: "Product Not Found" };
-
-  return {
-    title: `${product.name} | Premium Gaming PC | Rig Builders`,
-    description: `Buy the ${product.name}. Features: ${product.specs?.gpu || 'High Performance'}.`,
-    openGraph: { images: [product.image_url] },
-  };
 }
 
 // 3. MAIN PAGE COMPONENT (Async)

@@ -2,15 +2,15 @@
 
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-// import AuthModal from "@/components/AuthModal"; // <-- REMOVED
 import { useState, useMemo, useEffect, use } from "react";
 import { useCart } from "@/app/context/CartContext"; 
-import { notFound, useRouter } from "next/navigation";
+import { notFound, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient"; 
 import Link from "next/link";
 import { Reveal, StaggerGrid, StaggerItem } from "@/components/ui/MotionWrappers";
 import { FaShoppingCart, FaArrowRight, FaChevronDown, FaChevronUp } from "react-icons/fa";
 import { toast } from "sonner"; 
+import CategoryLanding from "@/components/CategoryLanding"; // <--- NEW IMPORT
 
 const validCategories = [
   "cpu", "gpu", "motherboard", "memory", "ram", "storage", "psu", "cooler", "cabinet", "prebuilt",
@@ -58,8 +58,8 @@ const FilterGroup = ({ title, options, selected, onChange }: any) => {
 export default function CategoryPage({ params }: { params: Promise<{ category: string }> }) {
   const resolvedParams = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams(); // <--- Hook to read URL params (?brand=Intel)
   const { addToCart } = useCart();
-  // const [showAuthModal, setShowAuthModal] = useState(false); // <-- REMOVED
   
   const categoryParam = resolvedParams.category.toLowerCase();
   const dbCategory = categoryParam === "memory" ? "ram" : categoryParam;
@@ -68,14 +68,36 @@ export default function CategoryPage({ params }: { params: Promise<{ category: s
     return notFound();
   }
 
+  // --- INTERCEPTION LOGIC ---
+  // If category is CPU or GPU, AND no specific brand filter is in the URL, show Landing Page.
+  const paramBrand = searchParams.get('brand');
+  const paramSearch = searchParams.get('search');
+  const showLanding = (dbCategory === 'cpu' || dbCategory === 'gpu') && !paramBrand && !paramSearch;
+
+  // State
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedBrand, setSelectedBrand] = useState<string[]>([]);
+  
+  // Initialize filters with URL params if present
+  const [selectedBrand, setSelectedBrand] = useState<string[]>(paramBrand ? [paramBrand] : []);
   const [selectedPrice, setSelectedPrice] = useState<string[]>([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
+  // If user navigated via Landing Page (e.g., clicked "Intel"), we sync the state
+  useEffect(() => {
+    if (paramBrand) {
+        setSelectedBrand([paramBrand]);
+    }
+  }, [paramBrand]);
+
   useEffect(() => {
     const fetchProducts = async () => {
+      // Don't fetch if we are showing the landing page (saves resources)
+      if (showLanding) {
+          setLoading(false);
+          return;
+      }
+
       setLoading(true);
       const { data } = await supabase.from('products').select('*').eq('category', dbCategory);
       if (data) {
@@ -84,7 +106,7 @@ export default function CategoryPage({ params }: { params: Promise<{ category: s
       setLoading(false);
     };
     fetchProducts();
-  }, [dbCategory]);
+  }, [dbCategory, showLanding]);
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
@@ -103,21 +125,14 @@ export default function CategoryPage({ params }: { params: Promise<{ category: s
     });
   }, [products, selectedBrand, selectedPrice]);
 
-  // --- UPDATED HANDLER (GUEST MODE) ---
   const handleAction = async (product: any, isBuyNow: boolean) => {
-    // --- AUTH CHECK REMOVED ---
-    
     addToCart(product);
-
     if (isBuyNow) {
         router.push("/checkout");
     } else {
         toast.success("Added to Gear", {
             description: `${product.name} is secure in your cart.`,
-            action: {
-                label: "View Cart",
-                onClick: () => router.push("/cart")
-            }
+            action: { label: "View Cart", onClick: () => router.push("/cart") }
         });
     }
   };
@@ -129,15 +144,24 @@ export default function CategoryPage({ params }: { params: Promise<{ category: s
 
   const availableBrands = Array.from(new Set(products.map((p) => p.brand)));
 
+  // --- RENDER LANDING PAGE IF APPLICABLE ---
+  if (showLanding) {
+      return (
+        <div className="min-h-screen bg-[#121212] text-white font-saira flex flex-col">
+            <Navbar />
+            <CategoryLanding category={dbCategory} />
+            <Footer />
+        </div>
+      );
+  }
+
+  // --- RENDER STANDARD PRODUCT LIST ---
   return (
     <div className="min-h-screen bg-[#121212] text-white font-saira flex flex-col relative overflow-hidden">
       <div className="fixed top-0 left-0 w-full h-full bg-[url('/images/noise.png')] opacity-[0.03] pointer-events-none z-0" />
       <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-brand-purple/10 blur-[150px] pointer-events-none z-0" />
 
       <Navbar />
-      {/* <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} /> <-- REMOVED */}
-
-     
 
       <div className="flex flex-col lg:flex-row min-h-screen relative z-10">
         <aside className="w-full lg:w-[300px] xl:w-[350px] border-r border-white/5 p-8 lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto bg-[#0A0A0A]">
@@ -222,30 +246,27 @@ export default function CategoryPage({ params }: { params: Promise<{ category: s
                                 </Link>
 
                                 <div className="grid grid-cols-2 gap-y-2 gap-x-4 mb-8 mt-2 min-h-[40px]">
-    {/* DYNAMIC SPECS: Shows top 4 specs, but hides 'Wattage' as requested */}
-    {product.specs && Object.keys(product.specs).length > 0 ? (
-        Object.entries(product.specs)
-            // FILTER: This line removes "wattage" (case-insensitive) from the card display
-            .filter(([key]) => key.toLowerCase() !== 'wattage') 
-            .slice(0, 4)
-            .map(([key, value]: any) => (
-                <div key={key} className="border-l border-white/10 pl-2">
-                    <span className="block text-white/40 text-[9px] uppercase tracking-wider truncate">
-                        {key.replace(/_/g, " ")}
-                    </span>
-                    <span className="text-brand-silver text-xs font-bold truncate block">
-                        {value}
-                    </span>
-                </div>
-            ))
-    ) : (
-        /* Fallback if no specs exist */
-        <div className="col-span-2 border-l border-white/10 pl-2">
-            <span className="block text-white/40 text-[9px] uppercase tracking-wider">Details</span>
-            <span className="text-brand-silver text-xs font-bold">See Product Page</span>
-        </div>
-    )}
-</div>
+                                    {product.specs && Object.keys(product.specs).length > 0 ? (
+                                        Object.entries(product.specs)
+                                            .filter(([key]) => key.toLowerCase() !== 'wattage') 
+                                            .slice(0, 4)
+                                            .map(([key, value]: any) => (
+                                                <div key={key} className="border-l border-white/10 pl-2">
+                                                    <span className="block text-white/40 text-[9px] uppercase tracking-wider truncate">
+                                                        {key.replace(/_/g, " ")}
+                                                    </span>
+                                                    <span className="text-brand-silver text-xs font-bold truncate block">
+                                                        {value}
+                                                    </span>
+                                                </div>
+                                            ))
+                                    ) : (
+                                        <div className="col-span-2 border-l border-white/10 pl-2">
+                                            <span className="block text-white/40 text-[9px] uppercase tracking-wider">Details</span>
+                                            <span className="text-brand-silver text-xs font-bold">See Product Page</span>
+                                        </div>
+                                    )}
+                                </div>
 
                                 <div className="mt-auto pt-6 border-t border-white/5 flex items-end justify-between gap-4">
                                     <div>
