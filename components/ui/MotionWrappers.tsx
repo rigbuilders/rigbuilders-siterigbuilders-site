@@ -1,16 +1,38 @@
 "use client";
 
-import { motion, useReducedMotion, Variants } from "framer-motion";
+import { motion, useInView, useAnimation, useReducedMotion, Variants } from "framer-motion";
+import { useEffect, useRef } from "react";
 
-// 1. Single Item Reveal
-export function Reveal({ children, delay = 0, className = "" }: { children: React.ReactNode; delay?: number; className?: string }) {
-  const reduce = useReducedMotion();
-  
+interface WrapperProps {
+  children: React.ReactNode;
+  className?: string;
+  delay?: number;
+}
+
+// 1. Single Item Reveal (Manual Control)
+export function Reveal({ children, delay = 0, className = "" }: WrapperProps) {
+  const ref = useRef(null);
+  // Detects when the element is in view (once: true means it won't hide again)
+  const isInView = useInView(ref, { once: true, margin: "-10%" });
+  const controls = useAnimation();
+  const shouldReduce = useReducedMotion();
+
+  useEffect(() => {
+    // If in view OR if user prefers reduced motion, show content immediately
+    if (isInView || shouldReduce) {
+      controls.start("visible");
+    }
+  }, [isInView, controls, shouldReduce]);
+
   return (
     <motion.div
-      initial={reduce ? { opacity: 1 } : { opacity: 0, y: 30 }}
-      whileInView={reduce ? { opacity: 1 } : { opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-10%" }}
+      ref={ref}
+      variants={{
+        hidden: { opacity: 0, y: 30 },
+        visible: { opacity: 1, y: 0 },
+      }}
+      initial="hidden"
+      animate={controls}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay }}
       className={className}
     >
@@ -19,8 +41,19 @@ export function Reveal({ children, delay = 0, className = "" }: { children: Reac
   );
 }
 
-// 2. Staggered Grid Container
-export function StaggerGrid({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+// 2. Staggered Grid Container (Orchestrator)
+export function StaggerGrid({ children, className = "" }: WrapperProps) {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: "-10%" });
+  const controls = useAnimation();
+  const shouldReduce = useReducedMotion();
+
+  useEffect(() => {
+    if (isInView || shouldReduce) {
+      controls.start("show");
+    }
+  }, [isInView, controls, shouldReduce]);
+
   const container: Variants = {
     hidden: { opacity: 0 },
     show: {
@@ -34,10 +67,10 @@ export function StaggerGrid({ children, className = "" }: { children: React.Reac
 
   return (
     <motion.div 
+      ref={ref}
       variants={container}
       initial="hidden"
-      whileInView="show"
-      viewport={{ once: true, margin: "-10%" }}
+      animate={controls}
       className={className}
     >
       {children}
@@ -45,9 +78,10 @@ export function StaggerGrid({ children, className = "" }: { children: React.Reac
   );
 }
 
-// 3. Stagger Item
-export function StaggerItem({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  const reduce = useReducedMotion();
+// 3. Stagger Item (Child)
+// Note: This relies on the parent StaggerGrid to trigger "show"
+export function StaggerItem({ children, className = "" }: WrapperProps) {
+  const shouldReduce = useReducedMotion();
   
   const item: Variants = {
     hidden: { opacity: 0, y: 20 },
@@ -55,15 +89,19 @@ export function StaggerItem({ children, className = "" }: { children: React.Reac
   };
 
   return (
-    <motion.div variants={reduce ? undefined : item} className={className}>
+    <motion.div 
+      variants={shouldReduce ? undefined : item} 
+      className={className}
+    >
       {children}
     </motion.div>
   );
 }
-// 4. Hover Scale Effect (Wraps any card/image to expand on hover)
+
+// 4. Hover Scale Effect (Interactive)
 export function HoverScale({ 
   children, 
-  scale = 1.05, // Default expansion amount (1.05 is subtle/premium)
+  scale = 1.05, 
   className = "" 
 }: { 
   children: React.ReactNode; 
@@ -72,10 +110,10 @@ export function HoverScale({
 }) {
   return (
     <motion.div
-      whileHover={{ scale: scale, zIndex: 10 }} // zIndex ensures it pops ON TOP of neighbors
+      whileHover={{ scale: scale, zIndex: 10 }}
       transition={{ type: "spring", stiffness: 300, damping: 20 }}
       className={className}
-      style={{ transformOrigin: "center center" }} // Expands from center
+      style={{ transformOrigin: "center center" }}
     >
       {children}
     </motion.div>

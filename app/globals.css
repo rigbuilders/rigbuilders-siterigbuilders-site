@@ -108,3 +108,7 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #4E2C8B;
 }
+[style*="opacity:0"] {
+  opacity: 1 !important;
+  transform: none !important;
+}
