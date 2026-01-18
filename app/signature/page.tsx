@@ -8,6 +8,12 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Reveal } from "@/components/ui/MotionWrappers";
 import { FaArrowRight, FaMicrochip, FaMemory, FaHdd, FaBolt } from "react-icons/fa";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Signautre Series | The Flagship Experience", 
+  description: "Signature Series is our flagship Desktops series, featuring elite components, handcrafted builds, stress-tested performance, and premium aesthetics.",
+};
 
 export default function SignaturePage() {
   const [products, setProducts] = useState<any[]>([]);

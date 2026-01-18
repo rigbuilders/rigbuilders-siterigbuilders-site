@@ -4,6 +4,12 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Reveal } from "@/components/ui/MotionWrappers";
 import { FaGavel, FaUndo, FaTools, FaBan, FaShippingFast } from "react-icons/fa";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Terms of Service & Warranty Policy", 
+  description: "Read our official warranty terms, replacement policies, and service agreements.",
+};
 
 export default function TermsPage() {
   return (

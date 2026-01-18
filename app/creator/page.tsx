@@ -5,6 +5,13 @@ import Footer from "@/components/Footer";
 import Link from "next/link";
 import { Reveal } from "@/components/ui/MotionWrappers";
 import { FaPenNib, FaVideo, FaCube, FaArrowRight, FaStar } from "react-icons/fa";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Creator Series | Built for Professionals", 
+  description: "Pre-Builts Desktop series for creators, editors, and 3D artists — optimized for rendering, multitasking, and speed",
+};
+
 
 export default function CreatorPage() {
   return (

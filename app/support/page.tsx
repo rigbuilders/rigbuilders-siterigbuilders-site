@@ -6,6 +6,12 @@ import Link from "next/link";
 import Image from "next/image";
 import { Reveal } from "@/components/ui/MotionWrappers";
 import { FaPhoneAlt, FaEnvelope, FaClock, FaHeadset, FaVideo, FaShieldAlt, FaTicketAlt, FaWhatsapp, FaClipboardCheck } from "react-icons/fa";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Support Center", // Becomes: Support Center | Rig Builders India
+  description: "Get help with your Rig Builders system. Access drivers, warranty claims, and technical support FAQs.",
+};
 
 
 export default function SupportPage() {

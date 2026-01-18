@@ -4,6 +4,12 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Image from "next/image";
 import { Reveal } from "@/components/ui/MotionWrappers";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Our Commissioning Process", 
+  description: "See how we build differently. From stress-testing to thermal validation and secure crate shipping.",
+};
 
 // --- DATA: THE 5 COMMISSIONING STEPS ---
 const steps = [

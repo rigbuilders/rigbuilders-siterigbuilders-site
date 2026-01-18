@@ -5,6 +5,12 @@ import Footer from "@/components/Footer";
 import Link from "next/link";
 import { Reveal } from "@/components/ui/MotionWrappers";
 import { FaCrosshairs, FaBolt, FaCrown, FaArrowRight, FaStar } from "react-icons/fa";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Ascend Series | High-Performance Gaming PCs", 
+  description: "High-performance gaming PCs in India with powerful CPUs, GPUs, and clean builds by Rig Builders",
+};
 
 export default function AscendPage() {
   return (

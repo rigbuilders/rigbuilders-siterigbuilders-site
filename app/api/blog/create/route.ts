@@ -14,15 +14,13 @@ function generateSlug(title: string) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { title, content, excerpt, image, tags, password } = body;
+    // Removed 'password' from destructuring since it is no longer sent or checked
+    const { title, content, excerpt, image, tags } = body;
 
-    // 1. Simple Security Check
-    // In a real app, you'd check the user session. For now, a hardcoded key works for you.
-    if (password !== "admin123") {
-        return NextResponse.json({ error: "Invalid Admin Password" }, { status: 401 });
-    }
+    // --- SECURITY CHECK REMOVED ---
+    // (Proceeding directly to creation)
 
-    // 2. Auto-Generate Slug
+    // 1. Auto-Generate Slug
     let slug = generateSlug(title);
     
     // Check if slug exists (to avoid duplicates)
@@ -31,7 +29,7 @@ export async function POST(request: Request) {
         slug = `${slug}-${Math.floor(Math.random() * 1000)}`;
     }
 
-    // 3. Save to Database
+    // 2. Save to Database
     const newPost = await prisma.post.create({
       data: {
         title,

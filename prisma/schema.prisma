@@ -39,16 +39,43 @@ model Order {
 
 // --- 3. BLOG SYSTEM (NEW) ---
 model Post {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   title       String
-  slug        String   @unique // URL-friendly name (e.g. "best-gaming-pc")
-  content     String   // The HTML body of the blog
-  excerpt     String?  // Short summary for SEO
-  image       String?  // Cover Image URL
-  tags        String?  // "Gaming, Nvidia"
-  published   Boolean  @default(false)
-  views       Int      @default(0)
-  author      String   @default("Rig Builders Team")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  slug        String    @unique // URL-friendly name (e.g. "best-gaming-pc")
+  content     String    // The HTML body of the blog
+  excerpt     String?   // Short summary for SEO
+  image       String?   // Cover Image URL
+  tags        String?   // "Gaming, Nvidia"
+  published   Boolean   @default(false)
+  views       Int       @default(0)
+  author      String    @default("Rig Builders Team")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // --- NEW: ENGAGEMENT METRICS ---
+  likes       Int       @default(0)
+  dislikes    Int       @default(0)
+  comments    Comment[]
 }
+
+// --- 4. COMMENT SYSTEM (UPDATED) ---
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  author    String   @default("Guest Builder")
+  createdAt DateTime @default(now())
+  
+  // Link to Post
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  // NEW: Comment Engagement
+  likes     Int      @default(0)
+  dislikes  Int      @default(0)
+
+  // NEW: Reply System (Self-Relation)
+  parentId  String?
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   Comment[] @relation("CommentReplies")
+}
+

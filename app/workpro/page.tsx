@@ -5,6 +5,12 @@ import Footer from "@/components/Footer";
 import Link from "next/link";
 import { Reveal } from "@/components/ui/MotionWrappers";
 import { FaCode, FaDraftingCompass, FaBrain, FaArrowRight, FaStar } from "react-icons/fa";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "WorkPro Series | Professional Workstation Desktops", 
+  description: "Professional Desktop series for Workstations built by Rig Builders for performance and stability.",
+};
 
 export default function WorkProPage() {
   return (

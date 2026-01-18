@@ -9,6 +9,7 @@ import WorkPro from "@/components/WorkPro";
 import CreatorSeries from "@/components/CreatorSeries";
 import SignatureEdition from "@/components/SignatureEdition"; // If you have it
 import Footer from "@/components/Footer";
+import HomeBlogSection from "@/components/HomeBlogSection";
 
 export default function Home() {
   return (
@@ -19,6 +20,7 @@ export default function Home() {
       <HowWeCommission />
       <BrandCarousel />
       <CategoryGrid />
+      <HomeBlogSection />
       <AscendSeries />
       <WorkPro />
       <CreatorSeries />
