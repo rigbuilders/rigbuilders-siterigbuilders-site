@@ -24,7 +24,6 @@ body::before {
   pointer-events: none;
   z-index: 50;
   opacity: 0.03; /* Very subtle */
-  
 }
 
 body {

@@ -98,12 +98,56 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
 
   const isPreBuilt = product.category === 'prebuilt';
 
+  
+  // --- NEW CODE: GENERATE GOOGLE STRUCTURED DATA ---
+  const productSchema = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": product.name,
+    "image": [product.image_url, ...(product.gallery_urls || [])],
+    "description": product.description,
+    "brand": {
+      "@type": "Brand",
+      "name": product.brand || "Rig Builders"
+    },
+    "sku": product.id,
+    "offers": {
+      "@type": "Offer",
+      "url": typeof window !== 'undefined' ? window.location.href : `https://www.rigbuilders.in/product/${id}`,
+      "priceCurrency": "INR",
+      "price": product.price,
+      "availability": product.in_stock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      "itemCondition": "https://schema.org/NewCondition",
+      "shippingDetails": {
+        "@type": "OfferShippingDetails",
+        "shippingRate": { "@type": "MonetaryAmount", "value": 0, "currency": "INR" }, 
+        "shippingDestination": { "@type": "DefinedRegion", "addressCountry": "IN" },
+        "deliveryTime": {
+            "@type": "ShippingDeliveryTime",
+            "handlingTime": { "@type": "QuantitativeValue", "minValue": 0, "maxValue": 1, "unitCode": "d" },
+            "transitTime": { "@type": "QuantitativeValue", "minValue": 3, "maxValue": 7, "unitCode": "d" }
+        }
+      }
+    },
+    ...(reviews.length > 0 && {
+        "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1),
+            "reviewCount": reviews.length
+        }
+    })
+  };
+
   return (
     <div className="bg-[#121212] min-h-screen text-white font-saira flex flex-col relative overflow-hidden">
       <div className="fixed top-0 left-0 w-full h-full bg-[url('/images/noise.png')] opacity-[0.03] pointer-events-none z-0" />
       <div className="fixed top-0 right-0 w-[600px] h-[600px] bg-brand-purple/10 blur-[180px] pointer-events-none z-0" />
 
       <Navbar />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+      />
 
       {/* --- REPLACEMENT BREADCRUMB --- */}
       <ProductBreadcrumb 
