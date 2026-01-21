@@ -216,7 +216,7 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
                         <div className="text-brand-silver text-xs">Inclusive of all taxes</div>
                     </div>
 
-                    {/* MOVED: Description removed from here */}
+                    
 
                     <div className="mb-6 bg-[#1A1A1A]/50 p-6 rounded-xl border border-white/5">
                         <h3 className="font-orbitron font-bold text-white mb-6 uppercase tracking-widest text-sm flex items-center gap-2">
@@ -354,7 +354,7 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
         {/* --- MOVED SECTION: PRODUCT DESCRIPTION --- */}
         <div className="mb-24 max-w-4xl mx-auto border-t border-white/10 pt-12 text-center">
             <Reveal>
-                <h3 className="font-orbitron font-bold text-xl mb-6 text-white uppercase tracking-widest inline-block border-b-2 border-brand-purple pb-2">Product Description</h3>
+                <h3 className="text-2xl font-orbitron font-bold text-white uppercase tracking-wider pb-4 ">PRODUCT <span className="text-brand-purple">GALLERY</span></h3>
                 <p className="text-brand-silver leading-loose whitespace-pre-line text-sm md:text-base font-light opacity-80 max-w-3xl mx-auto">
                     {product.description}
                 </p>
