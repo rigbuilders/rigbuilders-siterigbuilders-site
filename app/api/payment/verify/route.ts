@@ -58,13 +58,15 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { 
-      orderCreationId, razorpayPaymentId, razorpaySignature, paymentMode, // <--- EXTRACT PAYMENT MODE
+      orderCreationId, razorpayPaymentId, razorpaySignature, paymentMode, 
       cartItems, userId, totalAmount, shippingAddress, 
-      isGuest, autoSaveAddress 
+      isGuest, autoSaveAddress,
+      // FIX: Extract the split amounts sent from Checkout
+      amountPaid, pendingAmount, codPolicy
     } = body;
 
     // --- STEP 1: VERIFY SIGNATURE (Security Check) ---
-    // Only check signature for ONLINE payments. Skip for COD.
+    // Only check signature for ONLINE or PARTIAL_COD payments. Skip for full COD.
     if (paymentMode !== "COD") {
         const shasum = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!);
         shasum.update(`${orderCreationId}|${razorpayPaymentId}`);
@@ -77,26 +79,15 @@ export async function POST(req: Request) {
     }
 
     // --- STEP 2: GENERATE IDs & TAX (STANDARDIZED) ---
-    // A. Detect Order Type
-    let orderType: 'PB' | 'CB' | 'CS' = 'CS'; // Default to Parts (RB-CS)
-
-    // Check for Prebuilt
+    let orderType: 'PB' | 'CB' | 'CS' = 'CS'; 
     const hasPrebuilt = cartItems.some((i: any) => i.category === 'prebuilt' || i.name?.toLowerCase().includes('prebuilt'));
-    // Check for Custom Rig
     const hasCustom = cartItems.some((i: any) => i.name?.toLowerCase().includes('custom pc'));
 
-    if (hasPrebuilt) { 
-        orderType = 'PB'; 
-    } else if (hasCustom) { 
-        orderType = 'CB'; 
-    }
+    if (hasPrebuilt) orderType = 'PB'; 
+    else if (hasCustom) orderType = 'CB'; 
 
-    // B. Generate IDs using Shared Library (Source of Truth)
-    // We strictly use your existing generators to keep the format RB-PB-25-XXX
     const displayId = await generateOrderId(supabaseAdmin, orderType);
     const invoiceNo = await generateInvoiceId(supabaseAdmin);
-
-    // C. Calculate Tax
     const taxDetails = calculateTax(totalAmount, shippingAddress.state);
 
     // --- STEP 3: HANDLE USER (Fail-Safe) ---
@@ -119,22 +110,26 @@ export async function POST(req: Request) {
               if (!createError && newUser.user) {
                   finalUserId = newUser.user.id;
                   accountCreated = true;
-              } else {
-                  console.error("⚠️ User creation failed (continuing as guest):", createError);
               }
           }
       }
     } catch (userError) {
-       console.error("⚠️ User Logic Crashed (continuing as guest):", userError);
+       console.error("⚠️ User Logic Crashed:", userError);
     }
 
     // --- STEP 4: SAVE ORDER (CRITICAL PRIORITY) ---
     console.log("💾 Attempting to save order to DB...");
     const dbUserId = (finalUserId && finalUserId !== 'guest') ? finalUserId : null;
 
-    // Determine Status based on Mode
-    const finalStatus = paymentMode === "COD" ? "pending" : "paid";
-    const finalPaymentMode = paymentMode === "COD" ? "COD" : "ONLINE";
+    // FIX: Determine Status based on Payment Mode
+    let finalStatus = "processing"; // Default
+    if (paymentMode === "COD") finalStatus = "pending";
+    else if (paymentMode === "PARTIAL_COD") finalStatus = "processing"; // Paid 10%, so it's processing
+    else if (paymentMode === "ONLINE") finalStatus = "paid";
+
+    // FIX: Fallback for amounts if missing (Backward compatibility)
+    const finalAmountPaid = amountPaid !== undefined ? amountPaid : (paymentMode === "COD" ? 0 : totalAmount);
+    const finalPendingAmount = pendingAmount !== undefined ? pendingAmount : (paymentMode === "COD" ? totalAmount : 0);
 
     const { data: order, error: orderError } = await supabaseAdmin
         .from('orders')
@@ -155,14 +150,19 @@ export async function POST(req: Request) {
 
             // 4. Financials
             total_amount: totalAmount,
+            amount_paid: finalAmountPaid,       // <--- NEW: Saved to DB
+            pending_amount: finalPendingAmount, // <--- NEW: Saved to DB
             tax_details: taxDetails,
-            payment_mode: finalPaymentMode, // ✅ Dynamic
+            payment_mode: paymentMode, 
             
             // 5. Details
             items: cartItems,
-            status: finalStatus,           // ✅ Dynamic (Pending for COD)
+            status: finalStatus,           
             payment_id: razorpayPaymentId,
-            order_id: orderCreationId
+            order_id: orderCreationId,
+            
+            // 6. Metadata
+            
         })
         .select()
         .single();
@@ -174,19 +174,18 @@ export async function POST(req: Request) {
 
     console.log("✅ Order Saved:", order.id);
 
-    // --- STEP 5: SEND EMAIL (Fire & Forget) ---
+    // --- STEP 5: SEND EMAIL ---
     if (resend) {
         resend.emails.send({
             from: 'Rig Builders Support <support@rigbuilders.in>',
             to: [shippingAddress.email],
             bcc: ['rigbuilders123@gmail.com'], 
-            subject: `Order Placed: ${displayId}`, // Changed subject to be clearer
+            subject: `Order Placed: ${displayId}`, 
             react: OrderConfirmationEmail({
                 order: order,         
                 taxDetails: taxDetails 
             }),
-        }).then(() => console.log("📧 Email sent"))
-          .catch((e) => console.error("📧 Email failed:", e));
+        }).then(() => console.log("📧 Email sent")).catch((e) => console.error("📧 Email failed:", e));
     }
     
     // --- STEP 6: AUTO-SAVE ADDRESS ---
@@ -202,17 +201,13 @@ export async function POST(req: Request) {
             pincode: shippingAddress.pincode,
             label: "Home (Auto-Saved)", 
             is_default: true
-        }).then(({ error }) => {
-            if (error) console.error("⚠️ Failed to auto-save address:", error);
-            else console.log("🏠 Address auto-saved successfully");
-        });
+        }).then(({ error }) => { if(error) console.error("Auto-save failed:", error) });
     }
 
-    // --- STEP 7: RETURN SUCCESS ---
     return NextResponse.json({
       msg: "success",
       orderId: order.id,
-      displayId: displayId, // Return Display ID (RB-PB-...) for success page
+      displayId: displayId, 
       accountCreated: accountCreated,
     });
 

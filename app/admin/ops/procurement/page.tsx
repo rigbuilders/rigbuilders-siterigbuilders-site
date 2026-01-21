@@ -30,7 +30,7 @@ export default function ProcurementPage() {
       .from('procurement_items')
       .select(`
         *,
-        orders ( display_id, full_name ),
+        orders ( display_id, full_name, payment_mode),
         orders_ops ( order_display_id )
       `)
       .order('created_at', { ascending: false });
@@ -174,9 +174,17 @@ export default function ProcurementPage() {
                 {pendingItems.map(item => (
                     <div key={item.id} className="bg-black/40 p-3 rounded border border-white/10 hover:border-red-500/50 transition-colors">
                         <div className="flex justify-between items-start mb-2">
-                            <span className="text-xs font-bold text-brand-silver bg-white/5 px-2 py-1 rounded">
-                            {item.orders?.display_id || item.orders_ops?.order_display_id || "N/A"}
-                            </span>
+                            <div className="flex flex-col gap-1">
+                                <span className="text-xs font-bold text-brand-silver bg-white/5 px-2 py-1 rounded w-fit">
+                                    {item.orders?.display_id || item.orders_ops?.order_display_id || "N/A"}
+                                </span>
+                                {/* NEW: Payment Mode Badge for Procurement Context */}
+                                {item.orders?.payment_mode === 'PARTIAL_COD' && (
+                                    <span className="text-[9px] font-bold text-black bg-yellow-500 px-1 rounded w-fit">
+                                        PARTIAL COD
+                                    </span>
+                                )}
+                            </div>
                             <span className="text-[10px] uppercase text-brand-purple font-bold">{item.category}</span>
                         </div>
                         <h3 className="text-sm font-bold text-white mb-3">{item.product_name}</h3>

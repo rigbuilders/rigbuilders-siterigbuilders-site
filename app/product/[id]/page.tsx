@@ -34,7 +34,12 @@ type Props = {
 
 // Fetch data helper
 async function getProduct(id: string) {
-  const { data } = await supabase.from('products').select('*').eq('id', id).single();
+  // FIX: Explicitly select 'cod_policy' to ensure it passes to the Cart
+  const { data } = await supabase
+    .from('products')
+    .select('*, cod_policy') 
+    .eq('id', id)
+    .single();
   return data;
 }
 

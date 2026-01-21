@@ -91,38 +91,68 @@ export const OrderPDF = ({ order }: { order: any }) => {
       <Page size="A4" style={styles.page}>
         <View style={styles.container}>
             {/* 1. HEADER */}
-            <View style={[styles.row, styles.borderBottom]}>
-                <View style={[styles.headerLeft, styles.borderRight]}>
-                    {/* FIX: cache={false} helps with some CORS issues, but best is Base64 */}
-                    <Image 
-                      src="/icons/logo.png" 
-                      style={{ width: 120, height: 40, objectFit: 'contain', marginBottom: 5 }}
-                    />
-                    <Text style={styles.labelBold}>ADDRESS :</Text>
-                    <Text style={styles.textNormal}>MCB Z2 12267, SAHIBZADA JUJHAR SINGH NAGAR,</Text>
-                    <Text style={styles.textNormal}>STREET NO. 3A, BATHINDA, PUNJAB, INDIA - 151001</Text>
-                    <Text style={styles.labelBold}>GSTIN :</Text>
-                    <Text style={styles.textNormal}>03PPSPS3291K1ZV</Text>
-                    <Text style={styles.labelBold}>CONTACT INFORMATION :</Text>
-                    <Text style={styles.textNormal}>PHONE : +91 7707801014</Text>
-                    <Text style={styles.textNormal}>EMAIL : info@rigbuilders.in</Text>
-                </View>
+            {/* CALCULATE SPLITS FOR PDF */}
+            {(() => {
+                const total = Number(order?.total_amount || 0);
+                let advance = 0;
+                let balance = 0;
 
-                <View style={styles.headerRight}>
-                    <View style={styles.titleBox}><Text style={styles.titleText}>TAX INVOICE</Text></View>
-                    <View style={styles.rightInfoBox}>
-                        <Text style={styles.labelBold}>SALES CHANNEL :</Text>
-                        {/* FIX: Make Source Dynamic (Offline/Amazon/Website) */}
-                        <Text style={styles.textNormal}>{(order?.source || "WEBSITE").toUpperCase()}</Text>
-                        
-                        <Text style={styles.labelBold}>PAYMENT MODE :</Text>
-                        <Text style={styles.textNormal}>{(order?.payment_mode || "ONLINE").toUpperCase()}</Text>
-                        
-                        <Text style={styles.labelBold}>DELIVERY MODE :</Text>
-                        <Text style={styles.textNormal}>COURIER</Text>
+                // Logic: Determine how much is already paid vs due
+                if (order?.payment_mode === 'PARTIAL_COD') {
+                    // If DB has 'amount_paid', use it. Otherwise assume 10%.
+                    advance = Number(order.amount_paid) || Math.round(total * 0.10);
+                    balance = total - advance;
+                } else if (order?.payment_mode === 'ONLINE' || order?.payment_mode === 'AMAZON_PAY') {
+                    advance = total;
+                    balance = 0;
+                } else {
+                    // Full COD case
+                    advance = 0;
+                    balance = total;
+                }
+
+                return (
+                    <View>
+                        {/* 1. GRAND TOTAL ROW */}
+                        <View style={styles.totalRow}>
+                            <View style={{ width: '87%', paddingRight: 10 }}>
+                                <Text style={{ textAlign: 'right', fontWeight: 'bold' }}>GRAND TOTAL</Text>
+                            </View>
+                            <View style={{ width: '13%' }}>
+                                <Text style={{ textAlign: 'center', fontWeight: 'bold' }}>
+                                    {total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </Text>
+                            </View>
+                        </View>
+
+                        {/* 2. SHOW SPLIT IF PARTIAL COD (Crucial for Courier) */}
+                        {order?.payment_mode === 'PARTIAL_COD' && (
+                            <>
+                                <View style={[styles.row, { borderBottom: '1px solid #000', height: 20, alignItems: 'center' }]}>
+                                    <View style={{ width: '87%', paddingRight: 10 }}>
+                                        <Text style={{ textAlign: 'right', fontSize: 8 }}>LESS: ADVANCE RECEIVED</Text>
+                                    </View>
+                                    <View style={{ width: '13%' }}>
+                                        <Text style={{ textAlign: 'center', fontSize: 8 }}>
+                                            {advance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                        </Text>
+                                    </View>
+                                </View>
+                                <View style={[styles.row, { borderBottom: '1px solid #000', height: 20, alignItems: 'center', backgroundColor: '#e0e0e0' }]}>
+                                    <View style={{ width: '87%', paddingRight: 10 }}>
+                                        <Text style={{ textAlign: 'right', fontWeight: 'bold' }}>BALANCE DUE (COD)</Text>
+                                    </View>
+                                    <View style={{ width: '13%' }}>
+                                        <Text style={{ textAlign: 'center', fontWeight: 'bold' }}>
+                                            {balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                        </Text>
+                                    </View>
+                                </View>
+                            </>
+                        )}
                     </View>
-                </View>
-            </View>
+                );
+            })()}
 
             {/* 2. ID STRIP */}
             <View style={styles.idStrip}>

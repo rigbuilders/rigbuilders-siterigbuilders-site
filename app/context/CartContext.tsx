@@ -9,6 +9,7 @@ export interface CartItem {
   image?: string;
   quantity: number;
   category?: string;
+  cod_policy?: 'full_cod' | 'partial_cod' | 'no_cod';
 }
 
 interface CartContextType {
@@ -51,7 +52,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         price: product.price, 
         image: product.image || "/icons/navbar/products/PC Components.svg",
         quantity: 1,
-        category: product.category
+        category: product.category,
+        cod_policy: product.cod_policy || 'full_cod' 
       }];
     });
   };

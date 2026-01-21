@@ -208,17 +208,41 @@ export default function FinancePage() {
                             const cost = order.procurement_items?.reduce((sum: number, item: any) => sum + (Number(item.cost_price) || 0), 0) || 0;
                             const profit = (Number(order.total_amount) || 0) - cost;
                             const isProfitable = profit >= 0;
+                            
+                            // CALCULATE PAYMENT SPLIT
+                            const total = Number(order.total_amount) || 0;
+                            let paid = total;
+                            let pending = 0;
+                            
+                            if (order.payment_mode === 'PARTIAL_COD') {
+                                // Fallback logic if amount_paid column is missing
+                                paid = Number(order.amount_paid) || Math.round(total * 0.10);
+                                pending = total - paid;
+                            } else if (order.payment_mode === 'COD') {
+                                paid = 0;
+                                pending = total;
+                            }
 
                             return (
                                 <tr key={order.id} className="hover:bg-white/5 transition-colors">
-                                    {/* FIX: Use 'display_id' */}
-                                    <td className="p-4 font-bold">{order.display_id}</td>
-                                    <td className="p-4">
-                                        <span className={`text-[10px] uppercase px-2 py-1 rounded font-bold ${order.source === 'amazon' ? 'bg-orange-500/20 text-orange-500' : 'bg-blue-500/20 text-blue-500'}`}>
-                                            {order.source}
-                                        </span>
+                                    <td className="p-4 font-bold">
+                                        {order.display_id}
+                                        <div className="text-[9px] text-brand-silver font-normal">{new Date(order.created_at).toLocaleDateString()}</div>
                                     </td>
-                                    <td className="p-4 text-right font-mono">₹{order.total_amount?.toLocaleString("en-IN")}</td>
+                                    <td className="p-4">
+                                        <div className="flex flex-col gap-1 items-start">
+                                            <span className={`text-[10px] uppercase px-2 py-1 rounded font-bold ${order.source === 'amazon' ? 'bg-orange-500/20 text-orange-500' : 'bg-blue-500/20 text-blue-500'}`}>
+                                                {order.source}
+                                            </span>
+                                            <span className="text-[9px] text-brand-silver font-mono">{order.payment_mode}</span>
+                                        </div>
+                                    </td>
+                                    <td className="p-4 text-right font-mono">
+                                        <div className="text-white">₹{total.toLocaleString("en-IN")}</div>
+                                        {pending > 0 && (
+                                            <div className="text-[10px] text-yellow-500">Due: ₹{pending.toLocaleString("en-IN")}</div>
+                                        )}
+                                    </td>
                                     <td className="p-4 text-right font-mono text-brand-silver">₹{cost.toLocaleString("en-IN")}</td>
                                     <td className={`p-4 text-right font-mono font-bold ${isProfitable ? 'text-green-400' : 'text-red-400'}`}>
                                         {isProfitable ? '+' : ''}₹{profit.toLocaleString("en-IN")}

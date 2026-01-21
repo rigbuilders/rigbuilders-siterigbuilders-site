@@ -16,6 +16,9 @@ export default function CartPage() {
 
   const subtotalInclusive = cartTotal; 
 
+  const hasRestrictedItems = cart.some(item => item.cod_policy === 'no_cod');
+  const hasPartialItems = cart.some(item => item.cod_policy === 'partial_cod');
+
   const handleCheckout = () => {
     router.push("/checkout");
   };
@@ -81,7 +84,22 @@ export default function CartPage() {
                         
                         <div className="text-center sm:text-left">
                           <h3 className="font-orbitron font-bold text-lg text-white mb-2 line-clamp-1">{item.name}</h3>
-                          <p className="text-brand-purple font-bold font-saira text-lg mb-3">₹{item.price.toLocaleString("en-IN")}</p>
+                          
+                          <div className="flex flex-col sm:flex-row items-center gap-3 mb-3">
+                              <p className="text-brand-purple font-bold font-saira text-lg">₹{item.price.toLocaleString("en-IN")}</p>
+                              
+                              {/* POLICY BADGES */}
+                              {item.cod_policy === 'no_cod' && (
+                                  <span className="text-[10px] font-bold uppercase tracking-wider bg-red-500/20 text-red-500 px-2 py-1 rounded border border-red-500/30">
+                                      Online Payment Only
+                                  </span>
+                              )}
+                              {item.cod_policy === 'partial_cod' && (
+                                  <span className="text-[10px] font-bold uppercase tracking-wider bg-yellow-500/20 text-yellow-500 px-2 py-1 rounded border border-yellow-500/30">
+                                      Requires 10% Advance
+                                  </span>
+                              )}
+                          </div>
                           
                           {/* --- NEW: QUANTITY CONTROLS --- */}
                           <div className="flex items-center justify-center sm:justify-start gap-4">
@@ -131,6 +149,19 @@ export default function CartPage() {
                       <span>Shipping</span>
                       <span className="text-green-400 font-bold uppercase tracking-wider text-xs">Calculated at Checkout</span>
                     </div>
+
+                    {/* POLICY WARNINGS */}
+                    {hasRestrictedItems && (
+                        <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded text-[10px] text-red-400">
+                            ⚠️ Some items in cart are restricted to <b>Online Payment Only</b>.
+                        </div>
+                    )}
+                    {!hasRestrictedItems && hasPartialItems && (
+                        <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded text-[10px] text-yellow-500">
+                            ⚠️ High-value items require <b>10% Advance Payment</b>.
+                        </div>
+                    )}
+
                   </div>
                   <div className="flex justify-between text-2xl font-black text-white mb-8 pt-6 border-t border-white/10 font-orbitron">
                     <span>TOTAL</span>
@@ -140,6 +171,7 @@ export default function CartPage() {
                     Proceed to Checkout
                   </button>
                 </div>
+                
             </Reveal>
 
           </div>

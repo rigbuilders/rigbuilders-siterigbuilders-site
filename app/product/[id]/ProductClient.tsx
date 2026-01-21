@@ -51,9 +51,14 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
     fetchSecondaryData();
   }, [id, initialProduct.category]);
 
-  // --- HANDLERS ---
-  const handleAction = (isBuyNow: boolean) => {
-    addToCart({ ...product, image: product.image_url });
+   // Handlers
+   const handleAction = (isBuyNow: boolean) => {
+    addToCart({ 
+        ...product, 
+        image: product.image_url,
+        // NEW: Pass COD Policy to Cart
+        cod_policy: product.cod_policy || 'full_cod' 
+    });
     if (isBuyNow) {
         router.push("/checkout");
     } else {
@@ -196,9 +201,19 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
 
                     <h1 className="text-1xl md:text-3xl font-saira font-bold mb-4 leading-tight">{product.name}</h1>
                     
-                    <div className="flex items-end gap-4 mb-8 pb-4 border-b border-white/10">
-                        <div className="text-2xl font-medium text-white font-saira">₹{product.price.toLocaleString("en-IN")}</div>
-                        <div className="text-brand-silver text-sm mb-1">Inclusive of all taxes</div>
+                    {/* NEW: PRICE BLOCK WITH MRP */}
+                    <div className="mb-8 pb-4 border-b border-white/10">
+                        <div className="flex items-end gap-3 mb-1">
+                            <div className="text-3xl font-medium text-white font-saira">₹{product.price.toLocaleString("en-IN")}</div>
+                            {/* Simulated MRP (+18%) or use product.mrp if exists */}
+                            <div className="text-xl text-white/30 line-through font-saira">
+                                ₹{(product.mrp || Math.round(product.price * 1.18)).toLocaleString("en-IN")}
+                            </div>
+                            <div className="text-green-500 text-xs font-bold uppercase bg-green-500/10 px-2 py-1 rounded ml-2">
+                                {Math.round((((product.mrp || (product.price * 1.18)) - product.price) / (product.mrp || (product.price * 1.18))) * 100)}% OFF
+                            </div>
+                        </div>
+                        <div className="text-brand-silver text-xs">Inclusive of all taxes</div>
                     </div>
 
                     {/* MOVED: Description removed from here */}
@@ -227,27 +242,47 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
                         )}
                     </div>
 
-                    {/* --- NEW SECTION: SERVICE HIGHLIGHTS --- */}
+                  {/* --- SERVICE HIGHLIGHTS (DYNAMIC) --- */}
                     <div className="grid grid-cols-2 gap-3 mb-8">
                         <div className="flex flex-col gap-1 p-3 border border-white/5 rounded bg-white/5 hover:border-brand-purple/30 transition-colors">
                             <FaExchangeAlt className="text-brand-white text-lg mb-1" />
                             <span className="text-white text-xs font-bold uppercase">7 Days</span>
                             <span className="text-[10px] text-brand-silver">Replacement Policy</span>
                         </div>
+                        
+                        {/* FUNCTIONAL WARRANTY (Reads from DB or defaults to 3 Years) */}
                         <div className="flex flex-col gap-1 p-3 border border-white/5 rounded bg-white/5 hover:border-brand-purple/30 transition-colors">
                             <FaShieldAlt className="text-brand-white text-lg mb-1" />
-                            <span className="text-white text-xs font-bold uppercase">{product.warranty_years || "3"} Years</span>
-                            <span className="text-[10px] text-brand-silver">Warranty</span>
+                            <span className="text-white text-xs font-bold uppercase">{product.warranty || "3 Years"}</span>
+                            <span className="text-[10px] text-brand-silver">Official Warranty</span>
                         </div>
+
                         <div className="flex flex-col gap-1 p-3 border border-white/5 rounded bg-white/5 hover:border-brand-purple/30 transition-colors">
                             <FaTruck className="text-brand-white text-lg mb-1" />
                             <span className="text-white text-xs font-bold uppercase">Safe Shipping</span>
                             <span className="text-[10px] text-brand-silver">Insured Delivery</span>
                         </div>
-                        <div className="flex flex-col gap-1 p-3 border border-white/5 rounded bg-white/5 hover:border-brand-purple/30 transition-colors">
-                            <FaHandHoldingUsd className="text-brand-white text-lg mb-1" />
-                            <span className="text-white text-xs font-bold uppercase">COD Available</span>
-                            <span className="text-[10px] text-brand-silver">Pay on Delivery</span>
+
+                        {/* DYNAMIC COD POLICY BADGE */}
+                        <div className={`flex flex-col gap-1 p-3 border rounded bg-white/5 transition-colors ${product.cod_policy === 'no_cod' ? 'border-red-500/30' : product.cod_policy === 'partial_cod' ? 'border-yellow-500/30' : 'border-white/5 hover:border-brand-purple/30'}`}>
+                            <FaHandHoldingUsd className={`text-lg mb-1 ${product.cod_policy === 'no_cod' ? 'text-red-500' : product.cod_policy === 'partial_cod' ? 'text-yellow-500' : 'text-brand-white'}`} />
+                            
+                            {product.cod_policy === 'no_cod' ? (
+                                <>
+                                    <span className="text-red-400 text-xs font-bold uppercase">Online Only</span>
+                                    <span className="text-[10px] text-brand-silver">COD Unavailable</span>
+                                </>
+                            ) : product.cod_policy === 'partial_cod' ? (
+                                <>
+                                    <span className="text-yellow-400 text-xs font-bold uppercase">Partial COD</span>
+                                    <span className="text-[10px] text-brand-silver">10% Advance Req.</span>
+                                </>
+                            ) : (
+                                <>
+                                    <span className="text-white text-xs font-bold uppercase">COD Available</span>
+                                    <span className="text-[10px] text-brand-silver">Pay on Delivery</span>
+                                </>
+                            )}
                         </div>
                     </div>
 
@@ -317,10 +352,10 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
         </div>
 
         {/* --- MOVED SECTION: PRODUCT DESCRIPTION --- */}
-        <div className="mb-24 max-w-4xl mx-auto border-t border-white/10 pt-12">
+        <div className="mb-24 max-w-4xl mx-auto border-t border-white/10 pt-12 text-center">
             <Reveal>
-                <h3 className="font-orbitron font-bold text-xl mb-6 text-white uppercase tracking-widest">Product <span className="text-brand-purple">Description</span></h3>
-                <p className="text-brand-silver leading-loose whitespace-pre-line text-sm md:text-base font-light opacity-80">
+                <h3 className="font-orbitron font-bold text-xl mb-6 text-white uppercase tracking-widest inline-block border-b-2 border-brand-purple pb-2">Product Description</h3>
+                <p className="text-brand-silver leading-loose whitespace-pre-line text-sm md:text-base font-light opacity-80 max-w-3xl mx-auto">
                     {product.description}
                 </p>
             </Reveal>

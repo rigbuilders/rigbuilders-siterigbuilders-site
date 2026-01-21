@@ -47,10 +47,32 @@ export default function CheckoutPage() {
   const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
   
   // [FIX] Add this flag to prevent redirecting to empty cart on success
+// [FIX] Add this flag to prevent redirecting to empty cart on success
   const [paymentSuccess, setPaymentSuccess] = useState(false); 
   // PAYMENT MODAL STATE
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
+  // NEW: COD POLICY LOGIC
+  const [codMode, setCodMode] = useState<'full' | 'partial' | 'none'>('full');
+  
+  useEffect(() => {
+    let mode: 'full' | 'partial' | 'none' = 'full';
+    
+    // Scan cart for strictest policy
+    for (const item of cart) {
+        // Ensure your cart items actually carry the 'cod_policy' field from the DB!
+        const policy = item.cod_policy || 'full_cod'; 
+        
+        if (policy === 'no_cod') {
+            mode = 'none';
+            break; // Stop, this is the strictest restriction
+        }
+        if (policy === 'partial_cod') {
+            mode = 'partial';
+        }
+    }
+    setCodMode(mode);
+  }, [cart]);
   // SHIPPING FORM
   const [formData, setFormData] = useState({
     fullName: "", phone: "", email: "", 
@@ -193,17 +215,23 @@ export default function CheckoutPage() {
     setShowPaymentModal(true);
   };
 
-  // --- 2. PROCESS ONLINE PAYMENT (RAZORPAY) ---
-  const processOnlinePayment = async () => {
+// --- 2. PROCESS ONLINE PAYMENT (Flexible: Full or Advance) ---
+  const processOnlinePayment = async (isAdvancePayment: boolean = false) => {
     setLoading(true);
-    setShowPaymentModal(false); // Close modal
+    setShowPaymentModal(false); 
     
-    const finalBillingAddress = billingSame ? formData : billingData;
+    // LOGIC: Calculate 10% if it is an Advance Payment, otherwise Full Amount
+    const amountToPay = isAdvancePayment ? Math.round(finalTotal * 0.10) : finalTotal;
+    const pendingAmount = isAdvancePayment ? (finalTotal - amountToPay) : 0;
+    
+    // LABEL: This tag tells Ops/Procurement exactly what type of order this is
+    const paymentModeLabel = isAdvancePayment ? "PARTIAL_COD" : "ONLINE";
 
     try {
+        // Create Razorpay Order for the Calculated Amount
         const orderRes = await fetch("/api/payment/create", {
             method: "POST",
-            body: JSON.stringify({ amount: finalTotal }),
+            body: JSON.stringify({ amount: amountToPay }),
         });
         const orderData = await orderRes.json();
         
@@ -217,16 +245,19 @@ export default function CheckoutPage() {
             amount: orderData.amount, 
             currency: orderData.currency,
             name: "Rig Builders",
-            description: `Order for ${cart.length} Items`,
+            description: isAdvancePayment ? `10% Advance Payment` : `Order for ${cart.length} Items`,
             image: "/icons/navbar/logo.png",
             order_id: orderData.id, 
 
             handler: async function (response: any) {
+                // On Success, Finalize Order with Details
                 await finalizeOrder({
                     orderCreationId: orderData.id,
                     razorpayPaymentId: response.razorpay_payment_id,
                     razorpaySignature: response.razorpay_signature,
-                    paymentMode: "ONLINE"
+                    paymentMode: paymentModeLabel, // "PARTIAL_COD" or "ONLINE"
+                    amountPaid: amountToPay,       // Amount user just paid
+                    pendingAmount: pendingAmount   // Amount to collect on delivery
                 });
             },
             prefill: {
@@ -273,7 +304,7 @@ export default function CheckoutPage() {
     }
   };
 
-  // --- HELPER: FINALIZE ORDER IN DATABASE ---
+// --- HELPER: FINALIZE ORDER IN DATABASE ---
   const finalizeOrder = async (paymentDetails: any) => {
     const toastId = toast.loading("Placing Order...");
     const finalBillingAddress = billingSame ? formData : billingData;
@@ -293,7 +324,10 @@ export default function CheckoutPage() {
         shippingAddress: formData,
         billingAddress: finalBillingAddress,
         isGuest: isGuest, 
-        autoSaveAddress: !addressExists 
+        autoSaveAddress: !addressExists,
+        
+        // NEW: Explicitly send Policy Details to Ops/Procurement
+        codPolicy: codMode // 'full', 'partial', or 'none'
     };
 
     const verifyRes = await fetch('/api/payment/verify', {
@@ -315,9 +349,10 @@ export default function CheckoutPage() {
         await trackCouponUsage(activeCoupon);
         clearCart();
         
-        const successMsg = paymentDetails.paymentMode === "COD" 
-            ? "Order Placed Successfully!" 
-            : "Payment Verified Successfully";
+        // Custom Success Message based on Mode
+        let successMsg = "Order Placed Successfully!";
+        if (paymentDetails.paymentMode === "PARTIAL_COD") successMsg = "Advance Paid. Order Placed!";
+        else if (paymentDetails.paymentMode === "ONLINE") successMsg = "Payment Verified Successfully";
             
         toast.success(successMsg, { description: "Redirecting to receipt..." });
         
@@ -565,13 +600,11 @@ export default function CheckoutPage() {
 
         </div>
       </div>
-      {/* --- PREMIUM PAYMENT MODAL --- */}
+      {/* --- PREMIUM PAYMENT MODAL (DYNAMIC POLICY) --- */}
       {showPaymentModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-            {/* Backdrop */}
             <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowPaymentModal(false)} />
             
-            {/* Modal Content */}
             <div className="bg-[#121212] border border-brand-purple/30 rounded-xl p-8 w-full max-w-md relative z-10 shadow-[0_0_50px_rgba(124,58,237,0.2)] animate-in fade-in zoom-in-95 duration-200">
                 <button 
                     onClick={() => setShowPaymentModal(false)}
@@ -581,12 +614,16 @@ export default function CheckoutPage() {
                 </button>
 
                 <h3 className="font-orbitron text-2xl font-bold text-white mb-2 text-center">PAYMENT MODE</h3>
-                <p className="text-brand-silver text-xs text-center mb-8 font-saira">Select how you would like to complete your order</p>
+                
+                {/* DYNAMIC SUBTITLE */}
+                {codMode === 'none' && <p className="text-red-500 text-xs text-center mb-6 font-bold">⚠️ Contains items restricted to Online Payment only.</p>}
+                {codMode === 'partial' && <p className="text-yellow-500 text-xs text-center mb-6 font-bold">⚠️ High-value items require 10% Advance.</p>}
+                {codMode === 'full' && <p className="text-brand-silver text-xs text-center mb-6">Select how you would like to complete your order</p>}
 
                 <div className="space-y-4">
-                    {/* Option 1: Online */}
+                    {/* OPTION 1: FULL ONLINE (Always Available) */}
                     <button 
-                        onClick={processOnlinePayment}
+                        onClick={() => processOnlinePayment(false)} // false = Full Payment
                         className="w-full group relative overflow-hidden bg-gradient-to-r from-brand-purple to-brand-blue p-[1px] rounded-lg transition-all hover:scale-[1.02]"
                     >
                         <div className="bg-[#1A1A1A] group-hover:bg-opacity-90 transition-all rounded-lg p-5 flex items-center justify-between">
@@ -595,30 +632,73 @@ export default function CheckoutPage() {
                                     <FaCreditCard size={20} />
                                 </div>
                                 <div className="text-left">
-                                    <div className="font-orbitron font-bold text-white text-sm">PAY ONLINE</div>
-                                    <div className="text-[10px] text-brand-silver">UPI, Credit/Debit Card, NetBanking</div>
+                                    <div className="font-orbitron font-bold text-white text-sm">PAY FULL ONLINE</div>
+                                    <div className="text-[10px] text-brand-silver">UPI, Credit/Debit Card, EMI</div>
                                 </div>
                             </div>
-                            <div className="w-4 h-4 rounded-full border border-white/20 group-hover:border-brand-purple group-hover:bg-brand-purple transition-all" />
+                            <div className="text-right">
+                                <span className="text-white font-bold text-sm block">₹{finalTotal.toLocaleString("en-IN")}</span>
+                            </div>
                         </div>
                     </button>
 
-                    {/* Option 2: COD */}
-                    <button 
-                        onClick={processCODPayment}
-                        className="w-full group bg-white/5 border border-white/10 hover:border-white/30 hover:bg-white/10 rounded-lg p-5 flex items-center justify-between transition-all hover:scale-[1.02]"
-                    >
-                         <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center text-green-500 border border-green-500/20">
-                                <FaMoneyBillWave size={20} />
+                    {/* OPTION 2: PARTIAL COD (Visible only if Partial Mode is Active) */}
+                    {codMode === 'partial' && (
+                        <button 
+                            onClick={() => processOnlinePayment(true)} // true = Advance Payment
+                            className="w-full group bg-white/5 border border-yellow-500/50 hover:bg-yellow-500/10 rounded-lg p-5 flex items-center justify-between transition-all hover:scale-[1.02]"
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-full bg-yellow-500/10 flex items-center justify-center text-yellow-500 border border-yellow-500/20">
+                                    <FaMoneyBillWave size={20} />
+                                </div>
+                                <div className="text-left">
+                                    <div className="font-orbitron font-bold text-white text-sm">BOOK WITH 10% ADVANCE</div>
+                                    <div className="text-[10px] text-brand-silver">Pay rest on delivery</div>
+                                </div>
                             </div>
-                            <div className="text-left">
-                                <div className="font-orbitron font-bold text-white text-sm">CASH ON DELIVERY</div>
-                                <div className="text-[10px] text-brand-silver">Pay securely at your doorstep</div>
+                            <div className="text-right">
+                                <span className="text-yellow-500 font-bold text-sm block">₹{Math.round(finalTotal * 0.10).toLocaleString("en-IN")}</span>
+                                <span className="text-[10px] text-brand-silver">Now</span>
                             </div>
-                        </div>
-                        <div className="w-4 h-4 rounded-full border border-white/20 group-hover:border-green-500 group-hover:bg-green-500 transition-all" />
-                    </button>
+                        </button>
+                    )}
+
+                    {/* OPTION 3: FULL COD (Visible only if Full Mode is Active) */}
+                    {codMode === 'full' && (
+                        <button 
+                            onClick={processCODPayment}
+                            className="w-full group bg-white/5 border border-white/10 hover:border-white/30 hover:bg-white/10 rounded-lg p-5 flex items-center justify-between transition-all hover:scale-[1.02]"
+                        >
+                             <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center text-green-500 border border-green-500/20">
+                                    <FaMoneyBillWave size={20} />
+                                </div>
+                                <div className="text-left">
+                                    <div className="font-orbitron font-bold text-white text-sm">CASH ON DELIVERY</div>
+                                    <div className="text-[10px] text-brand-silver">Pay securely at your doorstep</div>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <span className="text-green-500 font-bold text-sm block">₹{finalTotal.toLocaleString("en-IN")}</span>
+                            </div>
+                        </button> // <--- FIXED: Properly closing the button tag
+                    )}
+
+                    {/* DISABLED STATE (If No COD allowed) */}
+                    {codMode === 'none' && (
+                         <div className="w-full opacity-50 bg-white/5 border border-white/5 rounded-lg p-5 flex items-center justify-between cursor-not-allowed grayscale">
+                            <div className="flex items-center gap-4">
+                               <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white/20 border border-white/10">
+                                   <FaMoneyBillWave size={20} />
+                               </div>
+                               <div className="text-left">
+                                   <div className="font-orbitron font-bold text-white/50 text-sm">CASH ON DELIVERY</div>
+                                   <div className="text-[10px] text-brand-silver">Unavailable for these items</div>
+                               </div>
+                           </div>
+                       </div>
+                    )}
                 </div>
 
                 <div className="mt-8 text-center">

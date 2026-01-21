@@ -71,12 +71,13 @@ export default function ProductManager() {
 
   // --- EXPANDED FORM DATA ---
   const [formData, setFormData] = useState({
-    id: "", name: "", breadcrumb_name: "", price: "", 
+    id: "", name: "", breadcrumb_name: "", price: "", mrp: "", warranty: "", // <--- ADDED MRP & WARRANTY
     category: "cpu", 
     group: "components", // NEW: Track parent group
     series: "", tier: "", brand: "", 
     image_url: "", in_stock: true, description: "", features_text: "",
     gallery_urls: [] as string[], // CHANGED: Array for multiple images
+    cod_policy: "full_cod", // Options: 'full_cod', 'partial_cod', 'no_cod'
     
     // SPECS
     socket: "", memory_type: "", wattage: "", capacity: "", form_factor: "", speed: "", storage_type: "",
@@ -212,6 +213,8 @@ export default function ProductManager() {
         name: formData.name,
         breadcrumb_name: formData.breadcrumb_name || null,
         price: parseFloat(formData.price),
+        mrp: formData.mrp ? parseFloat(formData.mrp) : null, // <--- ADDED
+        warranty: formData.warranty || null,                 // <--- ADDED
         category: formData.category,
         // group: finalGroup, // <--- REMOVED THIS LINE (It causes the crash)
         series: formData.series || null,
@@ -219,6 +222,7 @@ export default function ProductManager() {
         brand: formData.brand,
         image_url: finalMainImage,
         in_stock: formData.in_stock,
+        cod_policy: formData.cod_policy,
         specs: specs, // <--- The group is now saved inside here safely
         length_mm: specs.length_mm || 0,
         max_gpu_length_mm: specs.max_gpu_length_mm || 0,
@@ -255,10 +259,13 @@ export default function ProductManager() {
     setIsCustomMemory(s.memory_type && !BASE_MEMORY_TYPES.includes(s.memory_type) && !existingMemory.includes(s.memory_type));
 
     setFormData({
-      id: product.id, name: product.name, breadcrumb_name: product.breadcrumb_name || "", price: product.price.toString(), 
+      id: product.id, name: product.name, breadcrumb_name: product.breadcrumb_name || "", price: product.price.toString(),
+      mrp: product.mrp ? product.mrp.toString() : "",   // <--- ADDED
+      warranty: product.warranty || "", 
       category: product.category, group: product.group || BASE_CATEGORY_MAP[product.category] || "components",
       series: product.series || "", tier: product.tier ? product.tier.toString() : "",
       brand: product.brand, image_url: product.image_url || "", in_stock: product.in_stock ?? true,
+      cod_policy: product.cod_policy || "full_cod",
       description: product.description || "",
       features_text: (product.features || []).join('\n'),
       gallery_urls: product.gallery_urls || [],
@@ -282,9 +289,11 @@ export default function ProductManager() {
     fetchProducts();
   };
 
-  const resetForm = () => {
+const resetForm = () => {
     setFormData({
-      id: "", name: "", breadcrumb_name: "", price: "", category: "cpu", group: "components", series: "", tier: "", brand: "", image_url: "", in_stock: true,
+      id: "", name: "", breadcrumb_name: "", price: "", mrp: "", warranty: "", // <--- ADDED
+      category: "cpu", group: "components", series: "", tier: "", brand: "", image_url: "", in_stock: true,
+      cod_policy: "full_cod",
       description: "", features_text: "", gallery_urls: [],
       socket: "", memory_type: "", wattage: "", capacity: "", form_factor: "", speed: "", storage_type: "",
       length_mm: "", max_gpu_length_mm: "",
@@ -405,31 +414,73 @@ export default function ProductManager() {
                             </div>
                         )}
 
-                        {/* 3. PRICE & BRAND */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="relative">
-                                <span className="absolute left-3 top-3 text-brand-silver">₹</span>
-                                <input required type="number" placeholder="Price" className="w-full bg-[#121212] p-3 pl-6 rounded border border-white/10" 
-                                    value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} />
-                            </div>
+                        {/* 3. PRICING & DETAILS */}
+                        <div className="space-y-3 bg-[#121212] p-3 rounded border border-white/5">
+                            <label className="text-xs text-brand-silver font-bold uppercase">Pricing & Warranty</label>
                             
-                            {isCustomBrand ? (
+                            <div className="grid grid-cols-2 gap-4">
                                 <div className="relative">
-                                    <input placeholder="New Brand" className="w-full bg-[#121212] p-3 rounded border border-brand-purple" 
-                                        value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})} />
-                                    <button type="button" onClick={() => setIsCustomBrand(false)} className="absolute right-2 top-3 text-[10px] text-red-400 font-bold">CANCEL</button>
+                                    <span className="absolute left-3 top-3 text-green-500">₹</span>
+                                    <input required type="number" placeholder="Selling Price" className="w-full bg-[#1A1A1A] p-3 pl-6 rounded border border-green-500/30 focus:border-green-500" 
+                                        value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} />
                                 </div>
-                            ) : (
-                                <select className="w-full bg-[#121212] p-3 rounded border border-white/10"
-                                    value={formData.brand} onChange={e => {
-                                        if(e.target.value === "NEW") setIsCustomBrand(true);
-                                        else setFormData({...formData, brand: e.target.value});
-                                    }}>
-                                    <option value="">Select Brand</option>
-                                    {existingBrands.map(b => <option key={b} value={b}>{b}</option>)}
-                                    <option value="NEW" className="text-brand-purple font-bold">+ Add Brand</option>
-                                </select>
-                            )}
+                                <div className="relative">
+                                    <span className="absolute left-3 top-3 text-white/30">₹</span>
+                                    <input type="number" placeholder="MRP (Cancelled)" className="w-full bg-[#1A1A1A] p-3 pl-6 rounded border border-white/10 focus:border-white/30" 
+                                        value={formData.mrp} onChange={e => setFormData({...formData, mrp: e.target.value})} />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <input placeholder="Warranty (e.g. 3 Years)" className="w-full bg-[#1A1A1A] p-3 rounded border border-white/10" 
+                                    value={formData.warranty} onChange={e => setFormData({...formData, warranty: e.target.value})} />
+
+                                {isCustomBrand ? (
+                                    <div className="relative">
+                                        <input placeholder="New Brand" className="w-full bg-[#1A1A1A] p-3 rounded border border-brand-purple" 
+                                            value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})} />
+                                        <button type="button" onClick={() => setIsCustomBrand(false)} className="absolute right-2 top-3 text-[10px] text-red-400 font-bold">CANCEL</button>
+                                    </div>
+                                ) : (
+                                    <select className="w-full bg-[#1A1A1A] p-3 rounded border border-white/10"
+                                        value={formData.brand} onChange={e => {
+                                            if(e.target.value === "NEW") setIsCustomBrand(true);
+                                            else setFormData({...formData, brand: e.target.value});
+                                        }}>
+                                        <option value="">Select Brand</option>
+                                        {existingBrands.map(b => <option key={b} value={b}>{b}</option>)}
+                                        <option value="NEW" className="text-brand-purple font-bold">+ Add Brand</option>
+                                    </select>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* PAYMENT POLICY */}
+                        <div className="bg-[#121212] p-3 rounded border border-white/5">
+                            <label className="text-xs text-brand-silver font-bold uppercase mb-2 block">Payment Options</label>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                <label className={`cursor-pointer p-3 rounded border text-xs font-bold text-center transition-all ${formData.cod_policy === 'full_cod' ? 'bg-green-500/20 border-green-500 text-white' : 'bg-[#1A1A1A] border-white/10 text-brand-silver'}`}>
+                                    <input type="radio" name="cod_policy" value="full_cod" className="hidden" 
+                                        checked={formData.cod_policy === 'full_cod'} 
+                                        onChange={e => setFormData({...formData, cod_policy: e.target.value})} 
+                                    />
+                                    Full COD Available
+                                </label>
+                                <label className={`cursor-pointer p-3 rounded border text-xs font-bold text-center transition-all ${formData.cod_policy === 'partial_cod' ? 'bg-yellow-500/20 border-yellow-500 text-white' : 'bg-[#1A1A1A] border-white/10 text-brand-silver'}`}>
+                                    <input type="radio" name="cod_policy" value="partial_cod" className="hidden" 
+                                        checked={formData.cod_policy === 'partial_cod'} 
+                                        onChange={e => setFormData({...formData, cod_policy: e.target.value})} 
+                                    />
+                                    10% Advance (Partial)
+                                </label>
+                                <label className={`cursor-pointer p-3 rounded border text-xs font-bold text-center transition-all ${formData.cod_policy === 'no_cod' ? 'bg-red-500/20 border-red-500 text-white' : 'bg-[#1A1A1A] border-white/10 text-brand-silver'}`}>
+                                    <input type="radio" name="cod_policy" value="no_cod" className="hidden" 
+                                        checked={formData.cod_policy === 'no_cod'} 
+                                        onChange={e => setFormData({...formData, cod_policy: e.target.value})} 
+                                    />
+                                    Online Only (No COD)
+                                </label>
+                            </div>
                         </div>
 
                         {/* 4. IMAGES (Dynamic List) */}
@@ -605,7 +656,20 @@ export default function ProductManager() {
                                                                     <div className="space-y-2">
                                                                         {brandProducts.map((p) => (
                                                                             <div key={p.id} className="flex justify-between items-center group/item hover:bg-white/5 p-1 rounded transition-colors">
-                                                                                <span className="text-xs text-white truncate max-w-[70%]">{p.name}</span>
+                                                                                <div className="flex items-center gap-2 max-w-[70%]">
+                                                                                    {/* NEW: Visual Status Dots */}
+                                                                                    {p.cod_policy === 'no_cod' && (
+                                                                                        <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" title="Online Payment Only" />
+                                                                                    )}
+                                                                                    {p.cod_policy === 'partial_cod' && (
+                                                                                        <div className="w-2 h-2 rounded-full bg-yellow-500 shrink-0" title="10% Advance Required" />
+                                                                                    )}
+                                                                                    
+                                                                                    <span className={`text-xs truncate ${!p.in_stock ? 'text-white/30 line-through' : 'text-white'}`}>
+                                                                                        {p.name}
+                                                                                    </span>
+                                                                                </div>
+                                                                                
                                                                                 <div className="flex gap-2 opacity-50 group-hover/item:opacity-100">
                                                                                     <button onClick={() => handleEditClick(p)} className="text-brand-purple hover:text-white"><FaEdit size={12}/></button>
                                                                                     <button onClick={() => handleDelete(p.id)} className="text-red-500 hover:text-red-400"><FaTrash size={12}/></button>

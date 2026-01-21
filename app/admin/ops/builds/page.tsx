@@ -102,6 +102,20 @@ export default function BuildStationPage() {
                                     {order.build_id && <span className="text-xs text-brand-purple border border-brand-purple px-1 rounded">{order.build_id}</span>}
                                 </div>
                                 <div className="text-brand-silver text-xs">Customer: {order.full_name || "Guest"}</div>
+                                
+                                {/* NEW: PAYMENT STATUS INDICATOR */}
+                                <div className="mt-2 flex gap-2">
+                                    {order.payment_mode === 'PARTIAL_COD' && (
+                                        <span className="text-[10px] font-bold bg-yellow-500 text-black px-2 py-0.5 rounded flex items-center gap-1">
+                                            ⚠️ COLLECT BALANCE ON DELIVERY
+                                        </span>
+                                    )}
+                                    {order.payment_mode === 'COD' && (
+                                        <span className="text-[10px] font-bold bg-green-500 text-black px-2 py-0.5 rounded">
+                                            FULL COD
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                             
                             {/* Status Indicator for Pending Parts */}
