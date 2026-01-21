@@ -8,6 +8,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import CouponCode from "@/components/cart/CouponCode"; 
 import { Reveal } from "@/components/ui/MotionWrappers";
+import { FaCreditCard, FaMoneyBillWave, FaTimes } from "react-icons/fa";
 import { toast } from "sonner";
 
 // --- CONSTANTS ---
@@ -47,6 +48,8 @@ export default function CheckoutPage() {
   
   // [FIX] Add this flag to prevent redirecting to empty cart on success
   const [paymentSuccess, setPaymentSuccess] = useState(false); 
+  // PAYMENT MODAL STATE
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   // SHIPPING FORM
   const [formData, setFormData] = useState({
@@ -178,16 +181,23 @@ export default function CheckoutPage() {
     }
   };
 
-  // --- PAYMENT HANDLER ---
-  const handlePayment = async (e: React.FormEvent) => {
+// --- 1. FORM SUBMISSION (OPENS MODAL) ---
+  const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (pincodeStatus === "invalid") {
         toast.error("Invalid Pincode", { description: "Please enter a valid 6-digit Pincode." });
         return;
     }
+    // Open the Payment Mode Selection Modal
+    setShowPaymentModal(true);
+  };
 
+  // --- 2. PROCESS ONLINE PAYMENT (RAZORPAY) ---
+  const processOnlinePayment = async () => {
     setLoading(true);
+    setShowPaymentModal(false); // Close modal
+    
     const finalBillingAddress = billingSame ? formData : billingData;
 
     try {
@@ -212,66 +222,12 @@ export default function CheckoutPage() {
             order_id: orderData.id, 
 
             handler: async function (response: any) {
-                const toastId = toast.loading("Verifying & Creating Account...");
-
-                // [FIX] Check if this address already exists in the user's saved list
-                // We compare basic fields (Line 1, Pincode, City) to detect duplicates
-                const addressExists = savedAddresses.some(addr => 
-                    addr.address_line1?.toLowerCase() === formData.addressLine1.toLowerCase() &&
-                    addr.pincode === formData.pincode &&
-                    addr.city?.toLowerCase() === formData.city.toLowerCase()
-                );
-
-                const verifyData = {
+                await finalizeOrder({
                     orderCreationId: orderData.id,
                     razorpayPaymentId: response.razorpay_payment_id,
                     razorpaySignature: response.razorpay_signature,
-                    cartItems: cart,
-                    userId: user?.id || 'guest',
-                    totalAmount: finalTotal,
-                    shippingAddress: formData,
-                    billingAddress: finalBillingAddress,
-                    isGuest: isGuest, 
-                    // [FIX] Only ask the API to save if the address doesn't exist locally
-                    autoSaveAddress: !addressExists 
-                };
-
-                const verifyRes = await fetch('/api/payment/verify', {
-                    method: 'POST',
-                    body: JSON.stringify(verifyData),
-                    headers: { 'Content-Type': 'application/json' },
+                    paymentMode: "ONLINE"
                 });
-
-                const resData = await verifyRes.json();
-                toast.dismiss(toastId);
-
-                if (resData.msg === "success") {
-                    setPaymentSuccess(true);
-
-                    localStorage.setItem("latestOrder", JSON.stringify({ 
-                        items: cart, 
-                        display_id: resData.displayId 
-                    }));
-                    
-                    await trackCouponUsage(activeCoupon);
-                    clearCart();
-                    
-                    if (isGuest && resData.accountCreated) {
-                        toast.success("Order Placed & Account Created!", {
-                            description: "Check your email for your temporary login details."
-                        });
-                    } else {
-                        toast.success("Order Placed Successfully", {
-                            description: "Redirecting to receipt..."
-                        });
-                    }
-                    
-                    window.location.href = `/order-success?id=${resData.displayId}`;
-                } else {
-                    toast.error("Verification Failed", {
-                        description: resData.error || "Payment was not verified."
-                    });
-                }
             },
             prefill: {
                 name: formData.fullName,
@@ -292,7 +248,84 @@ export default function CheckoutPage() {
 
     } catch (err: any) {
         console.error(err);
-        toast.error("Checkout Error", { description: err.message });
+        toast.error("Payment Error", { description: err.message });
+        setLoading(false);
+    }
+  };
+
+  // --- 3. PROCESS CASH ON DELIVERY ---
+  const processCODPayment = async () => {
+    setLoading(true);
+    setShowPaymentModal(false);
+
+    try {
+        // We reuse the finalize logic but pass COD flags
+        await finalizeOrder({
+            orderCreationId: `COD_${Date.now()}`, // Generate a temporary ID for COD
+            razorpayPaymentId: "COD_PENDING",
+            razorpaySignature: "COD_AUTH",
+            paymentMode: "COD"
+        });
+    } catch (err: any) {
+        console.error(err);
+        toast.error("Order Failed", { description: err.message });
+        setLoading(false);
+    }
+  };
+
+  // --- HELPER: FINALIZE ORDER IN DATABASE ---
+  const finalizeOrder = async (paymentDetails: any) => {
+    const toastId = toast.loading("Placing Order...");
+    const finalBillingAddress = billingSame ? formData : billingData;
+
+    // Check duplication
+    const addressExists = savedAddresses.some(addr => 
+        addr.address_line1?.toLowerCase() === formData.addressLine1.toLowerCase() &&
+        addr.pincode === formData.pincode &&
+        addr.city?.toLowerCase() === formData.city.toLowerCase()
+    );
+
+    const verifyData = {
+        ...paymentDetails,
+        cartItems: cart,
+        userId: user?.id || 'guest',
+        totalAmount: finalTotal,
+        shippingAddress: formData,
+        billingAddress: finalBillingAddress,
+        isGuest: isGuest, 
+        autoSaveAddress: !addressExists 
+    };
+
+    const verifyRes = await fetch('/api/payment/verify', {
+        method: 'POST',
+        body: JSON.stringify(verifyData),
+        headers: { 'Content-Type': 'application/json' },
+    });
+
+    const resData = await verifyRes.json();
+    toast.dismiss(toastId);
+
+    if (resData.msg === "success") {
+        setPaymentSuccess(true);
+        localStorage.setItem("latestOrder", JSON.stringify({ 
+            items: cart, 
+            display_id: resData.displayId 
+        }));
+        
+        await trackCouponUsage(activeCoupon);
+        clearCart();
+        
+        const successMsg = paymentDetails.paymentMode === "COD" 
+            ? "Order Placed Successfully!" 
+            : "Payment Verified Successfully";
+            
+        toast.success(successMsg, { description: "Redirecting to receipt..." });
+        
+        window.location.href = `/order-success?id=${resData.displayId}`;
+    } else {
+        toast.error("Order Failed", {
+            description: resData.error || "Could not verify order."
+        });
         setLoading(false);
     }
   };
@@ -313,7 +346,7 @@ export default function CheckoutPage() {
             
             {/* --- LEFT: FORMS --- */}
             <div className="lg:col-span-2">
-                <form id="checkout-form" onSubmit={handlePayment} className="space-y-8">
+                <form id="checkout-form" onSubmit={handleFormSubmit} className="space-y-8">
                     
                     {/* 1. SHIPPING DETAILS */}
                     <Reveal delay={0.1}>
@@ -532,6 +565,71 @@ export default function CheckoutPage() {
 
         </div>
       </div>
+      {/* --- PREMIUM PAYMENT MODAL --- */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowPaymentModal(false)} />
+            
+            {/* Modal Content */}
+            <div className="bg-[#121212] border border-brand-purple/30 rounded-xl p-8 w-full max-w-md relative z-10 shadow-[0_0_50px_rgba(124,58,237,0.2)] animate-in fade-in zoom-in-95 duration-200">
+                <button 
+                    onClick={() => setShowPaymentModal(false)}
+                    className="absolute top-4 right-4 text-brand-silver hover:text-white transition-colors"
+                >
+                    <FaTimes size={20} />
+                </button>
+
+                <h3 className="font-orbitron text-2xl font-bold text-white mb-2 text-center">PAYMENT MODE</h3>
+                <p className="text-brand-silver text-xs text-center mb-8 font-saira">Select how you would like to complete your order</p>
+
+                <div className="space-y-4">
+                    {/* Option 1: Online */}
+                    <button 
+                        onClick={processOnlinePayment}
+                        className="w-full group relative overflow-hidden bg-gradient-to-r from-brand-purple to-brand-blue p-[1px] rounded-lg transition-all hover:scale-[1.02]"
+                    >
+                        <div className="bg-[#1A1A1A] group-hover:bg-opacity-90 transition-all rounded-lg p-5 flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-full bg-brand-purple/20 flex items-center justify-center text-brand-purple border border-brand-purple/30">
+                                    <FaCreditCard size={20} />
+                                </div>
+                                <div className="text-left">
+                                    <div className="font-orbitron font-bold text-white text-sm">PAY ONLINE</div>
+                                    <div className="text-[10px] text-brand-silver">UPI, Credit/Debit Card, NetBanking</div>
+                                </div>
+                            </div>
+                            <div className="w-4 h-4 rounded-full border border-white/20 group-hover:border-brand-purple group-hover:bg-brand-purple transition-all" />
+                        </div>
+                    </button>
+
+                    {/* Option 2: COD */}
+                    <button 
+                        onClick={processCODPayment}
+                        className="w-full group bg-white/5 border border-white/10 hover:border-white/30 hover:bg-white/10 rounded-lg p-5 flex items-center justify-between transition-all hover:scale-[1.02]"
+                    >
+                         <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center text-green-500 border border-green-500/20">
+                                <FaMoneyBillWave size={20} />
+                            </div>
+                            <div className="text-left">
+                                <div className="font-orbitron font-bold text-white text-sm">CASH ON DELIVERY</div>
+                                <div className="text-[10px] text-brand-silver">Pay securely at your doorstep</div>
+                            </div>
+                        </div>
+                        <div className="w-4 h-4 rounded-full border border-white/20 group-hover:border-green-500 group-hover:bg-green-500 transition-all" />
+                    </button>
+                </div>
+
+                <div className="mt-8 text-center">
+                    <p className="text-[10px] text-white/30 uppercase tracking-widest">
+                        SECURE ENCRYPTED TRANSACTION
+                    </p>
+                </div>
+            </div>
+        </div>
+      )}
+
       <Footer />
     </div>
   );

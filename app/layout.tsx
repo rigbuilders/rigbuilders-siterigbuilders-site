@@ -6,6 +6,8 @@ import { ModalProvider } from "./context/ModalContext";
 import GlobalModal from "@/components/ui/GlobalModal";   
 // import Navbar from "@/components/Navbar"; 
 import { Toaster } from 'sonner';
+import { Analytics } from "@vercel/analytics/next"
+
 
 import { Headset } from "lucide-react"; 
 import FloatingBuilderBtn from "@/components/FloatingBuilderBtn";

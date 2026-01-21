@@ -58,19 +58,22 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { 
-      orderCreationId, razorpayPaymentId, razorpaySignature, 
+      orderCreationId, razorpayPaymentId, razorpaySignature, paymentMode, // <--- EXTRACT PAYMENT MODE
       cartItems, userId, totalAmount, shippingAddress, 
       isGuest, autoSaveAddress 
     } = body;
 
     // --- STEP 1: VERIFY SIGNATURE (Security Check) ---
-    const shasum = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!);
-    shasum.update(`${orderCreationId}|${razorpayPaymentId}`);
-    const digest = shasum.digest("hex");
+    // Only check signature for ONLINE payments. Skip for COD.
+    if (paymentMode !== "COD") {
+        const shasum = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!);
+        shasum.update(`${orderCreationId}|${razorpayPaymentId}`);
+        const digest = shasum.digest("hex");
 
-    if (digest !== razorpaySignature) {
-      console.error("❌ Invalid Signature");
-      return NextResponse.json({ msg: "failure", error: "Invalid Signature" }, { status: 400 });
+        if (digest !== razorpaySignature) {
+          console.error("❌ Invalid Signature");
+          return NextResponse.json({ msg: "failure", error: "Invalid Signature" }, { status: 400 });
+        }
     }
 
     // --- STEP 2: GENERATE IDs & TAX (STANDARDIZED) ---
@@ -89,10 +92,11 @@ export async function POST(req: Request) {
     }
 
     // B. Generate IDs using Shared Library (Source of Truth)
+    // We strictly use your existing generators to keep the format RB-PB-25-XXX
     const displayId = await generateOrderId(supabaseAdmin, orderType);
     const invoiceNo = await generateInvoiceId(supabaseAdmin);
 
-    // C. Calculate Tax (Keep existing logic)
+    // C. Calculate Tax
     const taxDetails = calculateTax(totalAmount, shippingAddress.state);
 
     // --- STEP 3: HANDLE USER (Fail-Safe) ---
@@ -128,13 +132,17 @@ export async function POST(req: Request) {
     console.log("💾 Attempting to save order to DB...");
     const dbUserId = (finalUserId && finalUserId !== 'guest') ? finalUserId : null;
 
+    // Determine Status based on Mode
+    const finalStatus = paymentMode === "COD" ? "pending" : "paid";
+    const finalPaymentMode = paymentMode === "COD" ? "COD" : "ONLINE";
+
     const { data: order, error: orderError } = await supabaseAdmin
         .from('orders')
         .insert({
             // 1. User & ID
             user_id: dbUserId,
-            display_id: displayId,    // Now uses your specific format (RB-PB-25-001)
-            invoice_no: invoiceNo,    // ✅ NEW: Sequential Invoice Number
+            display_id: displayId,    
+            invoice_no: invoiceNo,    
             
             // 2. Contact Info
             full_name: shippingAddress.fullName,
@@ -147,12 +155,12 @@ export async function POST(req: Request) {
 
             // 4. Financials
             total_amount: totalAmount,
-            tax_details: taxDetails,  // ✅ NEW: Stores Breakdown (CGST/SGST)
-            payment_mode: "ONLINE",   // ✅ NEW: Hardcoded as requested
+            tax_details: taxDetails,
+            payment_mode: finalPaymentMode, // ✅ Dynamic
             
             // 5. Details
             items: cartItems,
-            status: 'paid',
+            status: finalStatus,           // ✅ Dynamic (Pending for COD)
             payment_id: razorpayPaymentId,
             order_id: orderCreationId
         })
@@ -171,11 +179,11 @@ export async function POST(req: Request) {
         resend.emails.send({
             from: 'Rig Builders Support <support@rigbuilders.in>',
             to: [shippingAddress.email],
-            bcc: ['rigbuilders123@gmail.com'], // Receive copy
-            subject: `Invoice: ${invoiceNo}`,
+            bcc: ['rigbuilders123@gmail.com'], 
+            subject: `Order Placed: ${displayId}`, // Changed subject to be clearer
             react: OrderConfirmationEmail({
-                order: order,         // Pass full order object for Invoice ID
-                taxDetails: taxDetails // Pass calculated tax for Invoice Table
+                order: order,         
+                taxDetails: taxDetails 
             }),
         }).then(() => console.log("📧 Email sent"))
           .catch((e) => console.error("📧 Email failed:", e));
@@ -204,7 +212,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       msg: "success",
       orderId: order.id,
-      displayId: invoiceNo, // Return Invoice ID to show on success screen
+      displayId: displayId, // Return Display ID (RB-PB-...) for success page
       accountCreated: accountCreated,
     });
 
