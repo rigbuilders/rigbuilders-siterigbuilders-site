@@ -354,7 +354,7 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
         {/* --- MOVED SECTION: PRODUCT DESCRIPTION --- */}
         <div className="mb-24 max-w-4xl mx-auto border-t border-white/10 pt-12 text-center">
             <Reveal>
-                <h3 className="text-2xl font-orbitron font-bold text-white uppercase tracking-wider pb-4 ">PRODUCT <span className="text-brand-purple">GALLERY</span></h3>
+                <h3 className="text-2xl font-orbitron font-bold text-white uppercase tracking-wider pb-4 ">DESCRITION <span className="text-brand-purple"></span></h3>
                 <p className="text-brand-silver leading-loose whitespace-pre-line text-sm md:text-base font-light opacity-80 max-w-3xl mx-auto">
                     {product.description}
                 </p>
