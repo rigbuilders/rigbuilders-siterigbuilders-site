@@ -25,31 +25,41 @@ const orbitron = Orbitron({
 
 // --- SEO CONFIGURATION ---
 export const metadata: Metadata = {
-  // 1. CRITICAL: Set the Base URL so images/links resolve correctly
   metadataBase: new URL("https://www.rigbuilders.in"),
 
+  // 1. UPDATED TITLE (Cleaner & More Keywords)
   title: {
-    default: "Rig Builders | Premium Custom PC Commissions",
-    template: "%s | Rig Builders",
+    default: "Rig Builders - Custom Gaming PCs & Workstations India",
+    template: "%s | Rig Builders India",
   },
-  description: "India's premium custom PC builder. We commission high-performance Gaming PCs, Workstations, and Creator Rigs.",
-  applicationName: "Rig Builders",
-  keywords: ["Custom PC", "Gaming PC India", "Workstation Build", "Rig Builders", "PC Components", "Liquid Cooling"],
+  description: "India's premium custom PC builder. We commission high-performance Gaming PCs, Workstations, and Creator Rigs with pan-India insured delivery.",
   
-  // 2. Canonical Link (Prevents duplicate content issues)
+  keywords: ["Custom PC India", "Gaming PC Build", "Workstation PC", "Rig Builders", "Liquid Cooled PC"],
+  
   alternates: {
     canonical: "/",
   },
 
-  // 3. Open Graph (Social Previews)
+  // 2. DYNAMIC ICONS (Fixes Light/Dark Mode Issues)
+  // Ensure you upload 'icon-light.png' (Black) and 'icon-dark.png' (White) to public/icons/
+  icons: {
+    icon: [
+      { url: '/icons/icon-light.png', media: '(prefers-color-scheme: light)' },
+      { url: '/icons/icon-dark.png', media: '(prefers-color-scheme: dark)' },
+    ],
+    shortcut: ['/icons/icon-dark.png'],
+    apple: [
+      { url: '/icons/icon-dark.png' },
+    ],
+  },
+
   openGraph: {
-    title: "Rig Builders",
+    title: "Rig Builders India",
     description: "Premium Custom PCs built for performance.",
     type: "website",
     locale: "en_IN",
     url: "https://www.rigbuilders.in",
     siteName: "Rig Builders",
-    // Ensure you have an 'opengraph-image.png' in your app/ folder for this to work!
     images: [
       {
         url: "/opengraph-image.png", 
@@ -60,7 +70,6 @@ export const metadata: Metadata = {
     ],
   },
   
-  // 4. Robots (Ensure Google is allowed to index you)
   robots: {
     index: true,
     follow: true,
@@ -80,16 +89,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   
-  // 5. JSON-LD SCHEMA (The "Brand Card" Fix)
-  // This tells Google exactly what your Logo, Name, and Contacts are.
+  // JSON-LD SCHEMA (Brand Identity for Google)
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Organization",
     "name": "Rig Builders",
     "url": "https://www.rigbuilders.in",
-    "logo": "https://www.rigbuilders.in/icons/navbar/logo.svg", // Ensure this file exists!
+    "logo": "https://www.rigbuilders.in/icons/icon-dark.png", // Use the high-contrast logo here
     "sameAs": [
-      "https://www.instagram.com/rigbuilders", // Update with your actual socials
+      "https://www.instagram.com/rigbuilders", 
       "https://twitter.com/rigbuilders",
       "https://www.youtube.com/@rigbuilders"
     ],
@@ -116,7 +124,6 @@ export default function RootLayout({
         suppressHydrationWarning={true}
         className={`${saira.variable} ${orbitron.variable} font-saira antialiased bg-brand-black text-brand-silver`}
       >
-        {/* INJECT SCHEMA */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
