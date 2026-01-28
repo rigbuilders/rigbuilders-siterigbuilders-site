@@ -8,17 +8,12 @@ import { generateOrderId, generateInvoiceId } from "@/lib/id-generator";
 
 // --- CONFIGURATION ---
 const COMPANY_STATE = "Punjab"; // Used to decide IGST vs CGST/SGST
-const CURRENT_YEAR_SHORT = "25"; // Hardcoded '25' for 2025
 
-// Initialize Clients
+// Initialize Clients (Razorpay & Supabase are usually safe at top level)
 const razorpay = new Razorpay({
   key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
   key_secret: process.env.RAZORPAY_KEY_SECRET!,
 });
-
-const resend = process.env.RESEND_API_KEY 
-  ? new Resend(process.env.RESEND_API_KEY) 
-  : null;
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,7 +26,6 @@ const supabaseAdmin = createClient(
   }
 );
 
-
 // --- HELPER: TAX CALCULATOR ---
 function calculateTax(totalAmount: number, userState: string) {
   // Formula: Taxable = Total / 1.18
@@ -39,7 +33,6 @@ function calculateTax(totalAmount: number, userState: string) {
   const totalGST = parseFloat((totalAmount - taxableValue).toFixed(2));
   
   // Check if state matches Company State (Punjab)
-  // We use simple string matching (ensure your address form has consistent state names)
   const isInterState = userState?.trim().toLowerCase() !== COMPANY_STATE.toLowerCase();
 
   return {
@@ -56,12 +49,21 @@ export async function POST(req: Request) {
   console.log("🚨 PAYMENT VERIFICATION STARTED"); 
 
   try {
+    // --- FIX: INITIALIZE RESEND INSIDE THE FUNCTION ---
+    // This prevents "Missing API Key" errors during the build process
+    const resend = process.env.RESEND_API_KEY 
+      ? new Resend(process.env.RESEND_API_KEY) 
+      : null;
+
+    if (!resend) {
+        console.warn("⚠️ RESEND_API_KEY is missing. Email will be skipped.");
+    }
+
     const body = await req.json();
     const { 
       orderCreationId, razorpayPaymentId, razorpaySignature, paymentMode, 
       cartItems, userId, totalAmount, shippingAddress, 
       isGuest, autoSaveAddress,
-      // FIX: Extract the split amounts sent from Checkout
       amountPaid, pendingAmount, codPolicy
     } = body;
 
@@ -121,48 +123,34 @@ export async function POST(req: Request) {
     console.log("💾 Attempting to save order to DB...");
     const dbUserId = (finalUserId && finalUserId !== 'guest') ? finalUserId : null;
 
-    // FIX: Determine Status based on Payment Mode
-    let finalStatus = "processing"; // Default
+    let finalStatus = "processing"; 
     if (paymentMode === "COD") finalStatus = "pending";
-    else if (paymentMode === "PARTIAL_COD") finalStatus = "processing"; // Paid 10%, so it's processing
+    else if (paymentMode === "PARTIAL_COD") finalStatus = "processing"; 
     else if (paymentMode === "ONLINE") finalStatus = "paid";
 
-    // FIX: Fallback for amounts if missing (Backward compatibility)
     const finalAmountPaid = amountPaid !== undefined ? amountPaid : (paymentMode === "COD" ? 0 : totalAmount);
     const finalPendingAmount = pendingAmount !== undefined ? pendingAmount : (paymentMode === "COD" ? totalAmount : 0);
 
     const { data: order, error: orderError } = await supabaseAdmin
         .from('orders')
         .insert({
-            // 1. User & ID
             user_id: dbUserId,
             display_id: displayId,    
             invoice_no: invoiceNo,    
-            
-            // 2. Contact Info
             full_name: shippingAddress.fullName,
             email: shippingAddress.email,
             phone: shippingAddress.phone,
-            
-            // 3. Address Data
             shipping_address: shippingAddress,
             address: `${shippingAddress.addressLine1}, ${shippingAddress.city}, ${shippingAddress.pincode}`,
-
-            // 4. Financials
             total_amount: totalAmount,
-            amount_paid: finalAmountPaid,       // <--- NEW: Saved to DB
-            pending_amount: finalPendingAmount, // <--- NEW: Saved to DB
+            amount_paid: finalAmountPaid,
+            pending_amount: finalPendingAmount,
             tax_details: taxDetails,
             payment_mode: paymentMode, 
-            
-            // 5. Details
             items: cartItems,
             status: finalStatus,           
             payment_id: razorpayPaymentId,
             order_id: orderCreationId,
-            
-            // 6. Metadata
-            
         })
         .select()
         .single();
@@ -176,6 +164,7 @@ export async function POST(req: Request) {
 
     // --- STEP 5: SEND EMAIL ---
     if (resend) {
+        // We catch email errors separately so they don't crash the order success screen
         resend.emails.send({
             from: 'Rig Builders Support <support@rigbuilders.in>',
             to: [shippingAddress.email],
