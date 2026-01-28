@@ -38,6 +38,7 @@ export default function ProductManager() {
   // --- FORM DATA ---
   const [formData, setFormData] = useState({
     id: "", name: "", breadcrumb_name: "", price: "", mrp: "", warranty: "", 
+    nickname: "",
     category: "cpu", group: "components", series: "", tier: "", brand: "", 
     image_url: "", in_stock: true, description: "", features_text: "",
     gallery_urls: [] as string[], cod_policy: "full_cod",
@@ -106,7 +107,7 @@ export default function ProductManager() {
 
   const resetForm = () => {
     setFormData({
-      id: "", name: "", breadcrumb_name: "", price: "", mrp: "", warranty: "", 
+      id: "", name: "", breadcrumb_name: "", price: "", mrp: "", warranty: "", nickname: "",
       category: "cpu", group: "components", series: "", tier: "", brand: "", image_url: "", in_stock: true,
       cod_policy: "full_cod", description: "", features_text: "", gallery_urls: [],
       socket: "", memory_type: "", wattage: "", capacity: "", form_factor: "", speed: "", storage_type: "",
@@ -148,6 +149,7 @@ export default function ProductManager() {
 
       const payload = {
         name: formData.name,
+        nickname: formData.nickname || null,
         breadcrumb_name: formData.breadcrumb_name || null,
         price: parseFloat(formData.price),
         mrp: formData.mrp ? parseFloat(formData.mrp) : null,
@@ -189,7 +191,7 @@ export default function ProductManager() {
     
     setFormData({
       ...formData,
-      id: p.id, name: p.name, breadcrumb_name: p.breadcrumb_name || "", price: p.price.toString(),
+      id: p.id, name: p.name,nickname: p.nickname || "", breadcrumb_name: p.breadcrumb_name || "", price: p.price.toString(),
       mrp: p.mrp ? p.mrp.toString() : "", warranty: p.warranty || "",
       category: p.category, group: p.group || s.group || "components",
       series: p.series || "", tier: p.tier ? p.tier.toString() : "",
@@ -229,7 +231,7 @@ export default function ProductManager() {
     const base = {
         category: cloneTarget.category, group: cloneTarget.group || "components",
         brand: cloneTarget.brand, image_url: cloneTarget.image_url,
-        name: `${cloneTarget.name} (Copy)`, breadcrumb_name: cloneTarget.breadcrumb_name || "",
+        name: `${cloneTarget.name} (Copy)`, nickname: "",breadcrumb_name: cloneTarget.breadcrumb_name || "",
         in_stock: true, cod_policy: cloneTarget.cod_policy || "full_cod",
         gallery_urls: cloneTarget.gallery_urls || [],
         price: "", mrp: "", warranty: "", id: "", // Reset

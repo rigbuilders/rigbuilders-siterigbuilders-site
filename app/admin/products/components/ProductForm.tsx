@@ -122,6 +122,16 @@ export default function ProductForm({
 
             {/* 3. PRICING & WARRANTY */}
             <div className="space-y-3 bg-[#121212] p-3 rounded border border-white/5">
+                {/* --- NEW NICKNAME FIELD --- */}
+                <div className="bg-brand-purple/10 border border-brand-purple/20 p-2 rounded">
+                    <label className="text-[10px] text-brand-purple uppercase font-bold block mb-1">Google Sheet Nickname (Sync ID)</label>
+                    <input 
+                        placeholder="e.g. 7800x3d" 
+                        className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-white focus:border-brand-purple outline-none text-sm" 
+                        value={formData.nickname} 
+                        onChange={e => setFormData({...formData, nickname: e.target.value})} 
+                    />
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                     <div className="relative"><span className="absolute left-3 top-3 text-green-500">₹</span><input required type="number" placeholder="Selling Price" className="w-full bg-[#1A1A1A] p-3 pl-6 rounded border border-green-500/30 focus:border-green-500" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} /></div>
                     <div className="relative"><span className="absolute left-3 top-3 text-white/30">₹</span><input type="number" placeholder="MRP" className="w-full bg-[#1A1A1A] p-3 pl-6 rounded border border-white/10" value={formData.mrp} onChange={e => setFormData({...formData, mrp: e.target.value})} /></div>
