@@ -1,13 +1,11 @@
-// app/admin/products/page.tsx
 "use client";
 
 import Navbar from "@/components/Navbar";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import { FaTimes } from "react-icons/fa";
+import { FaBoxOpen } from "react-icons/fa"; // Icon
 
-// Import sub-components and constants
 import ProductForm from "./components/ProductForm";
 import ProductList from "./components/ProductList";
 import { BASE_CATEGORIES, BASE_SOCKETS, BASE_MEMORY_TYPES, BASE_CATEGORY_MAP } from "./constants";
@@ -19,9 +17,6 @@ export default function ProductManager() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [activeTab, setActiveTab] = useState<"add" | "edit">("add");
   const router = useRouter();
-
-  // --- CLONE STATE ---
-  const [cloneTarget, setCloneTarget] = useState<any>(null);
 
   // --- DYNAMIC DATA ---
   const [existingBrands, setExistingBrands] = useState<string[]>([]);
@@ -38,20 +33,21 @@ export default function ProductManager() {
   // --- FORM DATA ---
   const [formData, setFormData] = useState({
     id: "", name: "", breadcrumb_name: "", price: "", mrp: "", warranty: "", 
-    nickname: "",
+    nickname: "",configurator_name: "",
     category: "cpu", group: "components", series: "", tier: "", brand: "", 
     image_url: "", in_stock: true, description: "", features_text: "",
     gallery_urls: [] as string[], cod_policy: "full_cod",
     
-    // SPECS
+    variant_group_id: "", 
+    specs: { color: "", variant_label: "" } as any, // Initialize variant_label
+    
+    // FLATTENED SPECS
     socket: "", memory_type: "", wattage: "", capacity: "", speed: "", storage_type: "",
     length_mm: "", max_gpu_length_mm: "",
-    
-    // NEW COMPATIBILITY FIELDS
     form_factor: "", radiator_size: "",
     supported_motherboards: [] as string[], 
     supported_radiators: [] as string[],
-
+    
     // RECIPE
     recipe_cpu: "", recipe_gpu: "", recipe_mobo: "", recipe_ram: "", recipe_storage: "", 
     recipe_psu: "", recipe_cooler: "", recipe_cabinet: "", recipe_os: ""
@@ -61,7 +57,6 @@ export default function ProductManager() {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || user.email !== "rigbuilders123@gmail.com") {
-        alert("Access Denied.");
         router.push("/");
         return;
       }
@@ -85,15 +80,6 @@ export default function ProductManager() {
         setExistingSockets(Array.from(new Set([...BASE_SOCKETS, ...sockets])));
         const mems = Array.from(new Set(data.map(p => p.specs?.memory_type).filter(Boolean)));
         setExistingMemory(Array.from(new Set([...BASE_MEMORY_TYPES, ...mems])));
-
-        const dbCats = Array.from(new Set(data.map(p => p.category).filter(Boolean)));
-        const allCats = [...BASE_CATEGORIES];
-        dbCats.forEach(c => {
-            if (!allCats.find(base => base.id === c)) {
-                allCats.push({ id: c, name: c.charAt(0).toUpperCase() + c.slice(1) });
-            }
-        });
-        setExistingCategories(allCats);
     }
     setLoading(false);
   };
@@ -107,9 +93,13 @@ export default function ProductManager() {
 
   const resetForm = () => {
     setFormData({
-      id: "", name: "", breadcrumb_name: "", price: "", mrp: "", warranty: "", nickname: "",
+      id: "", name: "", breadcrumb_name: "", price: "", mrp: "", warranty: "", nickname: "",configurator_name: "",
       category: "cpu", group: "components", series: "", tier: "", brand: "", image_url: "", in_stock: true,
       cod_policy: "full_cod", description: "", features_text: "", gallery_urls: [],
+      
+      variant_group_id: "", 
+      specs: { color: "", variant_label: "" }, 
+      
       socket: "", memory_type: "", wattage: "", capacity: "", form_factor: "", speed: "", storage_type: "",
       length_mm: "", max_gpu_length_mm: "", radiator_size: "", supported_motherboards: [], supported_radiators: [],
       recipe_cpu: "", recipe_gpu: "", recipe_mobo: "", recipe_ram: "", recipe_storage: "", 
@@ -119,14 +109,15 @@ export default function ProductManager() {
     setActiveTab("add");
   };
 
-  // --- ACTIONS ---
+  // --- MAIN ACTIONS ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const specs: any = {};
+      const specs: any = { ...formData.specs }; 
       specs.group = isCustomCategory ? formData.group : (BASE_CATEGORY_MAP[formData.category] || formData.group);
 
+      // Map Flattened fields to Specs JSON
       if (formData.category === 'prebuilt') {
          ["Processor", "Graphics Card", "Motherboard", "Memory", "Storage", "Power Supply", "Cooling", "Cabinet", "OS"].forEach(k => {
              const key = `recipe_${k.toLowerCase().replace(/ /g, '_').replace('graphics_card', 'gpu').replace('processor', 'cpu').replace('power_supply', 'psu')}` as keyof typeof formData;
@@ -147,12 +138,20 @@ export default function ProductManager() {
          }
       }
 
+      // Save Variant Specifics
+      if (formData.specs?.color) specs.color = formData.specs.color;
+      if (formData.specs?.variant_label) specs.variant_label = formData.specs.variant_label;
+
       const payload = {
         name: formData.name,
         nickname: formData.nickname || null,
+        configurator_name: formData.configurator_name || null,
         breadcrumb_name: formData.breadcrumb_name || null,
         price: parseFloat(formData.price),
         mrp: formData.mrp ? parseFloat(formData.mrp) : null,
+        
+        variant_group_id: formData.variant_group_id || null, 
+        
         warranty: formData.warranty || null,
         category: formData.category,
         series: formData.series || null,
@@ -191,7 +190,11 @@ export default function ProductManager() {
     
     setFormData({
       ...formData,
-      id: p.id, name: p.name,nickname: p.nickname || "", breadcrumb_name: p.breadcrumb_name || "", price: p.price.toString(),
+      id: p.id, name: p.name, nickname: p.nickname || "", breadcrumb_name: p.breadcrumb_name || "", price: p.price.toString(),configurator_name: p.configurator_name || "",
+      
+      variant_group_id: p.variant_group_id || "", 
+      specs: s, 
+      
       mrp: p.mrp ? p.mrp.toString() : "", warranty: p.warranty || "",
       category: p.category, group: p.group || s.group || "components",
       series: p.series || "", tier: p.tier ? p.tier.toString() : "",
@@ -222,41 +225,56 @@ export default function ProductManager() {
     fetchProducts();
   };
 
-  // --- CLONE LOGIC ---
-  const executeClone = (type: 'variant' | 'base') => {
-    if (!cloneTarget) return;
-    const s = cloneTarget.specs || {};
-    
-    // Common Base
-    const base = {
-        category: cloneTarget.category, group: cloneTarget.group || "components",
-        brand: cloneTarget.brand, image_url: cloneTarget.image_url,
-        name: `${cloneTarget.name} (Copy)`, nickname: "",breadcrumb_name: cloneTarget.breadcrumb_name || "",
-        in_stock: true, cod_policy: cloneTarget.cod_policy || "full_cod",
-        gallery_urls: cloneTarget.gallery_urls || [],
-        price: "", mrp: "", warranty: "", id: "", // Reset
-        supported_motherboards: [], supported_radiators: [],
-        recipe_cpu: "", recipe_gpu: "", recipe_mobo: "", recipe_ram: "", recipe_storage: "", 
-        recipe_psu: "", recipe_cooler: "", recipe_cabinet: "", recipe_os: ""
-    };
+  // --- NEW VARIANT WORKFLOW ---
+  // This logic is simplified: It just sets up the form. Grouping is handled in the List UI.
+  const handleVariantClick = async (parentProduct: any) => {
+    setLoading(true);
+    let groupId = parentProduct.variant_group_id;
 
-    if (type === 'variant') {
-        setFormData({
-            ...formData, ...base,
-            description: cloneTarget.description || "", features_text: (cloneTarget.features || []).join('\n'),
-            socket: s.socket || "", memory_type: s.memory_type || "", wattage: s.wattage ? s.wattage.toString() : "",
-            capacity: s.capacity || s.vram || "", form_factor: s.form_factor || "",
-            length_mm: s.length_mm ? s.length_mm.toString() : "",
-            max_gpu_length_mm: s.max_gpu_length_mm ? s.max_gpu_length_mm.toString() : "",
-            radiator_size: s.radiator_size || "",
-            supported_motherboards: s.supported_motherboards || [],
-            supported_radiators: s.supported_radiators || []
-        });
-    } else {
-        setFormData({ ...formData, ...base, description: "", features_text: "" });
+    // 1. Assign Group ID if missing
+    if (!groupId) {
+        groupId = `var_${Date.now()}`; 
+        const { error } = await supabase.from('products').update({ variant_group_id: groupId }).eq('id', parentProduct.id);
+        if (error) { alert("Failed to init variant group."); setLoading(false); return; }
+        await fetchProducts(); 
     }
+
+    const s = parentProduct.specs || {};
+    
+    // 2. Pre-fill Form but CLEAR identity fields
+    setFormData({
+        ...formData, 
+        // Shared
+        category: parentProduct.category,
+        group: parentProduct.group || s.group || "components",
+        brand: parentProduct.brand,
+        description: parentProduct.description || "",
+        features_text: (parentProduct.features || []).join('\n'),
+        gallery_urls: parentProduct.gallery_urls || [],
+        cod_policy: parentProduct.cod_policy || "full_cod",
+        image_url: parentProduct.image_url || "", 
+        variant_group_id: groupId,
+
+        // Specs
+        socket: s.socket || "", 
+        memory_type: s.memory_type || "", 
+        form_factor: s.form_factor || "",
+        wattage: s.wattage ? s.wattage.toString() : "",
+        capacity: s.capacity || s.vram || "",
+        
+        // UNIQUE (Reset these so user types new ones)
+        name: `${parentProduct.name} (Variant)`, 
+        price: parentProduct.price?.toString() || "",
+        mrp: parentProduct.mrp?.toString() || "",
+        nickname: "", 
+        id: "", // Empty ID = Creates New Item
+        
+        // RESET VARIANT LABEL (Forces user to name it, e.g. "White")
+        specs: { ...s, color: "", variant_label: "" } 
+    });
+
     setActiveTab("add");
-    setCloneTarget(null);
+    setLoading(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -265,12 +283,20 @@ export default function ProductManager() {
   return (
     <div className="min-h-screen bg-[#121212] text-white font-saira pb-20">
       <Navbar />
-      <div className="pt-14 px-6 max-w-[1600px] mx-auto">
-        <h1 className="font-orbitron text-3xl font-bold mb-8 text-brand-purple">ADMIN DASHBOARD</h1>
+      <div className="pt-24 px-6 max-w-[1600px] mx-auto">
+        <div className="flex items-center gap-4 mb-8">
+            <div className="w-12 h-12 bg-brand-purple rounded-xl flex items-center justify-center text-2xl">
+                <FaBoxOpen />
+            </div>
+            <div>
+                <h1 className="font-orbitron text-3xl font-bold text-white">PRODUCT MANAGER</h1>
+                <p className="text-brand-silver">Inventory & Variant Control</p>
+            </div>
+        </div>
         
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
             {/* LEFT: FORM */}
-            <div className="xl:col-span-4">
+            <div className="xl:col-span-4 relative">
                 <ProductForm 
                     formData={formData} setFormData={setFormData} handleSubmit={handleSubmit} resetForm={resetForm}
                     loading={loading} activeTab={activeTab}
@@ -290,32 +316,11 @@ export default function ProductManager() {
                     existingCategories={existingCategories}
                     handleEditClick={handleEditClick}
                     handleDelete={handleDelete}
-                    handleCloneClick={setCloneTarget}
+                    handleVariantClick={handleVariantClick} 
                 />
             </div>
         </div>
       </div>
-
-      {/* CLONE MODAL */}
-      {cloneTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div className="bg-[#1A1A1A] border border-white/10 p-6 rounded-xl w-full max-w-md relative shadow-2xl">
-                <button onClick={() => setCloneTarget(null)} className="absolute top-4 right-4 text-white/50 hover:text-white"><FaTimes /></button>
-                <h3 className="text-xl font-bold text-white mb-2">Clone Product</h3>
-                <p className="text-sm text-brand-silver mb-6">Cloning <span className="text-white font-bold">{cloneTarget.name}</span></p>
-                <div className="space-y-3">
-                    <button onClick={() => executeClone('variant')} className="w-full text-left p-4 bg-brand-purple/10 border border-brand-purple/30 rounded hover:bg-brand-purple/20 transition-colors">
-                        <div className="font-bold text-white">Create Variant</div>
-                        <div className="text-xs text-brand-silver mt-1">Keeps specs/description. Good for changing size/color.</div>
-                    </button>
-                    <button onClick={() => executeClone('base')} className="w-full text-left p-4 bg-white/5 border border-white/10 rounded hover:bg-white/10 transition-colors">
-                        <div className="font-bold text-white text-blue-400">Create New Base</div>
-                        <div className="text-xs text-brand-silver mt-1">Clears specs/description. Good for new series.</div>
-                    </button>
-                </div>
-            </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -99,11 +99,33 @@ export default function ProductForm({
             </div>
 
             {/* 2. BASIC INFO */}
-            <div className="space-y-2">
-                <input required placeholder="Product Name" className="w-full bg-[#121212] p-3 rounded border border-white/10 focus:border-brand-purple outline-none" 
-                    value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-                <input placeholder="Breadcrumb Name (Optional)" className="w-full bg-[#121212] p-2 rounded border border-white/10 text-xs focus:border-brand-purple outline-none" 
-                    value={formData.breadcrumb_name} onChange={e => setFormData({...formData, breadcrumb_name: e.target.value})} />
+            <div className="space-y-3">
+                {/* Full SEO Name */}
+                <input 
+                    required 
+                    placeholder="Product Name (Full SEO Title)" 
+                    className="w-full bg-[#121212] p-3 rounded border border-white/10 focus:border-brand-purple outline-none" 
+                    value={formData.name} 
+                    onChange={e => setFormData({...formData, name: e.target.value})} 
+                />
+
+                {/* Short Names Grid */}
+                <div className="grid grid-cols-2 gap-4">
+                    <input 
+                        placeholder="Breadcrumb Name (e.g. Ryzen 7 7800X3D)" 
+                        className="w-full bg-[#121212] p-2 rounded border border-white/10 text-xs focus:border-brand-purple outline-none" 
+                        value={formData.breadcrumb_name} 
+                        onChange={e => setFormData({...formData, breadcrumb_name: e.target.value})} 
+                    />
+                    
+                    {/* NEW CONFIGURATOR NAME FIELD */}
+                    <input 
+                        placeholder="Configurator Name (e.g. Samsung 990 Pro 1TB)" 
+                        className="w-full bg-brand-purple/10 p-2 rounded border border-brand-white/30 text-xs text-white placeholder-brand-white/50 focus:border-brand-white outline-none font-bold" 
+                        value={formData.configurator_name} 
+                        onChange={e => setFormData({...formData, configurator_name: e.target.value})} 
+                    />
+                </div>
             </div>
 
             {/* PREBUILT SERIES */}
@@ -161,6 +183,8 @@ export default function ProductForm({
                 </div>
             </div>
 
+
+
             {/* 5. TECH SPECS & COMPATIBILITY (NEW) */}
             {formData.category !== 'prebuilt' && (
                 <div className="bg-[#121212] p-3 rounded border border-white/5 space-y-3">
@@ -207,6 +231,80 @@ export default function ProductForm({
                             </div>
                         </div>
                     )}
+                     
+                    {/* --- UNIVERSAL VARIANT CONFIGURATOR --- */}
+            {formData.variant_group_id && (
+                <div className="bg-brand-purple/10 border border-brand-purple/30 p-4 rounded mb-6 animate-in fade-in">
+                    <div className="flex justify-between items-center mb-3">
+                        <label className="text-[10px] text-brand-purple uppercase font-bold flex items-center gap-2">
+                            <span className="bg-brand-purple text-white w-4 h-4 rounded-full flex items-center justify-center text-[8px]">V</span>
+                            Variant Configuration
+                        </label>
+                        <span className="text-[9px] text-brand-silver">Defines how this item differs from siblings</span>
+                    </div>
+                    
+                    <div className="space-y-4">
+                         {/* 1. THE DISPLAY LABEL (Essential) */}
+                         <div>
+                            <label className="text-[9px] text-brand-silver uppercase font-bold block mb-1">Button Label (Website Display)</label>
+                            <input 
+                                placeholder="What should the button say? (e.g. 'Red - 16GB' or 'Cherry MX Blue')"
+                                className="w-full bg-[#121212] p-2 rounded border border-brand-purple/50 text-white text-xs focus:bg-brand-purple/20 outline-none font-bold placeholder:font-normal"
+                                value={formData.specs?.variant_label || ""}
+                                onChange={e => setFormData({
+                                    ...formData, 
+                                    specs: { ...formData.specs, variant_label: e.target.value }
+                                })}
+                            />
+                        </div>
+
+                        {/* 2. THE ATTRIBUTES (For Logic & Sub-Variants) */}
+                        <div className="grid grid-cols-3 gap-3">
+                            {/* Attribute A: COLOR */}
+                            <div>
+                                <label className="text-[9px] text-brand-silver block mb-1">Color</label>
+                                <input 
+                                    placeholder="e.g. Matte Black"
+                                    className="w-full bg-[#121212] p-2 rounded border border-white/10 text-white text-xs focus:border-white/30 transition-colors"
+                                    value={formData.specs?.color || ""}
+                                    onChange={e => setFormData({
+                                        ...formData, 
+                                        specs: { ...formData.specs, color: e.target.value }
+                                    })}
+                                />
+                            </div>
+
+                            {/* Attribute B: CAPACITY / SIZE */}
+                            <div>
+                                <label className="text-[9px] text-brand-silver block mb-1">Capacity / Size</label>
+                                <input 
+                                    placeholder="e.g. 1TB, XL, 32GB"
+                                    className="w-full bg-[#121212] p-2 rounded border border-white/10 text-white text-xs focus:border-white/30 transition-colors"
+                                    value={formData.specs?.capacity || ""}
+                                    onChange={e => setFormData({
+                                        ...formData, 
+                                        specs: { ...formData.specs, capacity: e.target.value }
+                                    })}
+                                />
+                            </div>
+
+                             {/* Attribute C: STYLE / TYPE (The "Catch-All") */}
+                             <div>
+                                <label className="text-[9px] text-brand-silver block mb-1">Style / Type</label>
+                                <input 
+                                    placeholder="e.g. Clicky, Tactile"
+                                    className="w-full bg-[#121212] p-2 rounded border border-white/10 text-white text-xs focus:border-white/30 transition-colors"
+                                    value={formData.specs?.style || ""}
+                                    onChange={e => setFormData({
+                                        ...formData, 
+                                        specs: { ...formData.specs, style: e.target.value }
+                                    })}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
                     {/* Capacity & Standard Fields */}
                     {['ram', 'gpu', 'storage'].includes(formData.category) && (

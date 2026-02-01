@@ -44,7 +44,7 @@ export default function ConfiguratorPage() {
       if (data) {
         setInventory(data.map(p => ({
             ...p,
-            id: p.id, name: p.name, price: p.price,
+            id: p.id, name: p.name, price: p.price,configurator_name: p.configurator_name,
             category: p.category === "memory" ? "ram" : p.category, 
             brand: p.brand, image: p.image_url, inStock: p.in_stock,
             ...p.specs // Spec fields from DB override top-level
@@ -119,24 +119,126 @@ export default function ConfiguratorPage() {
 
             {/* RIGHT: BUILDER */}
             <div className="lg:col-span-8 space-y-4">
-                <StaggerGrid className="flex flex-col gap-4">
-                    <StaggerItem><CollapsibleSection title="1. Processor" selected={selections.cpu?.name}><SelectionGrid items={data.cpus} selectedId={selections.cpu?.id} onSelect={(i) => handleSelect('cpu', i)} /></CollapsibleSection></StaggerItem>
-                    <StaggerItem><CollapsibleSection title="2. Motherboard" selected={selections.motherboard?.name}><SelectionGrid items={data.mobos} selectedId={selections.motherboard?.id} onSelect={(i) => handleSelect('motherboard', i)} warning={!selections.cpu ? "Select CPU first" : undefined} /></CollapsibleSection></StaggerItem>
-                    <StaggerItem><CollapsibleSection title="3. Memory (RAM)" selected={selections.ram?.name}><SelectionGrid items={data.rams} selectedId={selections.ram?.id} onSelect={(i) => handleSelect('ram', i)} warning={!selections.motherboard ? "Select Motherboard first" : undefined} /></CollapsibleSection></StaggerItem>
-                    <StaggerItem><CollapsibleSection title="4. Graphics Card" selected={selections.gpu?.name}><SelectionGrid items={data.gpus} selectedId={selections.gpu?.id} onSelect={(i) => handleSelect('gpu', i)} /></CollapsibleSection></StaggerItem>
-                    <StaggerItem><CollapsibleSection title="5. Storage" selected={selections.storage?.name}><SelectionGrid items={data.storages} selectedId={selections.storage?.id} onSelect={(i) => handleSelect('storage', i)} /></CollapsibleSection></StaggerItem>
-                    <StaggerItem><CollapsibleSection title="6. Cooling" selected={selections.cooler?.name}><SelectionGrid items={data.coolers} selectedId={selections.cooler?.id} onSelect={(i) => handleSelect('cooler', i)} /></CollapsibleSection></StaggerItem>
-                    <StaggerItem><CollapsibleSection title="7. Power Supply" selected={selections.psu?.name}><SelectionGrid items={data.psus} selectedId={selections.psu?.id} onSelect={(i) => handleSelect('psu', i)} /></CollapsibleSection></StaggerItem>
-                    <StaggerItem><CollapsibleSection title="8. Cabinet" selected={selections.cabinet?.name}><SelectionGrid items={data.cabinets} selectedId={selections.cabinet?.id} onSelect={(i) => handleSelect('cabinet', i)} warning={selections.gpu ? `Showing cabinets compatible with ${selections.gpu.name}` : undefined} /></CollapsibleSection></StaggerItem>
+    <StaggerGrid className="flex flex-col gap-4">
+        <StaggerItem>
+            <CollapsibleSection 
+                title="1. Processor" 
+                selected={selections.cpu ? (selections.cpu.configurator_name || selections.cpu.name) : null}
+            >
+                <SelectionGrid items={data.cpus} selectedId={selections.cpu?.id} onSelect={(i) => handleSelect('cpu', i)} />
+            </CollapsibleSection>
+        </StaggerItem>
 
-                    <div className="py-4 flex items-center gap-4 opacity-50"><div className="h-[1px] bg-white/20 flex-grow"></div><span className="font-orbitron text-sm uppercase tracking-widest text-brand-silver">Accessories</span><div className="h-[1px] bg-white/20 flex-grow"></div></div>
+        <StaggerItem>
+            <CollapsibleSection 
+                title="2. Motherboard" 
+                selected={selections.motherboard ? (selections.motherboard.configurator_name || selections.motherboard.name) : null}
+            >
+                <SelectionGrid items={data.mobos} selectedId={selections.motherboard?.id} onSelect={(i) => handleSelect('motherboard', i)} warning={!selections.cpu ? "Select CPU first" : undefined} />
+            </CollapsibleSection>
+        </StaggerItem>
 
-                    <StaggerItem><CollapsibleSection title="9. Monitor" icon={<FaDesktop />} selected={selections.monitor?.name}><SelectionGrid items={data.monitors} selectedId={selections.monitor?.id} onSelect={(i) => handleSelect('monitor', i)} /></CollapsibleSection></StaggerItem>
-                    <StaggerItem><CollapsibleSection title="10. Keyboard & Mouse Combo" icon={<FaKeyboard />} selected={selections.combo?.name}><SelectionGrid items={data.combos} selectedId={selections.combo?.id} onSelect={(i) => handleSelect('combo', i)} /></CollapsibleSection></StaggerItem>
-                    <StaggerItem><CollapsibleSection title="11. Keyboard (Individual)" icon={<FaKeyboard />} selected={selections.keyboard?.name}><SelectionGrid items={data.keyboards} selectedId={selections.keyboard?.id} onSelect={(i) => handleSelect('keyboard', i)} /></CollapsibleSection></StaggerItem>
-                    <StaggerItem><CollapsibleSection title="12. Mouse (Individual)" icon={<FaMouse />} selected={selections.mouse?.name}><SelectionGrid items={data.mice} selectedId={selections.mouse?.id} onSelect={(i) => handleSelect('mouse', i)} /></CollapsibleSection></StaggerItem>
-                </StaggerGrid>
-            </div>
+        <StaggerItem>
+            <CollapsibleSection 
+                title="3. Memory (RAM)" 
+                selected={selections.ram ? (selections.ram.configurator_name || selections.ram.name) : null}
+            >
+                <SelectionGrid items={data.rams} selectedId={selections.ram?.id} onSelect={(i) => handleSelect('ram', i)} warning={!selections.motherboard ? "Select Motherboard first" : undefined} />
+            </CollapsibleSection>
+        </StaggerItem>
+
+        <StaggerItem>
+            <CollapsibleSection 
+                title="4. Graphics Card" 
+                selected={selections.gpu ? (selections.gpu.configurator_name || selections.gpu.name) : null}
+            >
+                <SelectionGrid items={data.gpus} selectedId={selections.gpu?.id} onSelect={(i) => handleSelect('gpu', i)} />
+            </CollapsibleSection>
+        </StaggerItem>
+
+        <StaggerItem>
+            <CollapsibleSection 
+                title="5. Storage" 
+                selected={selections.storage ? (selections.storage.configurator_name || selections.storage.name) : null}
+            >
+                <SelectionGrid items={data.storages} selectedId={selections.storage?.id} onSelect={(i) => handleSelect('storage', i)} />
+            </CollapsibleSection>
+        </StaggerItem>
+
+        <StaggerItem>
+            <CollapsibleSection 
+                title="6. Cooling" 
+                selected={selections.cooler ? (selections.cooler.configurator_name || selections.cooler.name) : null}
+            >
+                <SelectionGrid items={data.coolers} selectedId={selections.cooler?.id} onSelect={(i) => handleSelect('cooler', i)} />
+            </CollapsibleSection>
+        </StaggerItem>
+
+        <StaggerItem>
+            <CollapsibleSection 
+                title="7. Power Supply" 
+                selected={selections.psu ? (selections.psu.configurator_name || selections.psu.name) : null}
+            >
+                <SelectionGrid items={data.psus} selectedId={selections.psu?.id} onSelect={(i) => handleSelect('psu', i)} />
+            </CollapsibleSection>
+        </StaggerItem>
+
+        <StaggerItem>
+            <CollapsibleSection 
+                title="8. Cabinet" 
+                selected={selections.cabinet ? (selections.cabinet.configurator_name || selections.cabinet.name) : null}
+            >
+                <SelectionGrid items={data.cabinets} selectedId={selections.cabinet?.id} onSelect={(i) => handleSelect('cabinet', i)} warning={selections.gpu ? `Showing cabinets compatible with ${selections.gpu.configurator_name || selections.gpu.name}` : undefined} />
+            </CollapsibleSection>
+        </StaggerItem>
+
+        <div className="py-4 flex items-center gap-4 opacity-50">
+            <div className="h-[1px] bg-white/20 flex-grow"></div>
+            <span className="font-orbitron text-sm uppercase tracking-widest text-brand-silver">Accessories</span>
+            <div className="h-[1px] bg-white/20 flex-grow"></div>
+        </div>
+
+        <StaggerItem>
+            <CollapsibleSection 
+                title="9. Monitor" 
+                icon={<FaDesktop />} 
+                selected={selections.monitor ? (selections.monitor.configurator_name || selections.monitor.name) : null}
+            >
+                <SelectionGrid items={data.monitors} selectedId={selections.monitor?.id} onSelect={(i) => handleSelect('monitor', i)} />
+            </CollapsibleSection>
+        </StaggerItem>
+
+        <StaggerItem>
+            <CollapsibleSection 
+                title="10. Keyboard & Mouse Combo" 
+                icon={<FaKeyboard />} 
+                selected={selections.combo ? (selections.combo.configurator_name || selections.combo.name) : null}
+            >
+                <SelectionGrid items={data.combos} selectedId={selections.combo?.id} onSelect={(i) => handleSelect('combo', i)} />
+            </CollapsibleSection>
+        </StaggerItem>
+
+        <StaggerItem>
+            <CollapsibleSection 
+                title="11. Keyboard (Individual)" 
+                icon={<FaKeyboard />} 
+                selected={selections.keyboard ? (selections.keyboard.configurator_name || selections.keyboard.name) : null}
+            >
+                <SelectionGrid items={data.keyboards} selectedId={selections.keyboard?.id} onSelect={(i) => handleSelect('keyboard', i)} />
+            </CollapsibleSection>
+        </StaggerItem>
+
+        <StaggerItem>
+            <CollapsibleSection 
+                title="12. Mouse (Individual)" 
+                icon={<FaMouse />} 
+                selected={selections.mouse ? (selections.mouse.configurator_name || selections.mouse.name) : null}
+            >
+                <SelectionGrid items={data.mice} selectedId={selections.mouse?.id} onSelect={(i) => handleSelect('mouse', i)} />
+            </CollapsibleSection>
+        </StaggerItem>
+    </StaggerGrid>
+</div>
         </div>
       </div>
       {mounted && <MobileBar show={showMobileBar} totalPrice={totals.totalPrice} totals={totals} selections={selections} onAddToCart={handleAddToCart} />}

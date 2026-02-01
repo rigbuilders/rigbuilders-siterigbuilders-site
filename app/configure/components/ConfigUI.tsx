@@ -50,7 +50,9 @@ export const SelectionGrid = ({ items, selectedId, onSelect, warning }: { items:
                                                 <span className="text-[10px] font-bold text-brand-silver uppercase tracking-wider">{item.category}</span>
                                                 {selectedId === item.id && <div className="text-brand-purple"><FaCheck /></div>}
                                             </div>
-                                            <h4 className="font-bold text-sm text-white mb-1 leading-tight">{item.name}</h4>
+                                            <h4 className="font-bold text-sm text-white mb-1 leading-tight">
+    {item.configurator_name || item.name}
+</h4>
                                             <div className="flex justify-between items-center pt-3 border-t border-white/5 mt-3">
                                                 <span className="font-bold text-white font-orbitron text-sm">{item.price === 0 ? "FREE" : `₹${item.price.toLocaleString("en-IN")}`}</span>
                                                 {isDisabled && <span className="text-[9px] font-bold text-red-500 uppercase px-2 py-1 bg-red-500/10 rounded">Out of Stock</span>}
@@ -94,13 +96,16 @@ export const SummaryPanel = ({ selections, totals, user, onSave, onAddToCart, sa
             </div>
 
             <div className="space-y-3 mb-6 text-xs max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-                {Object.entries(selections).filter(([k]) => k !== 'osSecondary').map(([key, val]: any) => (
-                    <div key={key} className="flex justify-between items-start">
-                        <span className="text-brand-silver w-1/3 capitalize">{key}</span>
-                        <span className={`w-2/3 text-right truncate ${val ? "text-white" : "text-white/20 italic"}`}>{val ? val.name : "-"}</span>
-                    </div>
-                ))}
-            </div>
+    {Object.entries(selections).filter(([k]) => k !== 'osSecondary').map(([key, val]: any) => (
+        <div key={key} className="flex justify-between items-start">
+            <span className="text-brand-silver w-1/3 capitalize">{key}</span>
+            <span className={`w-2/3 text-right truncate ${val ? "text-white" : "text-white/20 italic"}`}>
+                {/* USE SHORT NAME HERE */}
+                {val ? (val.configurator_name || val.name) : "-"}
+            </span>
+        </div>
+    ))}
+</div>
 
             <div className="pt-6 border-t border-white/10">
                 <div className="flex justify-between items-end mb-4">
@@ -133,8 +138,16 @@ export const MobileBar = ({ show, totalPrice, totals, selections, onAddToCart }:
                         <button onClick={() => setShowList(false)} className="text-xs text-brand-silver hover:text-white bg-white/10 px-2 py-1 rounded">Close</button>
                     </div>
                     <div className="space-y-2 text-xs">
-                        {Object.entries(selections).map(([key, val]: any) => val ? <div key={key} className="flex justify-between border-b border-white/5 pb-1"><span className="text-brand-silver capitalize">{key}</span><span className="text-white font-bold truncate max-w-[150px]">{val.name}</span></div> : null)}
-                    </div>
+    {Object.entries(selections).map(([key, val]: any) => val ? (
+        <div key={key} className="flex justify-between border-b border-white/5 pb-1">
+            <span className="text-brand-silver capitalize">{key}</span>
+            <span className="text-white font-bold truncate max-w-[150px]">
+                {/* USE SHORT NAME HERE */}
+                {val.configurator_name || val.name}
+            </span>
+        </div>
+    ) : null)}
+</div>
                 </div>
             )}
             <div className="flex justify-between items-center gap-3">

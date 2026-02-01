@@ -9,12 +9,14 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { 
   FaStar, FaShoppingCart, FaBolt, FaChevronRight, FaChevronLeft, FaHome, FaRegStar,
-  FaExchangeAlt, FaShieldAlt, FaTruck, FaHandHoldingUsd // <--- NEW ICONS ADDED
+  FaExchangeAlt, FaShieldAlt, FaTruck, FaHandHoldingUsd 
 } from "react-icons/fa";
 import { Reveal } from "@/components/ui/MotionWrappers";
 import { toast } from "sonner"; 
 import ProductBreadcrumb from "@/components/ProductBreadcrumb";
 
+// --- IMPORT THE NEW VARIANT SELECTOR ---
+import VariantSelector from "./components/VariantSelector"; 
 
 interface ProductClientProps {
     initialProduct: any;
@@ -56,7 +58,7 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
     addToCart({ 
         ...product, 
         image: product.image_url,
-        // NEW: Pass COD Policy to Cart
+        // Pass COD Policy to Cart
         cod_policy: product.cod_policy || 'full_cod' 
     });
     if (isBuyNow) {
@@ -102,9 +104,8 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
   };
 
   const isPreBuilt = product.category === 'prebuilt';
-
   
-  // --- NEW CODE: GENERATE GOOGLE STRUCTURED DATA ---
+  // SEO Schema
   const productSchema = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -154,7 +155,7 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
         dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
       />
 
-      {/* --- REPLACEMENT BREADCRUMB --- */}
+      {/* Breadcrumb Navigation */}
       <ProductBreadcrumb 
         category={product.category}
         name={product.name}
@@ -166,7 +167,7 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
       <div className="flex-grow pt-12 pb-12 px-[20px] md:px-[40px] 2xl:px-[100px] relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 xl:gap-20 mb-24">
             
-            {/* GALLERY */}
+            {/* LEFT: GALLERY */}
             <Reveal>
                 <div className="flex flex-col-reverse md:flex-row gap-4 sticky top-32">
                     <div className="flex md:flex-col gap-3 overflow-x-auto md:overflow-y-auto w-full md:w-[90px] md:max-h-[600px] custom-scrollbar shrink-0">
@@ -188,6 +189,7 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
                 </div>
             </Reveal>
 
+            {/* RIGHT: DETAILS */}
             <Reveal delay={0.2}>
                 <div>
                     <div className="flex items-center gap-4 mb-4">
@@ -201,11 +203,10 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
 
                     <h1 className="text-1xl md:text-3xl font-saira font-bold mb-4 leading-tight">{product.name}</h1>
                     
-                    {/* NEW: PRICE BLOCK WITH MRP */}
+                    {/* Price Block */}
                     <div className="mb-8 pb-4 border-b border-white/10">
                         <div className="flex items-end gap-3 mb-1">
                             <div className="text-3xl font-medium text-white font-saira">₹{product.price.toLocaleString("en-IN")}</div>
-                            {/* Simulated MRP (+18%) or use product.mrp if exists */}
                             <div className="text-xl text-white/30 line-through font-saira">
                                 ₹{(product.mrp || Math.round(product.price * 1.18)).toLocaleString("en-IN")}
                             </div>
@@ -216,8 +217,7 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
                         <div className="text-brand-silver text-xs">Inclusive of all taxes</div>
                     </div>
 
-                    
-
+                    {/* Specs / Features Block */}
                     <div className="mb-6 bg-[#1A1A1A]/50 p-6 rounded-xl border border-white/5">
                         <h3 className="font-orbitron font-bold text-white mb-6 uppercase tracking-widest text-sm flex items-center gap-2">
                             <FaBolt className="text-brand-purple" /> {isPreBuilt ? "System Specifications" : "Technical Highlights"}
@@ -242,55 +242,47 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
                         )}
                     </div>
 
-                  {/* --- SERVICE HIGHLIGHTS (DYNAMIC) --- */}
+                    {/* Service Highlights */}
                     <div className="grid grid-cols-2 gap-3 mb-8">
                         <div className="flex flex-col gap-1 p-3 border border-white/5 rounded bg-white/5 hover:border-brand-purple/30 transition-colors">
                             <FaExchangeAlt className="text-brand-white text-lg mb-1" />
                             <span className="text-white text-xs font-bold uppercase">7 Days</span>
                             <span className="text-[10px] text-brand-silver">Replacement Policy</span>
                         </div>
-                        
-                        {/* FUNCTIONAL WARRANTY (Reads from DB or defaults to 3 Years) */}
                         <div className="flex flex-col gap-1 p-3 border border-white/5 rounded bg-white/5 hover:border-brand-purple/30 transition-colors">
                             <FaShieldAlt className="text-brand-white text-lg mb-1" />
                             <span className="text-white text-xs font-bold uppercase">{product.warranty || "3 Years"}</span>
                             <span className="text-[10px] text-brand-silver">Official Warranty</span>
                         </div>
-
                         <div className="flex flex-col gap-1 p-3 border border-white/5 rounded bg-white/5 hover:border-brand-purple/30 transition-colors">
                             <FaTruck className="text-brand-white text-lg mb-1" />
                             <span className="text-white text-xs font-bold uppercase">Safe Shipping</span>
                             <span className="text-[10px] text-brand-silver">Insured Delivery</span>
                         </div>
-
-                        {/* DYNAMIC COD POLICY BADGE */}
                         <div className={`flex flex-col gap-1 p-3 border rounded bg-white/5 transition-colors ${product.cod_policy === 'no_cod' ? 'border-red-500/30' : product.cod_policy === 'partial_cod' ? 'border-yellow-500/30' : 'border-white/5 hover:border-brand-purple/30'}`}>
                             <FaHandHoldingUsd className={`text-lg mb-1 ${product.cod_policy === 'no_cod' ? 'text-red-500' : product.cod_policy === 'partial_cod' ? 'text-yellow-500' : 'text-brand-white'}`} />
-                            
                             {product.cod_policy === 'no_cod' ? (
-                                <>
-                                    <span className="text-red-400 text-xs font-bold uppercase">Online Only</span>
-                                    <span className="text-[10px] text-brand-silver">COD Unavailable</span>
-                                </>
+                                <><span className="text-red-400 text-xs font-bold uppercase">Online Only</span><span className="text-[10px] text-brand-silver">COD Unavailable</span></>
                             ) : product.cod_policy === 'partial_cod' ? (
-                                <>
-                                    <span className="text-yellow-400 text-xs font-bold uppercase">Partial COD</span>
-                                    <span className="text-[10px] text-brand-silver">10% Advance Req.</span>
-                                </>
+                                <><span className="text-yellow-400 text-xs font-bold uppercase">Partial COD</span><span className="text-[10px] text-brand-silver">10% Advance Req.</span></>
                             ) : (
-                                <>
-                                    <span className="text-white text-xs font-bold uppercase">COD Available</span>
-                                    <span className="text-[10px] text-brand-silver">Pay on Delivery</span>
-                                </>
+                                <><span className="text-white text-xs font-bold uppercase">COD Available</span><span className="text-[10px] text-brand-silver">Pay on Delivery</span></>
                             )}
                         </div>
                     </div>
 
+                    {/* --- VARIANT SELECTOR (INJECTED HERE) --- */}
+                    <VariantSelector 
+                        currentProductId={product.id}
+                        variantGroupId={product.variant_group_id}
+                        currentSpecs={product.specs || {}}
+                    />
+
+                    {/* Action Buttons */}
                     <div className="flex gap-4 mb-8">
                         <button 
                             onClick={() => handleAction(false)} 
                             disabled={!product.in_stock} 
-                            /* FIX: Added 'px-4' to prevent icon from touching the left edge on mobile */
                             className="flex-1 py-5 px-4 border border-white/20 hover:border-white hover:bg-white hover:text-black font-orbitron font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed rounded"
                         >
                             <FaShoppingCart /> <span className="truncate">Add to Cart</span>
@@ -309,21 +301,13 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
             </Reveal>
         </div>
 
-         {/* --- SECTION: CINEMATIC VISUAL GALLERY --- */}
+         {/* --- GALLERY SECTION (RETAINED) --- */}
         <div className="mb-24 pt-16 border-t border-white/10 relative z-10">
             <Reveal>
                 <div className="text-center mb-10">
                     <h2 className="text-2xl font-orbitron font-bold text-white uppercase tracking-wider">PRODUCT <span className="text-brand-purple">GALLERY</span></h2>
                 </div>
-                
-                {/* FIX: Removed fixed height on container. Used 'h-auto' so the container MUST expand to fit the children.
-                    We now control height via the children elements directly. */}
                 <div className="flex flex-col md:grid md:grid-cols-3 gap-4 h-auto">
-                    
-                    {/* Main Image:
-                        - Mobile: h-[400px] 
-                        - Desktop: h-[600px] (Explicit height prevents collapse)
-                    */}
                     <div className="w-full h-[400px] md:h-[600px] md:col-span-2 relative rounded-2xl overflow-hidden border border-white/5 group bg-[#151515] flex items-center justify-center">
                         <div className="absolute inset-0 bg-gradient-to-t from-[#121212] via-transparent to-transparent opacity-60 z-10" />
                         {product.image_url ? (
@@ -332,11 +316,6 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
                             <div className="text-white/20 font-orbitron text-2xl -rotate-12">No Preview Available</div>
                         )}
                     </div>
-
-                    {/* Side Images Column:
-                        - Mobile: h-[300px] 
-                        - Desktop: h-[600px] (Matches main image height)
-                    */}
                     <div className="w-full h-[300px] md:h-[600px] flex flex-col gap-4">
                         {(product.gallery_urls?.length ? product.gallery_urls : [product.image_url, product.image_url])
                             .filter((url: any) => url && url.length > 0)
@@ -351,7 +330,7 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
             </Reveal>
         </div>
 
-        {/* --- MOVED SECTION: PRODUCT DESCRIPTION --- */}
+        {/* --- DESCRIPTION (RETAINED) --- */}
         <div className="mb-24 max-w-4xl mx-auto border-t border-white/10 pt-12 text-center">
             <Reveal>
                 <h3 className="text-2xl font-orbitron font-bold text-white uppercase tracking-wider pb-4 ">DESCRIPTION <span className="text-brand-purple"></span></h3>
@@ -361,7 +340,7 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
             </Reveal>
         </div>
 
-        {/* RELATED PRODUCTS */}
+        {/* --- RELATED PRODUCTS (RETAINED) --- */}
         {relatedProducts.length > 0 && (
             <div className="border-t border-white/10 pt-16 pb-20">
                 <h3 className="font-orbitron font-bold text-2xl mb-8 uppercase text-center">Related Gear</h3>
@@ -377,9 +356,7 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
             </div>
         )}
 
-        
-
-        {/* --- SECTION: REVIEWS (Login Required Check is Inside submitReview) --- */}
+        {/* --- REVIEWS (RETAINED) --- */}
         <div className="border-t border-white/10 pt-16">
              <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
                  <div className="lg:col-span-1">

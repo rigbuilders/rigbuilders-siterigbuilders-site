@@ -2,15 +2,15 @@
 
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { useState, useMemo, useEffect, use } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useCart } from "@/app/context/CartContext"; 
 import { notFound, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient"; 
 import Link from "next/link";
-import { Reveal, StaggerGrid, StaggerItem } from "@/components/ui/MotionWrappers";
+import { StaggerGrid, StaggerItem } from "@/components/ui/MotionWrappers";
 import { FaShoppingCart, FaArrowRight, FaChevronDown, FaChevronUp } from "react-icons/fa";
 import { toast } from "sonner"; 
-import CategoryLanding from "@/components/CategoryLanding"; // <--- NEW IMPORT
+import CategoryLanding from "@/components/CategoryLanding"; 
 
 const validCategories = [
   "cpu", "gpu", "motherboard", "memory", "ram", "storage", "psu", "cooler", "cabinet", "prebuilt",
@@ -55,14 +55,11 @@ const FilterGroup = ({ title, options, selected, onChange }: any) => {
   );
 };
 
-// Change function signature to accept simple 'category' string
 export default function CategoryClient({ category }: { category: string }) {
-  // const resolvedParams = use(params); // <--- DELETE THIS LINE
   const router = useRouter();
   const searchParams = useSearchParams();
   const { addToCart } = useCart();
   
-  // Use the prop directly
   const categoryParam = category.toLowerCase();
   const dbCategory = categoryParam === "memory" ? "ram" : categoryParam;
 
@@ -71,7 +68,6 @@ export default function CategoryClient({ category }: { category: string }) {
   }
 
   // --- INTERCEPTION LOGIC ---
-  // If category is CPU or GPU, AND no specific brand filter is in the URL, show Landing Page.
   const paramBrand = searchParams.get('brand');
   const paramSearch = searchParams.get('search');
   const showLanding = (dbCategory === 'cpu' || dbCategory === 'gpu') && !paramBrand && !paramSearch;
@@ -80,12 +76,10 @@ export default function CategoryClient({ category }: { category: string }) {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Initialize filters with URL params if present
   const [selectedBrand, setSelectedBrand] = useState<string[]>(paramBrand ? [paramBrand] : []);
   const [selectedPrice, setSelectedPrice] = useState<string[]>([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
-  // If user navigated via Landing Page (e.g., clicked "Intel"), we sync the state
   useEffect(() => {
     if (paramBrand) {
         setSelectedBrand([paramBrand]);
@@ -94,16 +88,41 @@ export default function CategoryClient({ category }: { category: string }) {
 
   useEffect(() => {
     const fetchProducts = async () => {
-      // Don't fetch if we are showing the landing page (saves resources)
+      // Don't fetch if we are showing the landing page
       if (showLanding) {
           setLoading(false);
           return;
       }
 
       setLoading(true);
-      const { data } = await supabase.from('products').select('*').eq('category', dbCategory);
+      const { data } = await supabase
+        .from('products')
+        .select('*')
+        .eq('category', dbCategory)
+        .order('created_at', { ascending: true }); // Sort by creation to keep parent first
+
       if (data) {
-        setProducts(data.map(p => ({ ...p, image: p.image_url, ...(p.specs || {}) })));
+        // --- VARIANT GROUPING LOGIC (THE FIX) ---
+        const uniqueList: any[] = [];
+        const seenGroups = new Set<string>();
+
+        data.forEach(p => {
+            const formattedProduct = { ...p, image: p.image_url, ...(p.specs || {}) };
+
+            if (p.variant_group_id) {
+                // If this is a variant, check if we've already added a sibling
+                if (!seenGroups.has(p.variant_group_id)) {
+                    seenGroups.add(p.variant_group_id);
+                    uniqueList.push(formattedProduct); // Add only the first one found
+                }
+                // If seen, we SKIP it (it's hidden from category page)
+            } else {
+                // If it's a standalone product, always add it
+                uniqueList.push(formattedProduct);
+            }
+        });
+
+        setProducts(uniqueList);
       }
       setLoading(false);
     };

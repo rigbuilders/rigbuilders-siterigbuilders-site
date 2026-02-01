@@ -1,8 +1,7 @@
-// app/admin/products/components/ProductList.tsx
 "use client";
 
 import { useMemo, useState } from "react";
-import { FaChevronDown, FaChevronRight, FaEdit, FaTrash, FaCopy } from "react-icons/fa";
+import { FaChevronDown, FaChevronRight, FaEdit, FaTrash, FaPlus, FaLayerGroup, FaTag } from "react-icons/fa";
 import { GROUPS, BASE_CATEGORY_MAP } from "../constants";
 
 interface ProductListProps {
@@ -10,110 +9,141 @@ interface ProductListProps {
   existingCategories: any[];
   handleEditClick: (p: any) => void;
   handleDelete: (id: string) => void;
-  handleCloneClick: (p: any) => void; // <--- NEW PROP
+  handleVariantClick: (p: any) => void;
 }
 
 export default function ProductList({ 
-  products, existingCategories, handleEditClick, handleDelete, handleCloneClick 
+  products, existingCategories, handleEditClick, handleDelete, handleVariantClick 
 }: ProductListProps) {
   
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({ components: true, desktops: true, accessories: true });
-  const [expandedCats, setExpandedCats] = useState<Record<string, boolean>>({});
+  const [expandedFamilies, setExpandedFamilies] = useState<Record<string, boolean>>({});
 
-  const toggleGroup = (grp: string) => setExpandedGroups(prev => ({ ...prev, [grp]: !prev[grp] }));
-  const toggleCat = (cat: string) => setExpandedCats(prev => ({ ...prev, [cat]: !prev[cat] }));
-
-  // Tree Generation
-  const organizedProducts = useMemo(() => {
-    const tree: Record<string, Record<string, Record<string, any[]>>> = {};
+  // --- 1. GROUPING LOGIC (The Magic) ---
+  const groupedProducts = useMemo(() => {
+    const groups: Record<string, any[]> = {};
+    const singles: any[] = [];
 
     products.forEach(p => {
-        const group = p.group || p.specs?.group || BASE_CATEGORY_MAP[p.category] || "accessories";
-        const catName = existingCategories.find(c => c.id === p.category)?.name || p.category;
-        const brand = p.brand || "Generic";
-
-        if (!tree[group]) tree[group] = {};
-        if (!tree[group][catName]) tree[group][catName] = {};
-        if (!tree[group][catName][brand]) tree[group][catName][brand] = [];
-
-        tree[group][catName][brand].push(p);
+        if (p.variant_group_id) {
+            if (!groups[p.variant_group_id]) groups[p.variant_group_id] = [];
+            groups[p.variant_group_id].push(p);
+        } else {
+            singles.push(p);
+        }
     });
-    return tree;
-  }, [products, existingCategories]);
+
+    // Sort variants inside groups by creation date
+    Object.keys(groups).forEach(k => groups[k].sort((a,b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
+
+    return { groups, singles };
+  }, [products]);
+
+  const toggleFamily = (id: string) => setExpandedFamilies(p => ({...p, [id]: !p[id]}));
+
+  // Helper to render a row
+  const ProductRow = ({ p, isChild = false }: { p: any, isChild?: boolean }) => (
+    <div className={`flex justify-between items-center p-3 rounded border transition-all ${isChild ? "bg-black/40 border-white/5 ml-6" : "bg-[#1A1A1A] border-white/10 hover:border-brand-purple/30"}`}>
+        <div className="flex items-center gap-3 overflow-hidden">
+            {/* Image Thumbnail */}
+            <div className="w-10 h-10 bg-black rounded border border-white/10 shrink-0 overflow-hidden relative">
+                {p.image_url ? <img src={p.image_url} className="w-full h-full object-cover" /> : <div className="text-[8px] text-white/20 flex items-center justify-center h-full">IMG</div>}
+            </div>
+            
+            <div className="flex flex-col truncate">
+                <div className="flex items-center gap-2">
+                    <span className={`text-sm font-bold truncate text-white`}>{p.name}</span>
+                    {!p.in_stock && <span className="text-[9px] bg-red-500/20 text-red-500 px-1 rounded uppercase">OOS</span>}
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-brand-silver">
+                    <span className="uppercase">{p.category}</span>
+                    {/* SHOW THE LABEL IF IT EXISTS */}
+                    {p.specs?.variant_label && (
+                        <span className="bg-brand-purple/20 text-brand-purple border border-brand-purple/20 px-2 rounded flex items-center gap-1">
+                            <FaTag size={8} /> {p.specs.variant_label}
+                        </span>
+                    )}
+                </div>
+            </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+            <span className="font-mono text-xs font-bold text-white mr-2">₹{p.price.toLocaleString("en-IN")}</span>
+            
+            {/* ACTION BUTTONS */}
+            <div className="flex gap-1">
+                {/* Variant Button: Only show on parents or singles */}
+                {!isChild && (
+                    <button onClick={(e) => { e.stopPropagation(); handleVariantClick(p); }} className="p-2 hover:bg-brand-purple hover:text-white text-brand-purple rounded transition-colors" title="Create Variant">
+                        <FaPlus size={12} />
+                    </button>
+                )}
+                <button onClick={(e) => { e.stopPropagation(); handleEditClick(p); }} className="p-2 hover:bg-blue-500 hover:text-white text-blue-500 rounded transition-colors" title="Edit">
+                    <FaEdit size={12} />
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }} className="p-2 hover:bg-red-500 hover:text-white text-red-500 rounded transition-colors" title="Delete">
+                    <FaTrash size={12} />
+                </button>
+            </div>
+        </div>
+    </div>
+  );
 
   return (
-    <div className="bg-[#1A1A1A] p-6 rounded-xl border border-white/5 min-h-[500px]">
-        <h2 className="font-bold text-xl mb-6">Product Inventory</h2>
+    <div className="bg-[#121212] p-6 rounded-xl border border-white/5 min-h-[600px] flex flex-col gap-6">
+        <div className="flex justify-between items-center pb-4 border-b border-white/10">
+            <h2 className="font-bold text-xl text-white">Inventory Manager</h2>
+            <div className="text-xs text-brand-silver">
+                {Object.keys(groupedProducts.groups).length} Families • {groupedProducts.singles.length} Singles
+            </div>
+        </div>
         
-        <div className="space-y-4">
-            {GROUPS.map((group) => {
-                const groupHasProducts = organizedProducts[group.id];
-                if(!groupHasProducts) return null;
+        <div className="space-y-4 overflow-y-auto pr-2 custom-scrollbar max-h-[80vh]">
+            
+            {/* 1. VARIANT FAMILIES */}
+            {Object.entries(groupedProducts.groups).map(([groupId, groupItems]) => {
+                const parent = groupItems[0]; // First item acts as representative
+                const isOpen = expandedFamilies[groupId];
 
                 return (
-                    <div key={group.id} className="border border-white/10 rounded-lg overflow-hidden bg-[#121212]">
-                        {/* GROUP HEADER */}
+                    <div key={groupId} className="border border-white/10 rounded-lg overflow-hidden bg-[#151515]">
+                        {/* Family Header */}
                         <div 
-                            className="flex items-center justify-between p-4 bg-white/5 cursor-pointer hover:bg-white/10 transition-colors"
-                            onClick={() => toggleGroup(group.id)}
+                            onClick={() => toggleFamily(groupId)}
+                            className="flex justify-between items-center p-3 cursor-pointer hover:bg-white/5 transition-colors bg-brand-purple/5 border-l-2 border-brand-purple"
                         >
-                            <h3 className="font-orbitron font-bold text-lg text-brand-purple flex items-center gap-2">
-                                {expandedGroups[group.id] ? <FaChevronDown size={12}/> : <FaChevronRight size={12}/>}
-                                {group.name}
-                            </h3>
-                            <span className="text-xs text-brand-silver bg-black/50 px-2 py-1 rounded">
-                                {Object.values(organizedProducts[group.id] || {}).reduce((acc:any, brands:any) => acc + Object.values(brands).flat().length, 0)} Items
-                            </span>
+                            <div className="flex items-center gap-3">
+                                <div className={`text-brand-purple transition-transform duration-300 ${isOpen ? "rotate-90" : ""}`}><FaChevronRight size={12}/></div>
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-bold text-white flex items-center gap-2">
+                                        <FaLayerGroup className="text-brand-purple"/> {parent.name.split('(')[0]} <span className="text-white/40 text-xs font-normal">(Family)</span>
+                                    </span>
+                                    <span className="text-[10px] text-brand-silver">{groupItems.length} Variants</span>
+                                </div>
+                            </div>
+                            
+                            {/* Quick Add to Family */}
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); handleVariantClick(parent); }}
+                                className="text-xs bg-brand-purple text-white px-3 py-1.5 rounded font-bold uppercase hover:bg-white hover:text-black transition-all"
+                            >
+                                + Add Variant
+                            </button>
                         </div>
 
-                        {/* CATEGORIES */}
-                        {expandedGroups[group.id] && (
-                            <div className="p-4 space-y-4 bg-black/20 border-t border-white/5">
-                                {Object.entries(organizedProducts[group.id]).map(([catName, brands]) => (
-                                    <div key={catName} className="ml-2">
-                                        <div 
-                                            className="flex items-center gap-2 text-sm font-bold text-white mb-3 cursor-pointer select-none"
-                                            onClick={() => toggleCat(catName)}
-                                        >
-                                            {expandedCats[catName] ? <FaChevronDown size={10} className="text-brand-silver"/> : <FaChevronRight size={10} className="text-brand-silver"/>}
-                                            <span className="uppercase tracking-wider">{catName}</span>
-                                        </div>
-
-                                        {/* BRANDS & PRODUCTS */}
-                                        {expandedCats[catName] && (
-                                            <div className="ml-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                {Object.entries(brands).map(([brandName, brandProducts]) => (
-                                                    <div key={brandName} className="bg-[#1A1A1A] border border-white/5 rounded p-3">
-                                                        <h4 className="text-xs text-brand-silver font-bold mb-2 uppercase border-b border-white/5 pb-1">{brandName}</h4>
-                                                        <div className="space-y-2">
-                                                            {brandProducts.map((p) => (
-                                                                <div key={p.id} className="flex justify-between items-center group/item hover:bg-white/5 p-1 rounded transition-colors">
-                                                                    <div className="flex items-center gap-2 max-w-[70%]">
-                                                                        {p.cod_policy === 'no_cod' && <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" title="Online Only" />}
-                                                                        {p.cod_policy === 'partial_cod' && <div className="w-2 h-2 rounded-full bg-yellow-500 shrink-0" title="10% Advance" />}
-                                                                        
-                                                                        <span className={`text-xs truncate ${!p.in_stock ? 'text-white/30 line-through' : 'text-white'}`}>{p.name}</span>
-                                                                    </div>
-                                                                    
-                                                                    <div className="flex gap-2 opacity-50 group-hover/item:opacity-100">
-                                                                        <button onClick={() => handleCloneClick(p)} className="text-blue-400 hover:text-white" title="Clone"><FaCopy size={12}/></button>
-                                                                        <button onClick={() => handleEditClick(p)} className="text-brand-purple hover:text-white" title="Edit"><FaEdit size={12}/></button>
-                                                                        <button onClick={() => handleDelete(p.id)} className="text-red-500 hover:text-red-400" title="Delete"><FaTrash size={12}/></button>
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
+                        {/* Variants List */}
+                        {isOpen && (
+                            <div className="p-2 space-y-2 bg-black/20 border-t border-white/5">
+                                {groupItems.map(p => <ProductRow key={p.id} p={p} isChild={true} />)}
                             </div>
                         )}
                     </div>
                 );
             })}
+
+            {/* 2. SINGLE ITEMS */}
+            {groupedProducts.singles.map(p => <ProductRow key={p.id} p={p} />)}
+            
+            {products.length === 0 && <div className="text-center py-10 text-white/20 italic">No products found.</div>}
         </div>
     </div>
   );

@@ -6,6 +6,7 @@ export interface Product {
   brand: string;
   image: string;
   inStock: boolean;
+  configurator_name?: string;
   
   // Specs from DB
   socket?: string;
