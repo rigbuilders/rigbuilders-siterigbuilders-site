@@ -1,5 +1,15 @@
 import React from 'react';
-import { Page, Text, View, Document, StyleSheet, Image } from '@react-pdf/renderer';
+import { Page, Text, View, Document, StyleSheet, Image, Font } from '@react-pdf/renderer';
+
+// --- REGISTER FONT (Optional but recommended for bold/italics) ---
+// Font.register({
+//   family: 'Helvetica',
+//   fonts: [
+//     { src: 'https://cdn.jsdelivr.net/npm/@canvas-fonts/helvetica@1.0.4/Helvetica.ttf' },
+//     { src: 'https://cdn.jsdelivr.net/npm/@canvas-fonts/helvetica@1.0.4/Helvetica-Bold.ttf', fontWeight: 'bold' }
+//   ]
+// });
+
 
 // --- UTILS: NUMBER TO WORDS ---
 const numberToWords = (n: number): string => {
@@ -34,21 +44,34 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row' },
   borderBottom: { borderBottom: '1px solid #000' },
   borderRight: { borderRight: '1px solid #000' },
-  headerLeft: { width: '55%', padding: 10 },
-  headerRight: { width: '45%' },
-  titleBox: { height: 35, justifyContent: 'center', alignItems: 'center', borderBottom: '1px solid #000' },
-  titleText: { fontSize: 14, fontWeight: 'bold' },
-  logo: { width: 120, marginBottom: 5 },
+  
+  // HEADER STYLES
+  headerTopSplit: { flexDirection: 'row', borderBottom: '1px solid #000', minHeight: 110 },
+  headerLeft: { width: '60%', padding: 12, borderRight: '1px solid #000' },
+  headerRight: { width: '40%', flexDirection: 'column' }, // Removed padding to allow edge-to-edge borders inside
+  logo: { width: 140, marginBottom: 8 },
+
   labelBold: { fontSize: 8, fontWeight: 'bold', marginTop: 3 },
   textNormal: { fontSize: 8 },
-  rightInfoBox: { padding: 10, justifyContent: 'center' },
-  idStrip: { flexDirection: 'row', borderBottom: '1px solid #000', backgroundColor: 'transparent' },
+
+  // TAX INVOICE TITLE & META BOXES
+  taxInvoiceBox: { padding: 10, borderBottom: '1px solid #000', alignItems: 'center', justifyContent: 'center' },
+  taxInvoiceTitle: { fontSize: 16, fontWeight: 'bold', letterSpacing: 1 },
+  metaInfoBox: { padding: 12, flex: 1, justifyContent: 'center' },
+  metaLabel: { fontSize: 9, fontWeight: 'bold', marginBottom: 3 },
+  metaValue: { fontSize: 9, marginBottom: 8 },
+  // ID STRIP
+  idStrip: { flexDirection: 'row', borderBottom: '1px solid #000' },
   idCol: { width: '33.33%', padding: 5, borderRight: '1px solid #000' },
   idText: { fontSize: 9, fontWeight: 'bold', textAlign: 'center' },
-  tableHeader: { flexDirection: 'row', borderBottom: '1px solid #000', backgroundColor: 'transparent', height: 20, alignItems: 'center' },
+
+  // TABLE STYLES
+  tableHeader: { flexDirection: 'row', borderBottom: '1px solid #000', backgroundColor: '#f0f0f0', height: 25, alignItems: 'center' },
   tableRow: { flexDirection: 'row', borderBottom: '1px solid #000', minHeight: 18, alignItems: 'center' },
-  th: { fontSize: 7, fontWeight: 'bold', textAlign: 'center', borderRight: '1px solid #000', height: '100%', padding: 2 },
+  th: { fontSize: 7, fontWeight: 'bold', textAlign: 'center', borderRight: '1px solid #000', height: '100%', padding: 4, justifyContent: 'center', display: 'flex', flexDirection: 'column' },
   td: { fontSize: 8, textAlign: 'center', borderRight: '1px solid #000', height: '100%', padding: 2 },
+  
+  // Column Widths
   colSr: { width: '5%' },
   colDesc: { width: '30%', textAlign: 'left', paddingLeft: 4 },
   colHsn: { width: '10%' },
@@ -56,9 +79,9 @@ const styles = StyleSheet.create({
   colUnit: { width: '5%' },
   colPrice: { width: '10%' },
   colTax: { width: '9%' },
-  colTax2: { width: '9%' },
-  colTax3: { width: '9%' },
   colTotal: { width: '13%', borderRight: 'none' },
+
+  // FOOTER STYLES
   totalRow: { flexDirection: 'row', borderBottom: '1px solid #000', height: 20, alignItems: 'center' },
   footerSplit: { flexDirection: 'row', borderBottom: '1px solid #000' },
   footerHalf: { width: '50%', padding: 8 },
@@ -72,8 +95,7 @@ const styles = StyleSheet.create({
 export const OrderPDF = ({ order }: { order: any }) => {
   const items = order?.items || [];
   const taxDetails = order?.tax_details || {};
-  // FIX: Check billing_address OR shipping_address
-  // FIX: Handle both Database format (name/address) and PDF format (fullName/addressLine1)
+  
   const rawAddr = order?.billing_address || order?.shipping_address || {};
   
   const address = {
@@ -90,78 +112,50 @@ export const OrderPDF = ({ order }: { order: any }) => {
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.container}>
-            {/* 1. HEADER */}
-            {/* CALCULATE SPLITS FOR PDF */}
-            {(() => {
-                const total = Number(order?.total_amount || 0);
-                let advance = 0;
-                let balance = 0;
+            
+          {/* 1. HEADER SECTION (SPLIT 60/40) */}
+            <View style={styles.headerTopSplit}>
+                {/* LEFT SIDE: LOGO, ADDRESS, GSTIN, CONTACT */}
+                <View style={styles.headerLeft}>
+                    <Image style={styles.logo} src="/icons/logo.png" />
+                    <Text style={styles.textNormal}><Text style={styles.labelBold}>ADDRESS: </Text>MCB Z2 12267, SAHIBZADA JUJHAR SINGH NAGAR,</Text>
+                    <Text style={styles.textNormal}>STREET NO. 3A, BATHINDA, PUNJAB, INDIA - 151001</Text>
+                    <Text style={{ fontSize: 9, marginTop: 4 }}><Text style={{ fontWeight: 'bold' }}>GSTIN: </Text>03PPSPS3291K1ZV</Text>
+                    <Text style={{ fontSize: 9, marginTop: 4 }}><Text style={{ fontWeight: 'bold' }}>PHONE: </Text>+91 7707801014</Text>
+                    <Text style={{ fontSize: 9, marginTop: 2 }}><Text style={{ fontWeight: 'bold' }}>EMAIL: </Text>info@rigbuilders.in</Text>
+                </View>
 
-                // Logic: Determine how much is already paid vs due
-                if (order?.payment_mode === 'PARTIAL_COD') {
-                    // If DB has 'amount_paid', use it. Otherwise assume 10%.
-                    advance = Number(order.amount_paid) || Math.round(total * 0.10);
-                    balance = total - advance;
-                } else if (order?.payment_mode === 'ONLINE' || order?.payment_mode === 'AMAZON_PAY') {
-                    advance = total;
-                    balance = 0;
-                } else {
-                    // Full COD case
-                    advance = 0;
-                    balance = total;
-                }
-
-                return (
-                    <View>
-                        {/* 1. GRAND TOTAL ROW */}
-                        <View style={styles.totalRow}>
-                            <View style={{ width: '87%', paddingRight: 10 }}>
-                                <Text style={{ textAlign: 'right', fontWeight: 'bold' }}>GRAND TOTAL</Text>
-                            </View>
-                            <View style={{ width: '13%' }}>
-                                <Text style={{ textAlign: 'center', fontWeight: 'bold' }}>
-                                    {total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                </Text>
-                            </View>
-                        </View>
-
-                        {/* 2. SHOW SPLIT IF PARTIAL COD (Crucial for Courier) */}
-                        {order?.payment_mode === 'PARTIAL_COD' && (
-                            <>
-                                <View style={[styles.row, { borderBottom: '1px solid #000', height: 20, alignItems: 'center' }]}>
-                                    <View style={{ width: '87%', paddingRight: 10 }}>
-                                        <Text style={{ textAlign: 'right', fontSize: 8 }}>LESS: ADVANCE RECEIVED</Text>
-                                    </View>
-                                    <View style={{ width: '13%' }}>
-                                        <Text style={{ textAlign: 'center', fontSize: 8 }}>
-                                            {advance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                        </Text>
-                                    </View>
-                                </View>
-                                <View style={[styles.row, { borderBottom: '1px solid #000', height: 20, alignItems: 'center', backgroundColor: '#e0e0e0' }]}>
-                                    <View style={{ width: '87%', paddingRight: 10 }}>
-                                        <Text style={{ textAlign: 'right', fontWeight: 'bold' }}>BALANCE DUE (COD)</Text>
-                                    </View>
-                                    <View style={{ width: '13%' }}>
-                                        <Text style={{ textAlign: 'center', fontWeight: 'bold' }}>
-                                            {balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                        </Text>
-                                    </View>
-                                </View>
-                            </>
-                        )}
+                {/* RIGHT SIDE: TAX INVOICE TITLE & ORDER META INFO */}
+                <View style={styles.headerRight}>
+                    {/* TITLE BOX WITH BOTTOM BORDER */}
+                    <View style={styles.taxInvoiceBox}>
+                        <Text style={styles.taxInvoiceTitle}>TAX INVOICE</Text>
                     </View>
-                );
-            })()}
+                    
+                    {/* STACKED META INFO */}
+                    <View style={styles.metaInfoBox}>
+                        <Text style={styles.metaLabel}>SALES CHANNEL :</Text>
+                        <Text style={styles.metaValue}>ONLINE</Text>
+                        
+                        <Text style={styles.metaLabel}>PAYMENT MODE :</Text>
+                        <Text style={styles.metaValue}>
+                            {order?.payment_mode === 'PARTIAL_COD' ? 'PARTIAL COD' : order?.payment_mode === 'ONLINE' ? 'ONLINE/UPI' : 'COD'}
+                        </Text>
+                        
+                        <Text style={styles.metaLabel}>DELIVERY MODE :</Text>
+                        <Text style={[styles.metaValue, { marginBottom: 0 }]}>COURIER</Text>
+                    </View>
+                </View>
+            </View>
 
-            {/* 2. ID STRIP */}
+            {/* 2. ID STRIP (Proceed directly to ID Strip) */}
             <View style={styles.idStrip}>
                 <View style={styles.idCol}><Text style={styles.idText}>DATE : {date}</Text></View>
                 <View style={styles.idCol}><Text style={styles.idText}>INVOICE NO : {order?.invoice_no || "PENDING"}</Text></View>
                 <View style={[styles.idCol, { borderRight: 'none' }]}><Text style={styles.idText}>ORDER ID : {order?.display_id}</Text></View>
             </View>
 
-            {/* 3. TABLE */}
+            {/* 4. ITEMS TABLE */}
             <View>
                 <View style={styles.tableHeader}>
                     <Text style={[styles.th, styles.colSr]}>SR</Text>
@@ -171,18 +165,15 @@ export const OrderPDF = ({ order }: { order: any }) => {
                     <Text style={[styles.th, styles.colUnit]}>UNIT</Text>
                     <Text style={[styles.th, styles.colPrice]}>PRICE</Text>
                     <Text style={[styles.th, styles.colTax]}>CGST</Text>
-                    <Text style={[styles.th, styles.colTax2]}>SGST</Text>
-                    <Text style={[styles.th, styles.colTax3]}>IGST</Text>
+                    <Text style={[styles.th, styles.colTax]}>SGST</Text>
+                    <Text style={[styles.th, styles.colTax]}>IGST</Text>
                     <Text style={[styles.th, styles.colTotal]}>TOTAL</Text>
                 </View>
 
                 {items.map((item: any, i: number) => {
-                    // 1. Get Values & Handle "NaN" safety
                     const unitPrice = Number(item.price) || 0;
                     const qty = Number(item.quantity) || 1; 
 
-                    // 2. GST Calculation (No Math.round)
-                    // We keep the exact decimal values for calculation
                     const basicPrice = unitPrice / 1.18;
                     const totalTaxAmt = unitPrice - basicPrice;
                     const totalLine = unitPrice * qty;
@@ -194,27 +185,10 @@ export const OrderPDF = ({ order }: { order: any }) => {
                             <Text style={[styles.td, styles.colHsn]}>{item.hsn_code || '8471'}</Text>
                             <Text style={[styles.td, styles.colQty]}>{qty}</Text>
                             <Text style={[styles.td, styles.colUnit]}>PCS</Text>
-                            
-                            {/* 3. Display with .toFixed(2) for 2 decimal places */}
-                            <Text style={[styles.td, styles.colPrice]}>
-                                {basicPrice.toFixed(2)}
-                            </Text>
-
-                            {/* CGST (Half of Tax) */}
-                            <Text style={[styles.td, styles.colTax]}>
-                                {isInterState ? "0.00" : (totalTaxAmt / 2).toFixed(2)}
-                            </Text>
-
-                            {/* SGST (Half of Tax) */}
-                            <Text style={[styles.td, styles.colTax2]}>
-                                {isInterState ? "0.00" : (totalTaxAmt / 2).toFixed(2)}
-                            </Text>
-
-                            {/* IGST (Full Tax if Interstate) */}
-                            <Text style={[styles.td, styles.colTax3]}>
-                                {isInterState ? totalTaxAmt.toFixed(2) : "0.00"}
-                            </Text>
-
+                            <Text style={[styles.td, styles.colPrice]}>{basicPrice.toFixed(2)}</Text>
+                            <Text style={[styles.td, styles.colTax]}>{isInterState ? "0.00" : (totalTaxAmt / 2).toFixed(2)}</Text>
+                            <Text style={[styles.td, styles.colTax]}>{isInterState ? "0.00" : (totalTaxAmt / 2).toFixed(2)}</Text>
+                            <Text style={[styles.td, styles.colTax]}>{isInterState ? totalTaxAmt.toFixed(2) : "0.00"}</Text>
                             <Text style={[styles.td, styles.colTotal, { borderRight: 'none' }]}>
                                 {totalLine.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </Text>
@@ -222,27 +196,75 @@ export const OrderPDF = ({ order }: { order: any }) => {
                     );
                 })}
                 
+                {/* Minimum height filler row */}
                 <View style={[styles.tableRow, { height: 100 }]} />
                 
-                <View style={styles.totalRow}>
-                    <View style={{ width: '87%', paddingRight: 10 }}>
-                        <Text style={{ textAlign: 'right', fontWeight: 'bold' }}>GRAND TOTAL</Text>
-                    </View>
-                    <View style={{ width: '13%' }}>
-                        <Text style={{ textAlign: 'center', fontWeight: 'bold' }}>
-                            {/* FIX: Ensure number format */}
-                            {Number(order?.total_amount || 0).toLocaleString('en-IN')}
-                        </Text>
-                    </View>
-                </View>
+                {/* 5. TOTALS CALCULATION BLOCK */}
+                {(() => {
+                    const total = Number(order?.total_amount || 0);
+                    let advance = 0;
+                    let balance = 0;
+
+                    if (order?.payment_mode === 'PARTIAL_COD') {
+                        advance = Number(order.amount_paid) || Math.round(total * 0.10);
+                        balance = total - advance;
+                    } else if (order?.payment_mode === 'ONLINE' || order?.payment_mode === 'AMAZON_PAY') {
+                        advance = total;
+                        balance = 0;
+                    } else {
+                        advance = 0;
+                        balance = total;
+                    }
+
+                    return (
+                        <View>
+                            <View style={styles.totalRow}>
+                                <View style={{ width: '87%', paddingRight: 10 }}>
+                                    <Text style={{ textAlign: 'right', fontWeight: 'bold' }}>GRAND TOTAL</Text>
+                                </View>
+                                <View style={{ width: '13%' }}>
+                                    <Text style={{ textAlign: 'center', fontWeight: 'bold' }}>
+                                        {total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </Text>
+                                </View>
+                            </View>
+
+                            {/* SHOW SPLIT IF PARTIAL COD */}
+                            {order?.payment_mode === 'PARTIAL_COD' && (
+                                <>
+                                    <View style={[styles.row, { borderBottom: '1px solid #000', height: 20, alignItems: 'center' }]}>
+                                        <View style={{ width: '87%', paddingRight: 10 }}>
+                                            <Text style={{ textAlign: 'right', fontSize: 8 }}>LESS: ADVANCE RECEIVED</Text>
+                                        </View>
+                                        <View style={{ width: '13%' }}>
+                                            <Text style={{ textAlign: 'center', fontSize: 8 }}>
+                                                {advance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                    <View style={[styles.row, { borderBottom: '1px solid #000', height: 20, alignItems: 'center', backgroundColor: '#e0e0e0' }]}>
+                                        <View style={{ width: '87%', paddingRight: 10 }}>
+                                            <Text style={{ textAlign: 'right', fontWeight: 'bold' }}>BALANCE DUE (COD)</Text>
+                                        </View>
+                                        <View style={{ width: '13%' }}>
+                                            <Text style={{ textAlign: 'center', fontWeight: 'bold' }}>
+                                                {balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                </>
+                            )}
+                        </View>
+                    );
+                })()}
             </View>
 
-            {/* 4. AMOUNT IN WORDS */}
+            {/* 6. AMOUNT IN WORDS */}
             <View style={[styles.borderBottom, { padding: 5 }]}>
                 <Text style={styles.labelBold}>AMOUNT IN WORDS : <Text style={{ fontWeight: 'normal' }}>{numberToWords(order?.total_amount || 0).toUpperCase()} RUPEES ONLY</Text></Text>
             </View>
 
-            {/* 5. ADDRESSES (Fixed Variable) */}
+            {/* 7. ADDRESSES FOOTER */}
             <View style={styles.footerSplit}>
                 <View style={[styles.footerHalf, styles.borderRight]}>
                     <Text style={styles.labelBold}>BILLED TO :</Text>
@@ -258,7 +280,7 @@ export const OrderPDF = ({ order }: { order: any }) => {
                 </View>
             </View>
 
-            {/* 6. TERMS & SIGNATORY */}
+            {/* 8. TERMS & SIGNATORY */}
             <View style={styles.termsRow}>
                 <View style={styles.termsBox}>
                     <Text style={styles.labelBold}>TERMS & CONDITIONS :</Text>
@@ -272,7 +294,7 @@ export const OrderPDF = ({ order }: { order: any }) => {
                 </View>
             </View>
 
-            {/* 7. BANK */}
+            {/* 9. BANK DETAILS */}
             <View style={styles.bankBox}>
                 <Text style={styles.labelBold}>BANK DETAILS :</Text>
                 <Text style={styles.textNormal}>BANK NAME : PUNJAB NATIONAL BANK, CIVIL LINES, BATHINDA</Text>
