@@ -27,7 +27,6 @@ const orbitron = Orbitron({
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.rigbuilders.in"),
 
-  // 1. UPDATED TITLE (Cleaner & More Keywords)
   title: {
     default: "Rig Builders - Custom Gaming PCs & Workstations India",
     template: "%s | Rig Builders India",
@@ -40,17 +39,12 @@ export const metadata: Metadata = {
     canonical: "/",
   },
 
-  // 2. DYNAMIC ICONS (Fixes Light/Dark Mode Issues)
-  // Ensure you upload 'icon-light.png' (Black) and 'icon-dark.png' (White) to public/icons/
+  // 2. UNIFIED ICON CONFIGURATION (Best for Google Search)
+  // Assumes you place a solid square 'icon.png' (e.g. 192x192px) in your public folder
   icons: {
-    icon: [
-      { url: '/icons/icon-light.png', media: '(prefers-color-scheme: light)' },
-      { url: '/icons/icon-dark.png', media: '(prefers-color-scheme: dark)' },
-    ],
-    shortcut: ['/icons/icon-dark.png'],
-    apple: [
-      { url: '/icons/icon-dark.png' },
-    ],
+    icon: '/icon.png',
+    shortcut: '/icon.png',
+    apple: '/icon.png',
   },
 
   openGraph: {
@@ -59,7 +53,7 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_IN",
     url: "https://www.rigbuilders.in",
-    siteName: "Rig Builders",
+    siteName: "Rig Builders", // Strongly hints the name to Google
     images: [
       {
         url: "/opengraph-image.png", 
@@ -89,34 +83,42 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   
-  // JSON-LD SCHEMA (Brand Identity for Google)
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    "name": "Rig Builders",
-    "url": "https://www.rigbuilders.in",
-    "logo": "https://www.rigbuilders.in/icons/icon-dark.png", // Use the high-contrast logo here
-    "sameAs": [
-      "https://www.instagram.com/rigbuilders", 
-      "https://twitter.com/rigbuilders",
-      "https://www.youtube.com/@rigbuilders"
-    ],
-    "contactPoint": {
-      "@type": "ContactPoint",
-      "telephone": "+91-7707801014",
-      "contactType": "customer service",
-      "areaServed": "IN",
-      "availableLanguage": "en"
+  // JSON-LD SCHEMA (Brand Identity & Site Name for Google)
+  const jsonLd = [
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Rig Builders",
+      "alternateName": ["RigBuilders", "Rig Builders India"],
+      "url": "https://www.rigbuilders.in/"
     },
-    "address": {
-      "@type": "PostalAddress",
-      "streetAddress": "MCB Z2 12267, Sahibzada Jujhar Singh Nagar",
-      "addressLocality": "Bathinda",
-      "addressRegion": "Punjab",
-      "postalCode": "151001",
-      "addressCountry": "IN"
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Rig Builders",
+      "url": "https://www.rigbuilders.in",
+      "logo": "https://www.rigbuilders.in/icon.png", 
+      "sameAs": [
+        "https://www.instagram.com/rig_builders/?hl=en", 
+        "https://www.youtube.com/@RIGBUILDERS"
+      ],
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "telephone": "+91-7707801014",
+        "contactType": "customer service",
+        "areaServed": "IN",
+        "availableLanguage": "en"
+      },
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "MCB Z2 12267, Sahibzada Jujhar Singh Nagar",
+        "addressLocality": "Bathinda",
+        "addressRegion": "Punjab",
+        "postalCode": "151001",
+        "addressCountry": "IN"
+      }
     }
-  };
+  ];
 
   return (
     <html lang="en">
