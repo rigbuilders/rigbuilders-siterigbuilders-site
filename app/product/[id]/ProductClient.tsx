@@ -93,14 +93,38 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
   };
 
   // Gallery Logic
+  // Gallery Logic
   const allImages = [product.image_url, ...(product.gallery_urls || [])].filter(Boolean);
-  const handleNextImg = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  
+  const handleNextImg = (e?: React.SyntheticEvent) => {
+    e?.stopPropagation();
     setActiveImg(allImages[(allImages.indexOf(activeImg) + 1) % allImages.length]);
   };
-  const handlePrevImg = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  
+  const handlePrevImg = (e?: React.SyntheticEvent) => {
+    e?.stopPropagation();
     setActiveImg(allImages[(allImages.indexOf(activeImg) - 1 + allImages.length) % allImages.length]);
+  };
+
+  // --- SWIPE LOGIC ---
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchEndX, setTouchEndX] = useState<number | null>(null);
+  const minSwipeDistance = 50; // Minimum pixel distance to trigger swipe
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEndX(null);
+    setTouchStartX(e.targetTouches[0].clientX);
+  };
+  
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEndX(e.targetTouches[0].clientX);
+  };
+  
+  const onTouchEnd = () => {
+    if (!touchStartX || !touchEndX) return;
+    const distance = touchStartX - touchEndX;
+    if (distance > minSwipeDistance) handleNextImg();
+    if (distance < -minSwipeDistance) handlePrevImg();
   };
 
   const isPreBuilt = product.category === 'prebuilt';
@@ -167,22 +191,40 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
       <div className="flex-grow pt-12 pb-12 px-[20px] md:px-[40px] 2xl:px-[100px] relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 xl:gap-20 mb-24">
             
-            {/* LEFT: GALLERY */}
+            {/* GALLERY */}
             <Reveal>
-                <div className="flex flex-col-reverse md:flex-row gap-4 sticky top-32">
-                    <div className="flex md:flex-col gap-3 overflow-x-auto md:overflow-y-auto w-full md:w-[90px] md:max-h-[600px] custom-scrollbar shrink-0">
+                <div className="flex flex-col-reverse md:flex-row gap-4 sticky top-32 items-start">
+                    
+                    {/* Thumbnails (Scrollbar completely hidden via CSS) */}
+                    <div className="flex md:flex-col gap-3 overflow-x-auto md:overflow-y-auto w-full md:w-[90px] md:max-h-[700px] shrink-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                         {allImages.map((img: string, i: number) => (
-                            <button key={i} onClick={() => setActiveImg(img)} className={`relative w-20 h-20 md:w-full md:h-24 rounded-lg border overflow-hidden transition-all ${activeImg === img ? "border-brand-purple opacity-100" : "border-white/10 opacity-50"}`}>
+                            <button key={i} onClick={() => setActiveImg(img)} className={`relative w-20 h-20 md:w-[90px] md:h-[90px] rounded-lg border overflow-hidden transition-all shrink-0 ${activeImg === img ? "border-brand-purple opacity-100" : "border-white/10 opacity-50 hover:opacity-100"}`}>
                                 <img src={img} alt="Thumb" className="w-full h-full object-cover" />
                             </button>
                         ))}
                     </div>
-                    <div className="relative w-full aspect-square bg-[#0a0a0a] border border-white/5 rounded-2xl flex items-center justify-center overflow-hidden group">
-                        <img src={activeImg} alt={product.name} className="w-full h-full object-contain z-10 group-hover:scale-105 transition-transform duration-500" />
+                    
+                    {/* Main Image Container (Perfectly fits the 50% grid column) */}
+                    <div 
+                        className="relative w-full aspect-square bg-[#0a0a0a] border border-white/5 rounded-2xl flex items-center justify-center overflow-hidden group touch-pan-y"
+                        onTouchStart={onTouchStart}
+                        onTouchMove={onTouchMove}
+                        onTouchEnd={onTouchEnd}
+                    >
+                        <img 
+                            src={activeImg} 
+                            alt={product.name} 
+                            className="w-full h-full object-contain z-10 group-hover:scale-105 transition-transform duration-500 select-none" 
+                            draggable={false} 
+                        />
                         {allImages.length > 1 && (
                             <>
-                                <button onClick={handlePrevImg} className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-black/80 text-white flex items-center justify-center hover:bg-brand-purple opacity-0 group-hover:opacity-100 transition-all"><FaChevronLeft /></button>
-                                <button onClick={handleNextImg} className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-black/80 text-white flex items-center justify-center hover:bg-brand-purple opacity-0 group-hover:opacity-100 transition-all"><FaChevronRight /></button>
+                                <button onClick={handlePrevImg} className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-black/80 text-white flex items-center justify-center hover:bg-brand-purple opacity-0 md:group-hover:opacity-100 transition-all cursor-pointer">
+                                    <FaChevronLeft />
+                                </button>
+                                <button onClick={handleNextImg} className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-black/80 text-white flex items-center justify-center hover:bg-brand-purple opacity-0 md:group-hover:opacity-100 transition-all cursor-pointer">
+                                    <FaChevronRight />
+                                </button>
                             </>
                         )}
                     </div>
