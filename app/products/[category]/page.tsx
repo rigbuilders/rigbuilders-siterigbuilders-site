@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import CategoryClient from './CategoryClient';
+import { Suspense } from 'react';
 
 // Helper to format nice titles (e.g. 'cpu' -> 'Processors')
 const formatTitle = (cat: string) => {
@@ -57,9 +58,20 @@ export default async function Page({ params }: { params: Promise<{ category: str
   const { category } = await params;
 
   if (!validCategories.includes(category.toLowerCase())) {
-    return notFound();
+    notFound();
   }
 
-  // Pass the category to the Client Component
-  return <CategoryClient category={category.toLowerCase()} />;
+  return (
+    // FIX: Suspense boundary prevents Next.js from freezing the useSearchParams state when filters are cleared
+    <Suspense 
+        fallback={
+            <div className="min-h-screen bg-[#121212] flex flex-col items-center justify-center text-brand-purple">
+                <div className="text-xl font-orbitron mb-2 tracking-widest animate-pulse">LOADING CATEGORY...</div>
+                <div className="h-[1px] w-24 bg-brand-purple"></div>
+            </div>
+        }
+    >
+        <CategoryClient category={category} />
+    </Suspense>
+  );
 }

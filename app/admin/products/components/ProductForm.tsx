@@ -32,13 +32,15 @@ interface ProductFormProps {
   setIsCustomSocket: (v: boolean) => void;
   isCustomMemory: boolean;
   setIsCustomMemory: (v: boolean) => void;
+  handleDeleteCategory: (id: string) => void;
 }
 
 export default function ProductForm({
   formData, setFormData, handleSubmit, resetForm, loading, activeTab,
   existingBrands, existingCategories, existingSockets, existingMemory, inventory,
   isCustomCategory, setIsCustomCategory, isCustomBrand, setIsCustomBrand,
-  isCustomSocket, setIsCustomSocket, isCustomMemory, setIsCustomMemory
+  isCustomSocket, setIsCustomSocket, isCustomMemory, setIsCustomMemory,
+  handleDeleteCategory
 }: ProductFormProps) {
 
   // Helper to filter products for Prebuilt dropdowns
@@ -74,27 +76,109 @@ export default function ProductForm({
             <div className="space-y-2">
                 <label className="text-[10px] uppercase text-brand-silver font-bold tracking-wider">Classification</label>
                 {isCustomCategory ? (
-                    <div className="p-3 bg-brand-purple/10 rounded border border-brand-purple/30 space-y-3">
-                        <div className="flex justify-between items-center">
-                            <span className="text-xs text-brand-purple font-bold">New Category</span>
-                            <button type="button" onClick={() => setIsCustomCategory(false)} className="text-[10px] text-red-400 hover:underline">Cancel</button>
+                    <div className="p-4 bg-brand-purple/10 rounded-lg border border-brand-purple/30 space-y-4 animate-in fade-in">
+                        <div className="flex justify-between items-center border-b border-brand-purple/20 pb-2">
+                            <span className="text-xs text-brand-purple font-bold uppercase tracking-widest">
+                                {formData.category && existingCategories.some(c => c.id === formData.category) ? "Edit Category UI" : "Create New Category"}
+                            </span>
+                            <button type="button" onClick={() => setIsCustomCategory(false)} className="text-[10px] text-red-400 hover:underline font-bold">CANCEL</button>
                         </div>
-                        <input placeholder="ID (e.g. headphones)" className="w-full bg-[#121212] p-2 rounded border border-brand-purple text-white font-bold text-sm"
-                            value={formData.category} onChange={e => setFormData({...formData, category: e.target.value.toLowerCase()})} autoFocus />
-                        <select className="w-full bg-[#121212] p-2 rounded border border-white/20 text-xs"
-                            value={formData.group} onChange={e => setFormData({...formData, group: e.target.value})}>
-                            {GROUPS.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-                        </select>
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-[9px] text-brand-silver uppercase block mb-1">Category ID (URL Slug)</label>
+                                <input placeholder="e.g. usb_adaptors" 
+                                    className={`w-full bg-[#121212] p-2 rounded border border-brand-purple text-white text-xs outline-none focus:border-white ${formData.category && existingCategories.some(c => c.id === formData.category) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    value={formData.category} 
+                                    disabled={!!(formData.category && existingCategories.some(c => c.id === formData.category))}
+                                    onChange={e => setFormData({...formData, category: e.target.value.toLowerCase().replace(/\s+/g, '-')})} autoFocus />
+                            </div>
+                            <div>
+                                <label className="text-[9px] text-brand-silver uppercase block mb-1">Display Name</label>
+                                <input placeholder="e.g. USB Adaptors" className="w-full bg-[#121212] p-2 rounded border border-white/20 text-white text-xs outline-none focus:border-brand-purple"
+                                    value={formData.cat_name} onChange={e => setFormData({...formData, cat_name: e.target.value})} />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-[9px] text-brand-silver uppercase block mb-1">Parent Group</label>
+                                <select className="w-full bg-[#121212] p-2 rounded border border-white/20 text-xs text-white outline-none focus:border-brand-purple"
+                                    value={formData.group} onChange={e => setFormData({...formData, group: e.target.value})}>
+                                    {GROUPS.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-[9px] text-brand-silver uppercase block mb-1">UI Subtitle (Optional)</label>
+                                <input placeholder="e.g. CONNECTIVITY HUB" className="w-full bg-[#121212] p-2 rounded border border-white/20 text-white text-xs outline-none focus:border-brand-purple"
+                                    value={formData.cat_subtitle} onChange={e => setFormData({...formData, cat_subtitle: e.target.value})} />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="text-[9px] text-brand-silver uppercase block mb-1">UI Image URL (Optional)</label>
+                            <input placeholder="/images/categories/usb.jpg" className="w-full bg-[#121212] p-2 rounded border border-white/20 text-white text-xs outline-none focus:border-brand-purple"
+                                    value={formData.cat_image} onChange={e => setFormData({...formData, cat_image: e.target.value})} />
+                        </div>
+                        
+                        <div>
+                            <label className="text-[9px] text-brand-silver uppercase block mb-1">UI Description (Optional)</label>
+                            <textarea placeholder="Short description for the frontend UI card..." className="w-full bg-[#121212] p-2 rounded border border-white/20 text-white text-xs outline-none focus:border-brand-purple h-12"
+                                    value={formData.cat_description} onChange={e => setFormData({...formData, cat_description: e.target.value})} />
+                        </div>
                     </div>
                 ) : (
-                    <select className="w-full bg-[#121212] p-3 rounded border border-white/10 text-white font-bold focus:border-brand-purple transition-colors"
-                        value={formData.category} onChange={e => {
-                            if(e.target.value === "NEW") { setIsCustomCategory(true); setFormData({...formData, category: ""}); } 
-                            else { setFormData({...formData, category: e.target.value}); }
-                        }}>
-                        {existingCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        <option value="NEW" className="bg-brand-purple text-white font-bold">+ Create New Category</option>
-                    </select>
+                    <div className="flex gap-2">
+                        <select className="w-full bg-[#121212] p-3 rounded border border-white/10 text-white font-bold focus:border-brand-purple transition-colors"
+                            value={formData.category} onChange={e => {
+                                if(e.target.value === "NEW") { 
+                                    setIsCustomCategory(true); 
+                                    setFormData({...formData, category: "", cat_name: "", cat_subtitle: "", cat_description: "", cat_image: ""}); 
+                                } 
+                                else { setFormData({...formData, category: e.target.value}); }
+                            }}>
+                            {existingCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            <option value="NEW" className="bg-brand-purple text-white font-bold">+ Create New Category</option>
+                        </select>
+                        
+                        {formData.category && (
+                            <div className="flex gap-1">
+                                <button 
+                                    type="button"
+                                    onClick={() => {
+                                        const c = existingCategories.find(cat => cat.id === formData.category);
+                                        if (c) {
+                                            setFormData({
+                                                ...formData,
+                                                cat_name: c.name || "",
+                                                cat_subtitle: c.subtitle || "",
+                                                cat_description: c.description || "",
+                                                cat_image: c.image_url || "",
+                                                group: c.group_id || formData.group
+                                            });
+                                            setIsCustomCategory(true);
+                                        }
+                                    }}
+                                    className="bg-[#121212] border border-white/10 px-4 rounded text-brand-silver hover:border-brand-purple hover:text-brand-purple transition-all flex items-center justify-center"
+                                    title="Edit Category Details"
+                                >
+                                    <FaEdit size={14} />
+                                </button>
+                                
+                                {/* SECURITY: Only show delete for custom categories (not in BASE_CATEGORIES) */}
+                                {!BASE_CATEGORIES.some(c => c.id === formData.category) && (
+                                    <button 
+                                        type="button"
+                                        onClick={() => handleDeleteCategory(formData.category)}
+                                        className="bg-[#121212] border border-white/10 px-4 rounded text-brand-silver hover:border-red-500 hover:text-red-500 transition-all flex items-center justify-center"
+                                        title="Delete Category"
+                                    >
+                                        <FaTrash size={14} />
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 )}
             </div>
 
@@ -190,6 +274,51 @@ export default function ProductForm({
                 <div className="bg-[#121212] p-3 rounded border border-white/5 space-y-3">
                     <label className="text-xs text-brand-purple uppercase font-bold block">Technical Specs</label>
                     {formData.category !== 'os' && <input type="number" placeholder="Wattage (TDP)" className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs" value={formData.wattage} onChange={e => setFormData({...formData, wattage: e.target.value})} />}
+                    
+                    {/* --- NEW: 4-STEP CHIPSET ARCHITECTURE FOR GPU & MOBO --- */}
+                    {(['gpu', 'motherboard'].includes(formData.category)) && (
+                        <div className="grid grid-cols-3 gap-4 bg-brand-purple/5 p-3 rounded border border-brand-purple/20">
+                            <div>
+                                <label className="text-[10px] text-brand-silver uppercase font-bold block mb-1">Chipset Maker</label>
+                                <select className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs" value={formData.chipset_maker} onChange={e => setFormData({...formData, chipset_maker: e.target.value})}>
+                                    <option value="">Select Maker</option>
+                                    {formData.category === 'gpu' ? (
+                                        <>
+                                            <option value="NVIDIA">NVIDIA</option>
+                                            <option value="AMD">AMD</option>
+                                            <option value="Intel">Intel</option>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <option value="AMD">AMD</option>
+                                            <option value="Intel">Intel</option>
+                                        </>
+                                    )}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-[10px] text-brand-silver uppercase font-bold block mb-1">Series / Gen</label>
+                                <input 
+                                    placeholder={formData.category === 'gpu' ? "e.g. RTX 40 Series" : "e.g. AM5 Series"}
+                                    className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs focus:border-brand-purple outline-none text-white font-bold" 
+                                    value={formData.chipset_series} 
+                                    onChange={e => setFormData({...formData, chipset_series: e.target.value})} 
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] text-brand-silver uppercase font-bold block mb-1">Chipset Model</label>
+                                <input 
+                                    placeholder={formData.category === 'gpu' ? "e.g. RTX 4070 Ti Super" : "e.g. B650"}
+                                    className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs focus:border-brand-purple outline-none text-white font-bold" 
+                                    value={formData.chipset} 
+                                    onChange={e => setFormData({...formData, chipset: e.target.value})} 
+                                />
+                            </div>
+                        </div>
+                    )}
+                    {/* --- END CHIPSET ARCHITECTURE --- */}
+
+                    {/* Motherboard Form Factor */}
                     
                     {/* Motherboard Form Factor */}
                     {formData.category === 'motherboard' && (

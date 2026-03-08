@@ -13,42 +13,42 @@ const accessoryCategories = [
     id: "monitor", 
     name: "DISPLAYS", 
     sub: "HIGH REFRESH DISPLAYS",
-    image: "/images/Accessories/monitor.jpg",
+    image: "/images/Accessories/monitorv2.jpg",
     colSpan: false 
   },
   { 
     id: "keyboard", 
     name: "KEYBOARDS", 
     sub: "MECHANICAL PRECISION",
-    image: "/images/Accessories/keyboard.jpg",
+    image: "/images/Accessories/keyboardv2.jpg",
     colSpan: false 
   },
   { 
     id: "mouse", 
     name: "MICE", 
     sub: "ESPORTS GRADE SENSORS",
-    image: "/images/Accessories/mouse.jpg",
+    image: "/images/Accessories/mousev2.jpg",
     colSpan: false 
   },
   { 
     id: "combo", 
     name: "COMBOS", 
     sub: "UNIFIED ARSENAL",
-    image: "/images/Accessories/combo.jpg",
+    image: "/images/Accessories/combov2.jpg",
     colSpan: false 
   },
   { 
     id: "mousepad", 
     name: "PADS", 
     sub: "GLIDE OPTIMIZED MATS",
-    image: "/images/Accessories/pad.jpg",
+    image: "/images/Accessories/padv2.jpg",
     colSpan: false 
   },
   { 
     id: "usb", 
     name: "STORAGE", 
     sub: "PORTABLE DRIVES",
-    image: "/images/Accessories/usb.jpg",
+    image: "/images/Accessories/usbv2.jpg",
     colSpan: false 
   },
 ];
@@ -98,7 +98,7 @@ export default function AccessoriesPage() {
               </div>
 
               {/* --- 2. CONTENT LAYER --- */}
-              <div className="relative z-10 h-full flex flex-col items-center justify-center p-8 text-center">
+              <div className="relative z-10 h-full flex flex-col items-center justify-end p-8 text-center">
                  
                  {/* Floating Border Box */}
                  <div className="absolute inset-8 border border-white/10 scale-95 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-500 pointer-events-none"></div>
@@ -114,7 +114,7 @@ export default function AccessoriesPage() {
                  </div>
 
                  {/* Button (Slides up) */}
-                 <div className="absolute bottom-12 opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 delay-100">
+                 <div className="mt-4 opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 delay-100">
                     <button className="flex items-center gap-3 text-sm font-orbitron font-bold uppercase tracking-widest text-white hover:text-brand-purple transition-colors">
                         Explore Collection <FaArrowRight />
                     </button>

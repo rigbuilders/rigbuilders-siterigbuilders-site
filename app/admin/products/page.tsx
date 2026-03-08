@@ -37,6 +37,7 @@ export default function ProductManager() {
     category: "cpu", group: "components", series: "", tier: "", brand: "", 
     image_url: "", in_stock: true, description: "", features_text: "",
     gallery_urls: [] as string[], cod_policy: "full_cod",
+    cat_name: "", cat_subtitle: "", cat_description: "", cat_image: "",
     
     variant_group_id: "", 
     specs: { color: "", variant_label: "" } as any, // Initialize variant_label
@@ -45,6 +46,7 @@ export default function ProductManager() {
     socket: "", memory_type: "", wattage: "", capacity: "", speed: "", storage_type: "",
     length_mm: "", max_gpu_length_mm: "",
     form_factor: "", radiator_size: "",
+    chipset_maker: "", chipset_series: "", chipset: "", // <-- NEW: 4-Step architecture fields
     supported_motherboards: [] as string[], 
     supported_radiators: [] as string[],
     
@@ -68,6 +70,24 @@ export default function ProductManager() {
 
   const fetchProducts = async () => {
     setLoading(true);
+    
+    // 1. DYNAMIC CATEGORY SYNC: Fetch central categories from DB
+    const { data: catData } = await supabase.from('categories').select('*');
+    if (catData) {
+        const mergedCats: any[] = [...BASE_CATEGORIES]; 
+        catData.forEach((fc: any) => {
+            const existingIndex = mergedCats.findIndex((bc: any) => bc.id === fc.id);
+            if (existingIndex >= 0) {
+                // Merge DB data (images, subtitles) into the base category
+                mergedCats[existingIndex] = { ...mergedCats[existingIndex], ...fc };
+            } else {
+                mergedCats.push(fc);
+            }
+        });
+        setExistingCategories(mergedCats);
+    }
+
+    // 2. Fetch Products
     const { data } = await supabase.from('products').select('*').order('created_at', { ascending: false });
     if (data) {
         setProducts(data);
@@ -96,12 +116,13 @@ export default function ProductManager() {
       id: "", name: "", breadcrumb_name: "", price: "", mrp: "", warranty: "", nickname: "",configurator_name: "",
       category: "cpu", group: "components", series: "", tier: "", brand: "", image_url: "", in_stock: true,
       cod_policy: "full_cod", description: "", features_text: "", gallery_urls: [],
+      cat_name: "", cat_subtitle: "", cat_description: "", cat_image: "", // Clear Category Fields
       
       variant_group_id: "", 
       specs: { color: "", variant_label: "" }, 
       
       socket: "", memory_type: "", wattage: "", capacity: "", form_factor: "", speed: "", storage_type: "",
-      length_mm: "", max_gpu_length_mm: "", radiator_size: "", supported_motherboards: [], supported_radiators: [],
+      length_mm: "", max_gpu_length_mm: "", radiator_size: "", chipset_maker: "", chipset_series: "", chipset: "", supported_motherboards: [], supported_radiators: [],
       recipe_cpu: "", recipe_gpu: "", recipe_mobo: "", recipe_ram: "", recipe_storage: "", 
       recipe_psu: "", recipe_cooler: "", recipe_cabinet: "", recipe_os: ""
     });
@@ -114,10 +135,25 @@ export default function ProductManager() {
     e.preventDefault();
     setLoading(true);
     try {
+      // --- NEW: AUTO-CREATE CATEGORY IN DATABASE ---
+      if (isCustomCategory) {
+          const { error: catError } = await supabase.from('categories').upsert({
+              id: formData.category,
+              name: formData.cat_name || formData.category,
+              group_id: formData.group, // Maps it instantly to Accessories, PC Components, etc.
+              subtitle: formData.cat_subtitle || null,
+              description: formData.cat_description || null,
+              image_url: formData.cat_image || null
+          });
+          if (catError) throw new Error("Failed to register category UI: " + catError.message);
+      }
+
       const specs: any = { ...formData.specs }; 
-      specs.group = isCustomCategory ? formData.group : (BASE_CATEGORY_MAP[formData.category] || formData.group);
+      const selectedCat = existingCategories.find(c => c.id === formData.category);
+      specs.group = isCustomCategory ? formData.group : (selectedCat?.group_id || BASE_CATEGORY_MAP[formData.category] || formData.group);
 
       // Map Flattened fields to Specs JSON
+      
       if (formData.category === 'prebuilt') {
          ["Processor", "Graphics Card", "Motherboard", "Memory", "Storage", "Power Supply", "Cooling", "Cabinet", "OS"].forEach(k => {
              const key = `recipe_${k.toLowerCase().replace(/ /g, '_').replace('graphics_card', 'gpu').replace('processor', 'cpu').replace('power_supply', 'psu')}` as keyof typeof formData;
@@ -125,6 +161,11 @@ export default function ProductManager() {
          });
       } else {
          if (formData.wattage) specs.wattage = parseInt(formData.wattage);
+         if (['gpu', 'motherboard'].includes(formData.category)) {
+             if (formData.chipset_maker) specs.chipset_maker = formData.chipset_maker;
+             if (formData.chipset_series) specs.chipset_series = formData.chipset_series;
+             if (formData.chipset) specs.chipset = formData.chipset;
+         }
          if (['cpu','motherboard'].includes(formData.category)) specs.socket = formData.socket;
          if (formData.category === 'gpu') { specs.vram = formData.capacity; specs.memory_type = formData.memory_type; if (formData.length_mm) specs.length_mm = parseInt(formData.length_mm); }
          if (formData.category === 'motherboard') { specs.memory_type = formData.memory_type; specs.form_factor = formData.form_factor; }
@@ -185,7 +226,8 @@ export default function ProductManager() {
 
   const handleEditClick = (p: any) => {
     const s = p.specs || {};
-    setIsCustomCategory(!BASE_CATEGORIES.some(c => c.id === p.category));
+    // FIX: Check against dynamic DB list, not hardcoded base
+    setIsCustomCategory(!existingCategories.some(c => c.id === p.category));
     setIsCustomBrand(!existingBrands.includes(p.brand));
     
     setFormData({
@@ -208,6 +250,9 @@ export default function ProductManager() {
       length_mm: s.length_mm ? s.length_mm.toString() : "",
       max_gpu_length_mm: s.max_gpu_length_mm ? s.max_gpu_length_mm.toString() : "",
       radiator_size: s.radiator_size || "", 
+      chipset_maker: s.chipset_maker || "",
+      chipset_series: s.chipset_series || "",
+      chipset: s.chipset || "",
       supported_motherboards: s.supported_motherboards || [], 
       supported_radiators: s.supported_radiators || [],
       
@@ -223,6 +268,26 @@ export default function ProductManager() {
     if (!confirm("Delete product?")) return;
     await supabase.from('products').delete().eq('id', id);
     fetchProducts();
+  };
+
+  const handleDeleteCategory = async (catId: string) => {
+    // SECURITY LOCK: Prevent deletion of core categories
+    if (BASE_CATEGORIES.some(c => c.id === catId)) {
+        alert("Action Denied: You cannot delete core system categories.");
+        return;
+    }
+    if (!confirm(`Are you sure you want to delete the '${catId}' category?`)) return;
+
+    setLoading(true);
+    const { error } = await supabase.from('categories').delete().eq('id', catId);
+    if (error) {
+        alert("Error: " + error.message);
+    } else {
+        alert("Category Deleted!");
+        if (formData.category === catId) setFormData(prev => ({...prev, category: ""}));
+        fetchProducts();
+    }
+    setLoading(false);
   };
 
   // --- NEW VARIANT WORKFLOW ---
@@ -261,6 +326,9 @@ export default function ProductManager() {
         form_factor: s.form_factor || "",
         wattage: s.wattage ? s.wattage.toString() : "",
         capacity: s.capacity || s.vram || "",
+        chipset_maker: s.chipset_maker || "",
+        chipset_series: s.chipset_series || "",
+        chipset: s.chipset || "",
         
         // UNIQUE (Reset these so user types new ones)
         name: `${parentProduct.name} (Variant)`, 
@@ -306,6 +374,7 @@ export default function ProductManager() {
                     isCustomBrand={isCustomBrand} setIsCustomBrand={setIsCustomBrand}
                     isCustomSocket={isCustomSocket} setIsCustomSocket={setIsCustomSocket}
                     isCustomMemory={isCustomMemory} setIsCustomMemory={setIsCustomMemory}
+                    handleDeleteCategory={handleDeleteCategory}
                 />
             </div>
 

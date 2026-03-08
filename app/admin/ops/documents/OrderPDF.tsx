@@ -181,7 +181,7 @@ export const OrderPDF = ({ order }: { order: any }) => {
                     return (
                         <View key={i} style={styles.tableRow}>
                             <Text style={[styles.td, styles.colSr]}>{i + 1}</Text>
-                            <Text style={[styles.td, styles.colDesc]}>{item.name}</Text>
+                            <Text style={[styles.td, styles.colDesc]}>{item.configurator_name || item.name}</Text>
                             <Text style={[styles.td, styles.colHsn]}>{item.hsn_code || '8471'}</Text>
                             <Text style={[styles.td, styles.colQty]}>{qty}</Text>
                             <Text style={[styles.td, styles.colUnit]}>PCS</Text>
