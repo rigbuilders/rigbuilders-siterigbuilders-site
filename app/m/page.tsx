@@ -9,6 +9,13 @@ import { FaTimes } from "react-icons/fa";
 import MobileHeroCarousel from "@/components/mobile/MobileHeroCarousel";
 import MobileExploreDesktops from "@/components/mobile/MobileExploreDesktops";
 
+import MobilePCComponents from "@/components/mobile/MobilePCComponents";
+import MobileAccessories from "@/components/mobile/MobileAccessories";
+import MobileWhyChooseUs from "@/components/mobile/MobileWhyChooseUs";
+import MobileCommission from "@/components/mobile/MobileCommission";
+import MobileBrandCarousel from "@/components/mobile/MobileBrandCarousel";
+import MobileGoogleReviews from "@/components/mobile/MobileGoogleReviews";
+
 export default function MobileSandbox() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -31,6 +38,13 @@ export default function MobileSandbox() {
             <div className="pb-32">
                 <MobileHeroCarousel />
                 <MobileExploreDesktops />
+                
+                <MobilePCComponents />
+                <MobileAccessories />
+                <MobileBrandCarousel />
+                <MobileCommission />
+                <MobileWhyChooseUs />
+                <MobileGoogleReviews />
                 
                 {/* Placeholder for the PC Components section next */}
                 <div className="h-40"></div> 

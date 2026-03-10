@@ -10,7 +10,7 @@ module.exports = {
         brand: {
           black: "#121212",      // Matte Black
           charcoal: "#1A1A1A",   // Charcoal Gray
-          purple: "#4E2C8B",     // Deep Matte Purple
+          purple: "#A15EFF",     // Deep Matte Purple
           blue: "#265DAB",       // Muted Electric Blue
           silver: "#A0A0A0",     // Matte Silver Gray
           text: "#D0D0D0",       // Warm Gray (Text)
