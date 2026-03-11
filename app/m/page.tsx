@@ -15,6 +15,7 @@ import MobileWhyChooseUs from "@/components/mobile/MobileWhyChooseUs";
 import MobileCommission from "@/components/mobile/MobileCommission";
 import MobileBrandCarousel from "@/components/mobile/MobileBrandCarousel";
 import MobileGoogleReviews from "@/components/mobile/MobileGoogleReviews";
+import MobileFooter from "@/components/mobile/MobileFooter";
 
 export default function MobileSandbox() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -25,7 +26,6 @@ export default function MobileSandbox() {
     <div className="min-h-screen bg-[#050505] flex items-center justify-center py-10">
 
       {/* THE VIRTUAL PHONE FRAME (iPhone 14 Pro Size) */}
-      {/* 'transform-gpu' traps fixed elements inside this specific box! */}
       <div className="relative w-[390px] h-[844px] bg-[#121212] overflow-hidden rounded-[40px] border-[8px] border-[#222] shadow-[0_0_50px_rgba(0,0,0,0.5)] transform-gpu flex flex-col font-saira">
         
         <MobileTopNav 
@@ -33,21 +33,22 @@ export default function MobileSandbox() {
           onOpenSearch={() => setSearchOpen(true)} 
         />
 
-        {/* SCROLLABLE CONTENT AREA */}
-        <div className="flex-grow overflow-y-auto overflow-x-hidden custom-scrollbar relative bg-[#121212]">
-            <div className="pb-32">
+        {/* FIX 1: Replaced 'custom-scrollbar' with native hidden scrollbar classes. 
+            This stops the chunky desktop scrollbar from eating up your column width! 
+        */}
+        <div className="flex-grow overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] relative bg-[#121212]">
+            
+            {/* FIX 2: Removed 'pb-32' and the empty 'h-40' div at the bottom! */}
+            <div className="w-full">
                 <MobileHeroCarousel />
                 <MobileExploreDesktops />
-                
                 <MobilePCComponents />
                 <MobileAccessories />
                 <MobileBrandCarousel />
                 <MobileCommission />
                 <MobileWhyChooseUs />
                 <MobileGoogleReviews />
-                
-                {/* Placeholder for the PC Components section next */}
-                <div className="h-40"></div> 
+                <MobileFooter />
             </div>
         </div>
 

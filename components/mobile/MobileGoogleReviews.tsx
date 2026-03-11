@@ -41,7 +41,7 @@ export default function MobileGoogleReviews() {
       <div className="px-[30px] mb-6 flex justify-between items-end w-full">
         <div>
           <h3 className="text-white font-saira font-bold text-[15px] border-b border-brand-purple/50 pb-1 inline-block">
-            Verified Reviews
+            Google Verified Reviews
           </h3>
           <div className="flex items-center gap-2 mt-2">
              <span className="text-white font-orbitron font-bold text-lg leading-none">{rating}</span>

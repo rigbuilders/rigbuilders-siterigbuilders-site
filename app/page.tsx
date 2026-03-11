@@ -16,10 +16,10 @@ export default function Home() {
     <main className="bg-[#121212] min-h-screen">
       <Navbar />
       <Hero />
-      <WhyChooseUs />
-      <HowWeCommission />
       <BrandCarousel />
       <CategoryGrid />
+      <WhyChooseUs />
+      <HowWeCommission />    
       <HomeBlogSection />
       <AscendSeries />
       <WorkPro />
