@@ -11,6 +11,7 @@ export default function MobileMenuDrawer({ onClose }: { onClose: () => void }) {
       {/* HEADER */}
       <div className="flex justify-between items-center mb-8">
         <div className="relative h-10 w-10">
+          
           <Image src="/icons/icon-dark.png" alt="Logo" fill className="object-contain" />
         </div>
         <button onClick={onClose} className="text-white text-2xl active:scale-90"><FaTimes /></button>
@@ -18,7 +19,7 @@ export default function MobileMenuDrawer({ onClose }: { onClose: () => void }) {
 
       {/* THREE TOP BOXES (Based on original Navbar Actions) */}
       <div className="grid grid-cols-3 gap-4 mb-10">
-         <ActionBox icon={<FaUser/>} label="Account" href="/signin" onClick={onClose} />
+         <ActionBox icon={<FaUser/>} label="Account" href="/m/signin" onClick={onClose} />
          <ActionBox icon={<FaShoppingCart/>} label="Cart" href="/cart" onClick={onClose} />
          <ActionBox icon={<FaWrench/>} label="Build" href="/configure" onClick={onClose} />
       </div>
@@ -38,8 +39,8 @@ export default function MobileMenuDrawer({ onClose }: { onClose: () => void }) {
          <div>
             <h3 className="text-brand-silver text-xs border-b border-brand-purple/30 pb-2 mb-4">Desktops</h3>
             <ul className="space-y-4 text-white text-lg">
-                <li><Link href="/ascend" onClick={onClose}>Ascend Series</Link></li>
-                <li><Link href="/workpro" onClick={onClose}>WorkPro Series</Link></li>
+                <li><Link href="/m/ascend" onClick={onClose}>Ascend Series</Link></li>
+                <li><Link href="/m/workpro" onClick={onClose}>WorkPro Series</Link></li>
                 <li><Link href="/creator" onClick={onClose}>Creator Series</Link></li>
                 <li><Link href="/signature" onClick={onClose}>Signature Series</Link></li>
             </ul>

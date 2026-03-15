@@ -17,6 +17,9 @@ import MobileBrandCarousel from "@/components/mobile/MobileBrandCarousel";
 import MobileGoogleReviews from "@/components/mobile/MobileGoogleReviews";
 import MobileFooter from "@/components/mobile/MobileFooter";
 
+// NEW: Import the wrapper we just built
+import MotionWrapper from "@/components/mobile/MotionWrapper";
+
 export default function MobileSandbox() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -33,28 +36,28 @@ export default function MobileSandbox() {
           onOpenSearch={() => setSearchOpen(true)} 
         />
 
-        {/* FIX 1: Replaced 'custom-scrollbar' with native hidden scrollbar classes. 
-            This stops the chunky desktop scrollbar from eating up your column width! 
-        */}
-        <div className="flex-grow overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] relative bg-[#121212]">
+        {/* Custom Purple Scrollbar */}
+        <div className="flex-grow overflow-y-auto overflow-x-hidden relative bg-[#121212] [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-[#B084FF] [&::-webkit-scrollbar-thumb]:rounded-l-full pr-0">
             
-            {/* FIX 2: Removed 'pb-32' and the empty 'h-40' div at the bottom! */}
             <div className="w-full">
+                {/* Hero loads instantly */}
                 <MobileHeroCarousel />
-                <MobileExploreDesktops />
-                <MobilePCComponents />
-                <MobileAccessories />
-                <MobileBrandCarousel />
-                <MobileCommission />
-                <MobileWhyChooseUs />
-                <MobileGoogleReviews />
-                <MobileFooter />
+                
+                {/* Everything else gets the smooth slide-up effect */}
+                <MotionWrapper><MobileExploreDesktops /></MotionWrapper>
+                <MotionWrapper><MobilePCComponents /></MotionWrapper>
+                <MotionWrapper><MobileAccessories /></MotionWrapper>
+                <MotionWrapper><MobileBrandCarousel /></MotionWrapper>
+                <MotionWrapper><MobileCommission /></MotionWrapper>
+                <MotionWrapper><MobileWhyChooseUs /></MotionWrapper>
+                <MotionWrapper><MobileGoogleReviews /></MotionWrapper>
+                <MotionWrapper><MobileFooter /></MotionWrapper>
             </div>
         </div>
 
         <MobileBottomNav />
 
-        {/* OVERLAYS (Now trapped inside the phone) */}
+        {/* OVERLAYS */}
         {menuOpen && <MobileMenuDrawer onClose={() => setMenuOpen(false)} />}
         
         {/* SEARCH DRAWER */}
