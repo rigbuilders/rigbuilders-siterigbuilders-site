@@ -19,7 +19,7 @@ export default function MobileTopNav({ onOpenMenu, onOpenSearch }: Props) {
       </button>
 
       {/* CENTER LOGO */}
-      <Link href="/m" className="relative h-8 w-8 flex items-center justify-center">
+      <Link href="/" className="relative h-8 w-8 flex items-center justify-center">
         <Image 
           src="/icons/icon-dark.png" 
           alt="Rig Builders" 

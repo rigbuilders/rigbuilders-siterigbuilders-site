@@ -157,7 +157,7 @@ export default function CategoryClient({ category }: { category: string }) {
 
       return true;
     });
-  }, [products, activeFilters, searchQuery]);
+  }, [products, activeFilters, searchQuery, pChipset, pBrand]);
 
   const handleAction = async (product: any, isBuyNow: boolean) => {
     addToCart(product);

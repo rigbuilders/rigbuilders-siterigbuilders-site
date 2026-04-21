@@ -15,7 +15,7 @@ export default function MobileExploreDesktops() {
     <div className="w-full mt-4 mb-8">
       
       <div className="px-[30px] mb-4">
-        <Link href="/desktops" className="flex justify-between items-end w-full group">
+        <Link href="/m/desktops" className="flex justify-between items-end w-full group">
           <h3 className="text-white font-saira font-bold text-[15px] border-b border-brand-purple/50 pb-1">
             Explore Desktops
           </h3>
@@ -32,7 +32,7 @@ export default function MobileExploreDesktops() {
         {desktops.map((d) => (
           <Link 
             key={d.id} 
-            href={`/${d.id}`} 
+            href={`/m/${d.id}`} 
             className="flex-shrink-0 w-[160px] h-[160px] bg-[#050505] border border-white/10 rounded-2xl snap-start hover:border-brand-purple transition-colors relative overflow-hidden group"
           >
             <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-brand-purple/50 to-transparent z-20" />
@@ -47,7 +47,7 @@ export default function MobileExploreDesktops() {
 
         {/* The Merged Signature Rectangular Card (330x160) */}
         <Link 
-            href="/signature" 
+            href="/m/signature" 
             className="flex-shrink-0 w-[330px] h-[160px] bg-[#050505] border border-white/10 rounded-2xl snap-start hover:border-brand-purple transition-colors relative overflow-hidden group"
         >
             <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-brand-purple/50 to-transparent z-20" />

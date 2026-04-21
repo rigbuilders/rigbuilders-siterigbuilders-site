@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { FaArrowRight } from "react-icons/fa";
 
+
 const components = [
   { id: "cpu", name: "Processors", img: "/images/Products/cpu.jpg" },
   { id: "motherboard", name: "Motherboards", img: "/images/Products/mobov2.jpg" },
@@ -17,7 +18,7 @@ export default function MobilePCComponents() {
   return (
     <div className="w-full mb-12">
       <div className="px-[30px] mb-4">
-        <Link href="/products" className="flex justify-between items-end w-full group">
+        <Link href="/m/components" className="flex justify-between items-end w-full group">
           <h3 className="text-white font-saira font-bold text-[15px] border-b border-brand-purple/50 pb-1">
             PC Components
           </h3>
@@ -47,11 +48,12 @@ export default function MobilePCComponents() {
 
       {/* The Wide GPU Block (Forced to exact 160px height to match the squares) */}
       <div className="px-[30px]">
-        <Link href="/products/gpu" className="block relative w-full h-[160px] bg-[#050505] border border-white/10 rounded-2xl overflow-hidden active:scale-[0.98] transition-transform">
+        <Link href="/m/products/gpu" className="block relative w-full h-[160px] bg-[#050505] border border-white/10 rounded-2xl overflow-hidden active:scale-[0.98] transition-transform">
           <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-brand-purple/50 to-transparent z-20" />
           <Image src="/images/Products/gpuv3.jpg" alt="Graphics Cards" fill className="object-cover z-0" />
         </Link>
       </div>
+      
     </div>
   );
 }

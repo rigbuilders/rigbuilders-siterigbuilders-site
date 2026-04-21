@@ -44,10 +44,10 @@ export default function MobileFooter() {
         <div>
           <h4 className="font-orbitron text-white text-[11px] font-bold mb-4 tracking-wider uppercase">Series</h4>
           <ul className="space-y-3 font-saira text-white text-[9px]">
-            <li><Link href="/ascend" className="hover:text-brand-purple transition-colors">Ascend Series</Link></li>
-            <li><Link href="/workpro" className="hover:text-brand-purple transition-colors">WorkPro Series</Link></li>
-            <li><Link href="/creator" className="hover:text-brand-purple transition-colors">Creator Series</Link></li>
-            <li><Link href="/signature" className="hover:text-brand-purple transition-colors">Signature Series</Link></li>
+            <li><Link href="/m/ascend" className="hover:text-brand-purple transition-colors">Ascend Series</Link></li>
+            <li><Link href="/m/workpro" className="hover:text-brand-purple transition-colors">WorkPro Series</Link></li>
+            <li><Link href="/m/creator" className="hover:text-brand-purple transition-colors">Creator Series</Link></li>
+            <li><Link href="/m/signature" className="hover:text-brand-purple transition-colors">Signature Series</Link></li>
           </ul>
         </div>
 
@@ -55,10 +55,10 @@ export default function MobileFooter() {
         <div>
           <h4 className="font-orbitron text-white text-[11px] font-bold mb-4 tracking-wider uppercase">Support</h4>
           <ul className="space-y-3 font-saira text-white text-[9px]">
-            <li><Link href="/dashboard" className="hover:text-brand-purple transition-colors">Track Order</Link></li>
-            <li><Link href="/blog" className="hover:text-brand-purple transition-colors">Blog & Guides</Link></li>
-            <li><Link href="/terms" className="hover:text-brand-purple transition-colors">Terms & Warranty</Link></li>
-            <li><Link href="/privacy" className="hover:text-brand-purple transition-colors">Privacy Policy</Link></li>
+            <li><Link href="/m/dashboard" className="hover:text-brand-purple transition-colors">Track Order</Link></li>
+            <li><Link href="/m/blog" className="hover:text-brand-purple transition-colors">Blog & Guides</Link></li>
+            <li><Link href="/m/terms" className="hover:text-brand-purple transition-colors">Terms & Warranty</Link></li>
+            <li><Link href="/m/privacy" className="hover:text-brand-purple transition-colors">Privacy Policy</Link></li>
           </ul>
         </div>
 
