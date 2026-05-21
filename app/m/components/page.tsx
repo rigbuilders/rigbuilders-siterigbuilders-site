@@ -8,7 +8,7 @@ import MobileMenuDrawer from "@/components/mobile/MobileMenuDrawer";
 import GlobalSearch from "@/components/GlobalSearch";
 import MotionWrapper from "@/components/mobile/MotionWrapper";
 import { FaTimes, FaArrowRight } from "react-icons/fa";
-import MobilePageEnd from "@/components/mobile/MobilePageEnd";
+
 
 // --- DATA CONFIGURATION ---
 const categories = [
