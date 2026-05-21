@@ -163,7 +163,6 @@ export default function Navbar() {
   };
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
-  const [desktopSearchOpen, setDesktopSearchOpen] = useState(false);
   
   const search = useGlobalSearch(); 
   const megaMenuSearch = useGlobalSearch(); 
@@ -180,74 +179,69 @@ export default function Navbar() {
   return (
     <>
     
-    {/* Removed background from <nav> so the vectors can overhang transparently */}
-    {/* Removed background from <nav> so the vectors can overhang transparently */}
-    <nav className="sticky top-0 left-0 w-full z-[100] font-orbitron" onMouseLeave={() => setActiveMenu(null)}>
-      
-      {/* --- NEW GEOMETRIC HEADER (Golden Edition) --- */}
-      <div className="relative w-full z-50 flex flex-col">
-        
-        {/* 1. Base Background Rectangle (60px Mobile / 80px Desktop) */}
-        <div className="absolute top-0 left-0 w-full h-[60px] lg:h-[80px] bg-[#090909] border-b border-white/5 shadow-md"></div>
-
-        {/* 2. Left Vector (Logo) - 80px Mobile / 100px Desktop */}
-        <div className="absolute top-0 left-0 z-20 drop-shadow-[0_0_8px_rgba(230,199,0,0.5)]">
-           <div 
-              className="h-[70px] lg:h-[90px] w-[180px] lg:w-[280px] bg-[#090909] flex items-start pt-5 lg:pt-8 justify-center pr-4 lg:pr-8"
-              style={{ clipPath: 'polygon(0 0, 100% 0, 85% 100%, 0 100%)' }}
-           >
-              {/* CLICKABLE LOGO */}
-              <Link href="/" className="flex-shrink-0 flex items-center justify-center">
-                 <div className="hidden lg:block relative h-10 w-40"><Image src="/icons/navbar/logo.png" alt="Rig Builders" fill className="object-contain" priority /></div>
-                 {/* Mobile Logo - slightly smaller to fit the 80px vector height */}
-                 <div className="lg:hidden relative h-10 w-28"><Image src="/icons/navbar/logo.png" alt="Rig Builders" fill className="object-contain" priority /></div>
-              </Link>
-           </div>
+    <nav className="sticky top-0 left-0 w-full z-[100] bg-[#090909] border-b border-white/10 font-orbitron" onMouseLeave={() => setActiveMenu(null)}>
+      <div className="h-[80px] px-[30px] flex items-center justify-between relative bg-[#090909] z-50">
+        {/* MOBILE HAMBURGER */}
+        <div className="lg:hidden flex items-center">
+            <button onClick={() => setMobileMenuOpen(true)} className="text-white text-2xl p-2"><FaBars /></button>
         </div>
 
-        {/* 3. Center Links (Desktop) - Locked to the 80px Rectangle */}
-        <div className="hidden lg:flex absolute top-0 left-0 w-full h-[80px] justify-center items-center gap-[40px] z-10">
+        {/* LOGO */}
+        <Link href="/" className="flex-shrink-0 flex items-center justify-center">
+           <div className="hidden lg:block relative h-10 w-40"><Image src="/icons/navbar/logo.png" alt="Rig Builders" fill className="object-contain object-left" priority /></div>
+           <div className="lg:hidden relative h-10 w-10"><Image src="/icons/navbar/logo.svg" alt="Rig Builders" fill className="object-contain" priority /></div>
+        </Link>
+
+        {/* MOBILE SEARCH */}
+        <div className="lg:hidden flex items-center">
+            <button onClick={() => setMobileSearchOpen(true)} className="text-white text-xl p-2"><FaSearch /></button>
+        </div>
+
+        {/* DESKTOP RIGHT SECTION (Links + Icons) */}
+        <div className="hidden lg:flex items-center h-full gap-[35px]">
+          
+          {/* NAV LINKS */}
+          <div className="flex items-center gap-[35px] text-[15px] font-bold tracking-widest text-white h-full">
             {["products", "desktops", "accessories", "support"].map((menu) => (
-                <div key={menu} className="h-full flex items-center relative group" onMouseEnter={() => { setActiveMenu(menu); setDesktopSearchOpen(false); }}>
-                  <Link href={`/${menu}`} className="flex items-center h-full px-2 cursor-pointer uppercase text-xs font-bold tracking-widest text-white hover:text-[#E6C700] transition-colors">{menu}</Link>
-                  <span className={`absolute bottom-0 left-0 w-full h-[3px] bg-[#E6C700] transition-transform duration-200 origin-center ${activeMenu === menu ? "scale-x-100" : "scale-x-0"}`}></span>
+                <div key={menu} className="h-full flex items-center relative group" onMouseEnter={() => setActiveMenu(menu)}>
+                  <Link href={`/${menu}`} className="flex items-center h-full px-2 cursor-pointer uppercase hover:text-brand-purple transition-colors">{menu}</Link>
+                  <span className={`absolute bottom-0 left-0 w-full h-[3px] bg-brand-purple transition-transform duration-200 origin-center ${activeMenu === menu ? "scale-x-100" : "scale-x-0"}`}></span>
                 </div>
             ))}
-        </div>
+          </div>
 
-        {/* 4. Right Vector (Desktop Icons) - 100px Height */}
-        <div className="absolute top-0 right-0 z-20 drop-shadow-[0_0_8px_rgba(230,199,0,0.5)] hidden lg:block">
-           <div 
-              className="h-[90px] w-[260px] bg-[#090909] flex items-start pt-8 justify-center gap-10 pl-8"
-              style={{ clipPath: 'polygon(0 0, 100% 0, 100% 100%, 15% 100%)' }}
-           >
-              {/* Cart */}
-              <Link href="/cart" className="relative hover:text-[#E6C700] transition-colors"><FaShoppingCart size={20} /></Link>
-              
-              {/* User: Routes to Dashboard if logged in, otherwise Sign In */}
-              <Link href={user ? "/dashboard" : "/signin"} className="relative hover:text-[#E6C700] transition-colors">
-                <FaUser size={20} />
-              </Link>
-              
-              {/* Search: Toggles the new Mega Menu */}
-              <button 
-                onClick={() => { setDesktopSearchOpen(!desktopSearchOpen); setActiveMenu(null); }} 
-                className={`transition-colors ${desktopSearchOpen ? "text-[#E6C700]" : "hover:text-[#E6C700]"}`}
-              >
-                {desktopSearchOpen ? <FaTimes size={22} /> : <FaSearch size={20} />}
+          {/* RIGHT ICONS */}
+          <div className="flex items-center gap-[20px] h-full">
+            <Link href="/cart" className="relative group p-2 hover:opacity-80"><Image src="/icons/navbar/cart.png" alt="Cart" width={28} height={28} /></Link>
+
+            {/* User Icon */}
+            <div 
+              className="relative h-full flex items-center group" 
+              onMouseEnter={() => handleMouseEnter("user")} 
+              onMouseLeave={handleMouseLeave}
+            >
+              <button className="p-2 hover:opacity-80">
+                <Image src="/icons/navbar/User Account.svg" alt="Account" width={26} height={26} />
               </button>
-           </div>
-        </div>
+              
+              {/* The UserAccountMenu component already has 'pt-2' in your code.
+                 Combined with the handleMouseLeave delay above, this creates a 
+                 perfect bridge so the menu won't close unexpectedly.
+              */}
+              {activeMenu === "user" && <UserAccountMenu user={user} />}
+            </div>
 
-        {/* 5. Right Icons (Mobile) - Free floating in the 60px Rectangle */}
-        <div className="absolute top-0 right-0 h-[60px] flex items-center px-6 gap-6 z-20 lg:hidden text-white">
-            <Link href="/cart" className="hover:text-[#E6C700] transition-colors"><FaShoppingCart size={18} /></Link>
-            <button onClick={() => setMobileSearchOpen(true)} className="hover:text-[#E6C700] transition-colors"><FaSearch size={18} /></button>
-            <button onClick={() => setMobileMenuOpen(true)} className="hover:text-[#E6C700] transition-colors"><FaBars size={20} /></button>
+            {/* Search Icon */}
+            <div className="relative h-full flex items-center group" onMouseEnter={() => setActiveMenu("search")} onMouseLeave={() => setActiveMenu(null)}>
+              <button className="p-2 hover:opacity-80"><Image src="/icons/navbar/search.svg" alt="Search" width={28} height={28} /></button>
+              {activeMenu === "search" && <SearchMenu />}
+            </div>
+            
+            <Link href="/configure">
+              <button className="border border-white text-white w-[150px] h-[36px] text-[11px] font-bold tracking-[0.15em] hover:bg-white hover:text-[#121212] transition-all uppercase flex items-center justify-center">BUILD YOURS</button>
+            </Link>
+          </div>
         </div>
-        
-        {/* Invisible spacer to push the rest of the website down exactly 60px on Mobile, 80px on Desktop */}
-        <div className="h-[60px] lg:h-[80px] w-full"></div>
       </div>
   
       {/* --- MEGA MENUS --- */}
@@ -369,31 +363,6 @@ export default function Navbar() {
                 ))}
             </div>
         </div>
-       
-      {/* 4. SEARCH MEGA MENU (Click Triggered - Safely outside the clip-path vectors) */}
-      <div className={`hidden lg:block absolute top-[80px] left-0 w-full bg-[#090909]/95 backdrop-blur-xl border-t border-[#E6C700]/30 transition-all duration-300 overflow-hidden z-40 ${desktopSearchOpen ? "max-h-[500px] opacity-100 visible py-16 shadow-[0_20px_50px_rgba(0,0,0,0.7)]" : "max-h-0 opacity-0 invisible py-0"}`}>
-          <div className="max-w-[1000px] mx-auto px-8">
-              <div className="flex justify-between items-center mb-8">
-                  <h2 className="text-2xl font-orbitron text-white uppercase tracking-widest flex items-center gap-4">
-                      <FaSearch className="text-[#E6C700]" /> Search Ecosystem
-                  </h2>
-              </div>
-              <div className="bg-[#121212] p-2 rounded-xl border border-white/10 focus-within:border-[#E6C700] transition-colors">
-                  <GlobalSearch 
-                      placeholder="Search components, desktops, or accessories..." 
-                      variant="standard" 
-                      onSearchSubmit={() => setDesktopSearchOpen(false)} 
-                  />
-              </div>
-              
-              <div className="mt-8 flex gap-4 text-sm font-saira text-brand-silver">
-                  <span className="text-white/40 uppercase tracking-widest text-[10px] font-bold mt-1">Popular:</span>
-                  <Link href="/ascend" onClick={() => setDesktopSearchOpen(false)} className="hover:text-[#E6C700] transition-colors">Ascend Series</Link>
-                  <Link href="/products/gpu" onClick={() => setDesktopSearchOpen(false)} className="hover:text-[#E6C700] transition-colors">RTX 4090</Link>
-                  <Link href="/products/cpu" onClick={() => setDesktopSearchOpen(false)} className="hover:text-[#E6C700] transition-colors">Ryzen 9 7950X3D</Link>
-              </div>
-          </div>
-      </div>
       </div>
       
      {/* ... (Mobile menu drawer) ... */}   
