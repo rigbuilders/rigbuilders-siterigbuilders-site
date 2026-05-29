@@ -53,7 +53,7 @@ export default function Footer() {
         <div>
           <h4 className="font-orbitron text-white text-lg mb-6">SUPPORT</h4>
           <ul className="space-y-4 font-saira text-brand-silver text-sm">
-            <li><Link href="/dashboard" className="hover:text-white transition-colors">Track Order</Link></li>
+            <li><Link href="/returns" className="hover:text-white transition-colors">Return Policy</Link></li>
             <li><Link href="/blog" className="hover:text-white transition-colors">Blogs & Guides</Link></li>
             <li><Link href="/terms" className="hover:text-white transition-colors">Terms & Warranty</Link></li>
             <li><Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
