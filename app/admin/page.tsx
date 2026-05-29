@@ -13,16 +13,30 @@ import {
 export default function AdminDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<"super_admin" | "data_entry" | "">(""); // <-- NEW STATE
 
   // --- AUTH CHECK ---
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      // Replace with your actual admin email logic or role check
-      if (!user || user.email !== "rigbuilders123@gmail.com") {
+      
+      const superAdminEmail = "rigbuilders123@gmail.com";
+      const freelancerEmail = "freelancer@gmail.com"; // <-- REPLACE THIS WITH FREELANCER EMAIL
+
+      if (!user) {
         router.push("/");
         return;
       }
+
+      if (user.email === superAdminEmail) {
+        setUserRole("super_admin");
+      } else if (user.email === freelancerEmail) {
+        setUserRole("data_entry");
+      } else {
+        router.push("/"); // Kick out anyone else
+        return;
+      }
+      
       setLoading(false);
     };
     init();
@@ -111,6 +125,21 @@ export default function AdminDashboard() {
     }
   ];
 
+  // --- ROLE-BASED UI FILTER ---
+  // If Super Admin, show all. If Freelancer, strip out everything except Product Inventory.
+  // --- ROLE-BASED UI FILTER ---
+  // If Super Admin, show all. If Freelancer, strip out everything except Product Inventory.
+  const visibleSections = adminSections.map(section => {
+    if (userRole === "super_admin") return section; 
+
+    if (userRole === "data_entry") {
+      const allowedItems = section.items.filter(item => item.title === "Product Inventory");
+      if (allowedItems.length > 0) return { ...section, items: allowedItems };
+      return null;
+    }
+    return null;
+  }).filter(Boolean) as typeof adminSections; // Explicitly tells TypeScript the nulls are gone // Removes empty sections
+
   return (
     <div className="min-h-screen bg-[#121212] text-white font-saira pb-20">
       <Navbar />
@@ -127,7 +156,8 @@ export default function AdminDashboard() {
         </div>
 
         <div className="space-y-12">
-            {adminSections.map((section, idx) => (
+            {/* CHANGED: Now mapping over visibleSections instead of adminSections */}
+            {visibleSections.map((section, idx) => (
                 <div key={idx} className="animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: `${idx * 100}ms` }}>
                     <h2 className="font-orbitron text-xl font-bold text-brand-purple mb-6 uppercase tracking-widest flex items-center gap-4">
                         {section.category}

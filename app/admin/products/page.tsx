@@ -58,10 +58,16 @@ export default function ProductManager() {
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user || user.email !== "rigbuilders123@gmail.com") {
+      
+      const superAdminEmail = "rigbuilders123@gmail.com";
+      const freelancerEmail = "freelancer@gmail.com"; // <-- REPLACE THIS WITH FREELANCER EMAIL
+
+      // Kick out if not logged in, OR if the email doesn't match either of the authorized accounts
+      if (!user || (user.email !== superAdminEmail && user.email !== freelancerEmail)) {
         router.push("/");
         return;
       }
+      
       setIsAdmin(true);
       fetchProducts();
     };
