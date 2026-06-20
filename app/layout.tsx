@@ -151,6 +151,8 @@ export default function RootLayout({
           richColors 
           closeButton
         />
+        
+        <Analytics />
       </body>
     </html>
   );
