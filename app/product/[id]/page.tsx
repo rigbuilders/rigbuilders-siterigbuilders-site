@@ -5,12 +5,12 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
-  // FIX: Await the params promise
   const { id } = await params;
   
+  // Fetch full product for dynamic metadata injection
   const { data: product } = await supabase
     .from('products')
-    .select('name, description, image_url')
+    .select('*')
     .eq('id', id)
     .single();
 
@@ -18,11 +18,22 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     return { title: "Product Not Found" };
   }
 
+  // LAYER A: Automated Semantic Targeting
+  const isPrebuilt = product.category?.toLowerCase() === 'prebuilt';
+  const dynamicTitle = isPrebuilt 
+    ? `Buy ${product.name} Custom Gaming PC | Rig Builders India`
+    : `Buy ${product.brand} ${product.name} | Standalone Price India`;
+
+  const dynamicDescription = `Get the genuine ${product.name} at Rig Builders. Priced at ₹${product.price.toLocaleString("en-IN")} with official ${product.warranty || '3 Years'} warranty. ${product.in_stock ? 'In Stock and ready to ship across India.' : 'Currently Out of Stock.'}`;
+
   return {
-    title: product.name,
-    description: product.description?.slice(0, 160) || "View this product on Rig Builders.",
+    title: dynamicTitle,
+    description: dynamicDescription,
     openGraph: {
+      title: dynamicTitle,
+      description: dynamicDescription,
       images: [product.image_url || "/images/og-default.jpg"],
+      url: `https://www.rigbuilders.in/product/${id}`,
     },
   };
 }

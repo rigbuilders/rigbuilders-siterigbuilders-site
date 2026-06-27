@@ -34,7 +34,7 @@ export default function ProductManager() {
   const [formData, setFormData] = useState({
     id: "", name: "", breadcrumb_name: "", price: "", mrp: "", warranty: "", 
     nickname: "",configurator_name: "",
-    category: "cpu", group: "components", series: "", tier: "", brand: "", 
+    category: "cpu", group: "components", series: "", tier: "", brand: "", feed_image_url: "",
     image_url: "", in_stock: true, description: "", features_text: "",
     gallery_urls: [] as string[], cod_policy: "full_cod",
     cat_name: "", cat_subtitle: "", cat_description: "", cat_image: "",
@@ -125,7 +125,7 @@ export default function ProductManager() {
       cat_name: "", cat_subtitle: "", cat_description: "", cat_image: "", // Clear Category Fields
       
       variant_group_id: "", 
-      specs: { color: "", variant_label: "" }, 
+      specs: { color: "", variant_label: "" }, feed_image_url: "",
       
       socket: "", memory_type: "", wattage: "", capacity: "", form_factor: "", speed: "", storage_type: "",
       length_mm: "", max_gpu_length_mm: "", radiator_size: "", chipset_maker: "", chipset_series: "", chipset: "", supported_motherboards: [], supported_radiators: [],
@@ -205,6 +205,7 @@ export default function ProductManager() {
         tier: formData.tier ? parseInt(formData.tier) : null,
         brand: formData.brand,
         image_url: cleanPath(formData.image_url),
+        feed_image_url: formData.feed_image_url ? cleanPath(formData.feed_image_url) : null,
         in_stock: formData.in_stock,
         cod_policy: formData.cod_policy,
         specs: specs, 
@@ -246,7 +247,7 @@ export default function ProductManager() {
       mrp: p.mrp ? p.mrp.toString() : "", warranty: p.warranty || "",
       category: p.category, group: p.group || s.group || "components",
       series: p.series || "", tier: p.tier ? p.tier.toString() : "",
-      brand: p.brand, image_url: p.image_url || "", in_stock: p.in_stock ?? true,
+      brand: p.brand, image_url: p.image_url || "", feed_image_url: p.feed_image_url || "", in_stock: p.in_stock ?? true,
       cod_policy: p.cod_policy || "full_cod",
       description: p.description || "", features_text: (p.features || []).join('\n'),
       gallery_urls: p.gallery_urls || [],
@@ -324,6 +325,7 @@ export default function ProductManager() {
         gallery_urls: parentProduct.gallery_urls || [],
         cod_policy: parentProduct.cod_policy || "full_cod",
         image_url: parentProduct.image_url || "", 
+        feed_image_url: parentProduct.feed_image_url || "",
         variant_group_id: groupId,
 
         // Specs

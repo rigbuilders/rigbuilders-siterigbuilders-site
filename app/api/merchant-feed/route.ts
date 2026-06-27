@@ -22,7 +22,7 @@ export async function GET() {
     // NOTE: Adjust this URL structure if your frontend product pages use a different path
     const link = `${DOMAIN}/products/${product.category?.toLowerCase()}/${product.id}`; 
     
-    const imageLink = product.image_url ? escapeXml(product.image_url) : '';
+    
     const price = `${product.price}.00 INR`;
     const availability = product.in_stock ? 'in_stock' : 'out_of_stock';
     const brand = escapeXml(product.brand || 'Rig Builders');
@@ -60,12 +60,24 @@ export async function GET() {
       });
     }
 
-    // --- MULTIPLE IMAGES ---
+    // --- SMART IMAGE LOGIC (Absolute URLs + White BG Fallback) ---
+    // 1. Prefer the Google-specific white background image, otherwise fall back to standard image
+    const rawPrimaryImage = product.feed_image_url || product.image_url;
+    
+    // 2. Ensure the URL is absolute so Google bots can fetch it
+    const absoluteImageLink = rawPrimaryImage?.startsWith('http') 
+        ? rawPrimaryImage 
+        : `${DOMAIN}${rawPrimaryImage}`;
+        
+    const imageLink = absoluteImageLink ? escapeXml(absoluteImageLink) : '';
+
     let additionalImagesXml = '';
     if (product.gallery_urls && Array.isArray(product.gallery_urls)) {
       // Google accepts a max of 10 additional images
       product.gallery_urls.slice(0, 10).forEach((url: string) => {
-        additionalImagesXml += `<g:additional_image_link>${escapeXml(url)}</g:additional_image_link>\n`;
+        // Make gallery images absolute as well
+        const absUrl = url.startsWith('http') ? url : `${DOMAIN}${url}`;
+        additionalImagesXml += `<g:additional_image_link>${escapeXml(absUrl)}</g:additional_image_link>\n`;
       });
     }
 

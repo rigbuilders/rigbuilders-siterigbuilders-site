@@ -495,7 +495,16 @@ export default function ProductForm({
             {/* 6. IMAGES */}
             <div className="bg-[#121212] p-3 rounded border border-white/5 space-y-3">
                 <label className="text-xs text-brand-purple uppercase font-bold flex items-center gap-2"><FaImage/> Image Gallery</label>
-                <input placeholder="Main Image Path..." className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs" 
+                
+                {/* --- NEW: GOOGLE FEED IMAGE --- */}
+                <div className="bg-white/5 border border-white/10 p-3 rounded space-y-1 mb-4">
+                    <label className="text-[10px] text-brand-silver uppercase font-bold block">Google Shopping Image (White Background)</label>
+                    <input placeholder="e.g. /products/images/white-bg/item.jpg" className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs focus:border-brand-purple text-white"
+                        value={formData.feed_image_url || ""} onChange={e => setFormData({...formData, feed_image_url: e.target.value})} />
+                </div>
+
+                <label className="text-[10px] text-brand-silver uppercase font-bold block">Website Display Images (Dark/Lifestyle)</label>
+                <input placeholder="Main Website Image Path..." className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs" 
                     value={formData.image_url} onChange={e => setFormData({...formData, image_url: e.target.value})} />
                 
                 {formData.gallery_urls.map((url: string, idx: number) => (

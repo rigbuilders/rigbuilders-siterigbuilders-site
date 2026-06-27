@@ -259,20 +259,44 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
                         <div className="text-brand-silver text-xs">Inclusive of all taxes</div>
                     </div>
 
-                    {/* Specs / Features Block */}
+                    {/* --- LAYER C: CONDITIONAL POLICY INJECTOR --- */}
+                    {product.category?.toLowerCase() === 'cpu' && (
+                        <div className="bg-[#E6C700]/10 border border-[#E6C700]/30 p-4 rounded-lg mb-6 text-sm flex items-start gap-3">
+                            <span className="text-xl">⚠️</span>
+                            <div>
+                                <strong className="text-[#E6C700] block uppercase tracking-wider text-xs mb-1 font-orbitron">Retail Box Note</strong>
+                                <span className="text-brand-silver text-xs leading-relaxed">This standalone processor does not include a stock thermal cooler. An aftermarket liquid or air cooler is required.</span>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {product.cod_policy === 'no_cod' && (
+                        <div className="bg-blue-500/10 border border-blue-500/30 p-4 rounded-lg mb-6 text-sm flex items-start gap-3">
+                            <span className="text-xl">🔒</span>
+                            <div>
+                                <strong className="text-blue-400 block uppercase tracking-wider text-xs mb-1 font-orbitron">Secure Fulfillment</strong>
+                                <span className="text-brand-silver text-xs leading-relaxed">Prepaid orders only. Includes standard 5-7 Day Insured Delivery across India.</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* --- LAYER B: SEMANTIC SPEC TRANSFORMER --- */}
                     <div className="mb-6 bg-[#1A1A1A]/50 p-6 rounded-xl border border-white/5">
                         <h3 className="font-orbitron font-bold text-white mb-6 uppercase tracking-widest text-sm flex items-center gap-2">
                             <FaBolt className="text-brand-purple" /> {isPreBuilt ? "System Specifications" : "Technical Highlights"}
                         </h3>
+                        
                         {isPreBuilt ? (
-                            <div className="space-y-3 text-sm">
-                                {Object.entries(product.specs || {}).map(([key, val]: any) => (
-                                    <div key={key} className="flex justify-between py-2 border-b border-white/5 last:border-0">
-                                        <span className="text-brand-silver uppercase tracking-wide text-xs font-bold">{key}</span>
-                                        <span className="text-white font-medium text-right">{val}</span>
-                                    </div>
-                                ))}
-                            </div>
+                            <table className="w-full text-sm text-left">
+                                <tbody className="divide-y divide-white/5">
+                                    {Object.entries(product.specs || {}).map(([key, val]: any) => (
+                                        <tr key={key} className="hover:bg-white/[0.02] transition-colors">
+                                            <th className="py-3 text-brand-silver uppercase tracking-wide text-xs font-bold w-1/3">{key.replace(/_/g, " ")}</th>
+                                            <td className="py-3 text-white font-medium text-right">{val}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {product.features?.map((feat: string, i: number) => (
