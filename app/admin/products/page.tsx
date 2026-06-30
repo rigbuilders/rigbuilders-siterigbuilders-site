@@ -50,9 +50,10 @@ export default function ProductManager() {
     supported_motherboards: [] as string[], 
     supported_radiators: [] as string[],
     
-    // RECIPE
-    recipe_cpu: "", recipe_gpu: "", recipe_mobo: "", recipe_ram: "", recipe_storage: "", 
-    recipe_psu: "", recipe_cooler: "", recipe_cabinet: "", recipe_os: ""
+    // RECIPE (Dynamic Slots)
+    recipe_cpu: "", recipe_mobo: "", recipe_psu: "", recipe_cooler: "", recipe_cabinet: "", recipe_os: "",
+    recipe_gpus: [] as string[], recipe_rams: [] as string[], recipe_storages: [] as string[], recipe_accessories: [] as string[],
+    auto_price_enabled: true
   });
 
   useEffect(() => {
@@ -109,6 +110,39 @@ export default function ProductManager() {
     }
     setLoading(false);
   };
+  
+  // --- AUTO-PRICING ENGINE ---
+  useEffect(() => {
+    if (formData.category !== 'prebuilt' || !formData.auto_price_enabled || inventory.length === 0) return;
+
+    let totalCost = 0;
+    let totalMrp = 0;
+
+    // Gather all selected component IDs
+    const allComponentIds = [
+      formData.recipe_cpu, formData.recipe_mobo, formData.recipe_psu, 
+      formData.recipe_cooler, formData.recipe_cabinet, formData.recipe_os,
+      ...formData.recipe_gpus, ...formData.recipe_rams, ...formData.recipe_storages, ...formData.recipe_accessories
+    ].filter(Boolean);
+
+    // Sum their live prices from inventory
+    allComponentIds.forEach(id => {
+        const item = inventory.find(p => p.id === id);
+        if (item) {
+            totalCost += Number(item.price) || 0;
+            totalMrp += Number(item.mrp) || Number(item.price * 1.18) || 0;
+        }
+    });
+    
+    setFormData(prev => {
+        if (prev.price === totalCost.toString() && prev.mrp === totalMrp.toString()) return prev;
+        return { ...prev, price: totalCost.toString(), mrp: totalMrp.toString() };
+    });
+  }, [
+    formData.recipe_cpu, formData.recipe_mobo, formData.recipe_psu, formData.recipe_cooler, formData.recipe_cabinet, formData.recipe_os,
+    formData.recipe_gpus, formData.recipe_rams, formData.recipe_storages, formData.recipe_accessories, 
+    formData.category, formData.auto_price_enabled, inventory
+  ]);
 
   const cleanPath = (path: string) => {
     if (!path) return "";
@@ -122,15 +156,18 @@ export default function ProductManager() {
       id: "", name: "", breadcrumb_name: "", price: "", mrp: "", warranty: "", nickname: "",configurator_name: "",
       category: "cpu", group: "components", series: "", tier: "", brand: "", image_url: "", in_stock: true,
       cod_policy: "full_cod", description: "", features_text: "", gallery_urls: [],
-      cat_name: "", cat_subtitle: "", cat_description: "", cat_image: "", // Clear Category Fields
+      cat_name: "", cat_subtitle: "", cat_description: "", cat_image: "", 
       
       variant_group_id: "", 
       specs: { color: "", variant_label: "" }, feed_image_url: "",
       
       socket: "", memory_type: "", wattage: "", capacity: "", form_factor: "", speed: "", storage_type: "",
       length_mm: "", max_gpu_length_mm: "", radiator_size: "", chipset_maker: "", chipset_series: "", chipset: "", supported_motherboards: [], supported_radiators: [],
-      recipe_cpu: "", recipe_gpu: "", recipe_mobo: "", recipe_ram: "", recipe_storage: "", 
-      recipe_psu: "", recipe_cooler: "", recipe_cabinet: "", recipe_os: ""
+      
+      // --- UPDATED DYNAMIC SLOTS ---
+      recipe_cpu: "", recipe_mobo: "", recipe_psu: "", recipe_cooler: "", recipe_cabinet: "", recipe_os: "",
+      recipe_gpus: [], recipe_rams: [], recipe_storages: [], recipe_accessories: [],
+      auto_price_enabled: true
     });
     setIsCustomCategory(false); setIsCustomBrand(false); setIsCustomSocket(false); setIsCustomMemory(false);
     setActiveTab("add");
@@ -161,9 +198,36 @@ export default function ProductManager() {
       // Map Flattened fields to Specs JSON
       
       if (formData.category === 'prebuilt') {
-         ["Processor", "Graphics Card", "Motherboard", "Memory", "Storage", "Power Supply", "Cooling", "Cabinet", "OS"].forEach(k => {
-             const key = `recipe_${k.toLowerCase().replace(/ /g, '_').replace('graphics_card', 'gpu').replace('processor', 'cpu').replace('power_supply', 'psu')}` as keyof typeof formData;
-             specs[k] = formData[key];
+         // Map single items
+         const singles = [
+             { label: "Processor", id: formData.recipe_cpu },
+             { label: "Motherboard", id: formData.recipe_mobo },
+             { label: "Power Supply", id: formData.recipe_psu },
+             { label: "Cooling", id: formData.recipe_cooler },
+             { label: "Cabinet", id: formData.recipe_cabinet },
+             { label: "OS", id: formData.recipe_os }
+         ];
+         singles.forEach(({ label, id }) => {
+             const item = inventory.find(p => p.id === id);
+             if (item) specs[label] = item.name;
+         });
+
+         // Map multi-slot items dynamically
+         formData.recipe_gpus.forEach((id, i) => {
+             const item = inventory.find(p => p.id === id);
+             if (item) specs[`Graphics Card (Slot ${i + 1})`] = item.name;
+         });
+         formData.recipe_rams.forEach((id, i) => {
+             const item = inventory.find(p => p.id === id);
+             if (item) specs[`Memory (Slot ${i + 1})`] = item.name;
+         });
+         formData.recipe_storages.forEach((id, i) => {
+             const item = inventory.find(p => p.id === id);
+             if (item) specs[`Storage (Drive ${i + 1})`] = item.name;
+         });
+         formData.recipe_accessories.forEach((id, i) => {
+             const item = inventory.find(p => p.id === id);
+             if (item) specs[`Accessory ${i + 1}`] = item.name;
          });
       } else {
          if (formData.wattage) specs.wattage = parseInt(formData.wattage);
@@ -233,10 +297,13 @@ export default function ProductManager() {
 
   const handleEditClick = (p: any) => {
     const s = p.specs || {};
-    // FIX: Check against dynamic DB list, not hardcoded base
     setIsCustomCategory(!existingCategories.some(c => c.id === p.category));
     setIsCustomBrand(!existingBrands.includes(p.brand));
     
+    // --- LOOKUP HELPERS (Defined before state update) ---
+    const findIdByName = (name: string) => inventory.find(inv => inv.name === name)?.id || "";
+    const findMultiIds = (prefix: string) => Object.entries(s).filter(([k]) => k.startsWith(prefix)).map(([_, v]) => findIdByName(v as string)).filter(Boolean);
+
     setFormData({
       ...formData,
       id: p.id, name: p.name, nickname: p.nickname || "", breadcrumb_name: p.breadcrumb_name || "", price: p.price.toString(),configurator_name: p.configurator_name || "",
@@ -263,14 +330,24 @@ export default function ProductManager() {
       supported_motherboards: s.supported_motherboards || [], 
       supported_radiators: s.supported_radiators || [],
       
-      recipe_cpu: s["Processor"] || "", recipe_gpu: s["Graphics Card"] || "", recipe_mobo: s["Motherboard"] || "",
-      recipe_ram: s["Memory"] || "", recipe_storage: s["Storage"] || "", recipe_psu: s["Power Supply"] || "",
-      recipe_cooler: s["Cooling"] || "", recipe_cabinet: s["Cabinet"] || "", recipe_os: s["OS"] || ""
+      // --- DYNAMIC SLOTS HYDRATION ---
+      recipe_cpu: findIdByName(s["Processor"]),
+      recipe_mobo: findIdByName(s["Motherboard"]),
+      recipe_psu: findIdByName(s["Power Supply"]),
+      recipe_cooler: findIdByName(s["Cooling"]),
+      recipe_cabinet: findIdByName(s["Cabinet"]),
+      recipe_os: findIdByName(s["OS"]),
+      recipe_gpus: findMultiIds("Graphics Card"),
+      recipe_rams: findMultiIds("Memory"),
+      recipe_storages: findMultiIds("Storage"),
+      recipe_accessories: findMultiIds("Accessory"),
+      auto_price_enabled: false // Disable auto-pricing on edit to protect historic prices
     });
     setActiveTab("edit");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
-
+  
+ 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete product?")) return;
     await supabase.from('products').delete().eq('id', id);

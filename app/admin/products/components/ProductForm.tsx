@@ -468,27 +468,79 @@ export default function ProductForm({
                 </div>
             )}
 
-            {/* PREBUILT RECIPE */}
+            {/* PREBUILT RECIPE & CONFIGURATION */}
             {formData.category === 'prebuilt' && (
-                <div className="bg-[#121212] p-3 rounded border border-brand-purple/30 space-y-3">
-                    <label className="text-xs text-brand-purple uppercase font-bold block">System Configuration</label>
-                    {[
-                        { label: "Processor", key: "recipe_cpu", cat: "cpu" },
-                        { label: "Graphics", key: "recipe_gpu", cat: "gpu" },
-                        { label: "Motherboard", key: "recipe_mobo", cat: "motherboard" },
-                        { label: "Memory", key: "recipe_ram", cat: "ram" },
-                        { label: "Storage", key: "recipe_storage", cat: "storage" },
-                        { label: "Power", key: "recipe_psu", cat: "psu" },
-                        { label: "Cooling", key: "recipe_cooler", cat: "cooler" },
-                        { label: "Cabinet", key: "recipe_cabinet", cat: "cabinet" },
-                        { label: "Operating System", key: "recipe_os", cat: "os" },
-                    ].map((field) => (
-                        <select key={field.key} className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs"
-                            value={formData[field.key]} onChange={e => setFormData({...formData, [field.key]: e.target.value})}>
-                            <option value="">Select {field.label}</option>
-                            {getOptionsFor(field.cat).map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                        </select>
-                    ))}
+                <div className="bg-[#121212] p-4 rounded border border-brand-purple/30 space-y-4">
+                    <div className="flex justify-between items-center border-b border-white/10 pb-2">
+                        <label className="text-sm text-brand-purple uppercase font-bold flex items-center gap-2">System Configuration</label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <span className="text-[10px] text-brand-silver uppercase tracking-widest">Auto-Calculate Price</span>
+                            <input type="checkbox" className="accent-brand-purple w-3 h-3" checked={formData.auto_price_enabled} onChange={e => setFormData({...formData, auto_price_enabled: e.target.checked})} />
+                        </label>
+                    </div>
+                    
+                    {/* SINGLE SLOT COMPONENTS */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {[
+                            { label: "Processor", key: "recipe_cpu", cat: "cpu" },
+                            { label: "Motherboard", key: "recipe_mobo", cat: "motherboard" },
+                            { label: "Power Supply", key: "recipe_psu", cat: "psu" },
+                            { label: "Cooling", key: "recipe_cooler", cat: "cooler" },
+                            { label: "Cabinet", key: "recipe_cabinet", cat: "cabinet" },
+                            { label: "Operating System", key: "recipe_os", cat: "os" },
+                        ].map((field) => (
+                            <div key={field.key}>
+                                <label className="text-[9px] text-brand-silver uppercase block mb-1">{field.label}</label>
+                                <select className="w-full bg-[#1A1A1A] p-2 rounded border border-white/10 text-xs text-white outline-none"
+                                    value={formData[field.key]} onChange={e => setFormData({...formData, [field.key]: e.target.value})}>
+                                    <option value="">Select {field.label}</option>
+                                    {getOptionsFor(field.cat).map(p => <option key={p.id} value={p.id}>{p.name} (+₹{p.price})</option>)}
+                                </select>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* MULTI-SLOT COMPONENTS (Arrays) */}
+                    <div className="space-y-4 pt-4 border-t border-white/10">
+                        {[
+                            { label: "Graphics Cards", key: "recipe_gpus", cats: ["gpu"] },
+                            { label: "Memory (RAM)", key: "recipe_rams", cats: ["ram"] },
+                            { label: "Storage Drives", key: "recipe_storages", cats: ["storage"] },
+                            { label: "Accessories & Peripherals", key: "recipe_accessories", cats: ["monitor", "keyboard", "mouse", "combo", "mousepad"] },
+                        ].map((section) => (
+                            <div key={section.key} className="bg-white/5 p-3 rounded border border-white/5">
+                                <label className="text-[10px] text-brand-silver uppercase font-bold block mb-2">{section.label}</label>
+                                
+                                {/* Render Added Items */}
+                                <div className="space-y-2 mb-2">
+                                    {formData[section.key].map((itemId: string, index: number) => {
+                                        const item = inventory.find(p => p.id === itemId);
+                                        return (
+                                            <div key={index} className="flex items-center justify-between bg-[#121212] p-2 rounded border border-white/10 text-xs shadow-sm">
+                                                <span className="truncate pr-2 text-white">{item?.name || "Unknown Component"} <span className="text-brand-purple font-mono ml-2">(+₹{item?.price})</span></span>
+                                                <button type="button" onClick={() => setFormData({...formData, [section.key]: formData[section.key].filter((_: any, i: number) => i !== index)})} className="text-red-500 hover:bg-red-500/20 p-1.5 rounded transition-colors"><FaTrash size={10}/></button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Add New Item Dropdown */}
+                                <select 
+                                    className="w-full bg-[#1A1A1A] p-2 rounded border border-brand-purple/50 text-xs text-brand-purple outline-none font-bold cursor-pointer"
+                                    value=""
+                                    onChange={e => {
+                                        if (!e.target.value) return;
+                                        setFormData({...formData, [section.key]: [...formData[section.key], e.target.value]});
+                                    }}
+                                >
+                                    <option value="">+ Add {section.label}</option>
+                                    {inventory.filter(p => section.cats.includes(p.category)).map(p => (
+                                        <option key={p.id} value={p.id}>{p.name} (+₹{p.price})</option>
+                                    ))}
+                                </select>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
 
