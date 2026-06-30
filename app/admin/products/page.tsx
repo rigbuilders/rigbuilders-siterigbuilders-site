@@ -341,7 +341,7 @@ export default function ProductManager() {
       recipe_rams: findMultiIds("Memory"),
       recipe_storages: findMultiIds("Storage"),
       recipe_accessories: findMultiIds("Accessory"),
-      auto_price_enabled: false // Disable auto-pricing on edit to protect historic prices
+      auto_price_enabled: false // Disable Auto-pricing on edit to protect historic prices
     });
     setActiveTab("edit");
     window.scrollTo({ top: 0, behavior: "smooth" });
