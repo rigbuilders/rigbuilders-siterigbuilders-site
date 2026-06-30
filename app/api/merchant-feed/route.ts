@@ -16,12 +16,12 @@ export async function GET() {
   // 2. Loop through your products and map them to Google's XML tags
   const itemsXml = products.map((product) => {
     // Escape special characters to prevent XML parsing errors
+    // Escape special characters to prevent XML parsing errors
     const title = escapeXml(product.name);
     const description = escapeXml(product.description || product.name);
     
-    // NOTE: Adjust this URL structure if your frontend product pages use a different path
-    const link = `${DOMAIN}/products/${product.category?.toLowerCase()}/${product.id}`; 
-    
+    // NOTE: Adjusted URL structure to match the actual Next.js frontend path
+    const link = `${DOMAIN}/product/${product.id}`; 
     
     const price = `${product.price}.00 INR`;
     const availability = product.in_stock ? 'in_stock' : 'out_of_stock';

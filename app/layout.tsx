@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Saira, Orbitron } from "next/font/google"; 
-import "./globals.css";
+import "@/app/globals.css";
 import { CartProvider } from "./context/CartContext"; 
 import { ModalProvider } from "./context/ModalContext"; 
 import GlobalModal from "@/components/ui/GlobalModal";   
