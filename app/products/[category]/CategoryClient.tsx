@@ -209,7 +209,7 @@ export default function CategoryClient({ category }: { category: string }) {
                 onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
             >
                 <div className="flex items-center gap-2">
-                    <span className="font-orbitron font-bold uppercase tracking-wider">Show Filters</span>
+                    <span className="font-saira font-bold uppercase tracking-wider">Show Filters</span>
                 </div>
                 {mobileFiltersOpen ? <FaChevronUp /> : <FaChevronDown />}
             </div>
@@ -231,7 +231,7 @@ export default function CategoryClient({ category }: { category: string }) {
 
              {loading ? (
                 <div className="h-[50vh] flex flex-col items-center justify-center text-brand-purple animate-pulse">
-                    <div className="text-xl font-orbitron mb-2 tracking-widest">LOADING INVENTORY</div>
+                    <div className="text-xl font-saira mb-2 tracking-widest">LOADING INVENTORY</div>
                     <div className="h-[1px] w-24 bg-brand-purple"></div>
                 </div>
              ) : (
@@ -251,7 +251,7 @@ export default function CategoryClient({ category }: { category: string }) {
                                {product.image ? (
                                  <img src={product.image} alt={product.name} className="max-h-full max-w-full object-contain relative z-10 transform group-hover:scale-110 transition-transform duration-700" />
                                ) : (
-                                 <span className="text-brand-silver/20 font-orbitron text-2xl font-bold -rotate-12 select-none">{product.name}</span>
+                                 <span className="text-brand-silver/20 font-saira text-2xl font-bold -rotate-12 select-none">{product.name}</span>
                                )}
                             </Link>
                             
@@ -261,7 +261,7 @@ export default function CategoryClient({ category }: { category: string }) {
                                 </span>
 
                                 <Link href={`/product/${product.id}`} className="block mb-4">
-                                   <h4 className="text-white font-orbitron text-lg leading-tight group-hover:text-brand-purple transition-colors line-clamp-2 uppercase">
+                                   <h4 className="text-white font-saira text-lg leading-tight group-hover:text-brand-purple transition-colors line-clamp-2 uppercase">
                                        {product.name}
                                    </h4>
                                 </Link>
@@ -293,7 +293,7 @@ export default function CategoryClient({ category }: { category: string }) {
                                 <div className="mt-auto pt-6 border-t border-white/5 flex items-end justify-between gap-4">
                                     <div>
                                         <p className="text-[10px] text-brand-silver uppercase tracking-widest mb-1">Price</p>
-                                        <span className="text-white font-orbitron font-bold text-xl">₹{product.price.toLocaleString("en-IN")}</span>
+                                        <span className="text-white font-saira font-bold text-xl">₹{product.price.toLocaleString("en-IN")}</span>
                                     </div>
                                     
                                     <div className="flex gap-0">
@@ -308,7 +308,7 @@ export default function CategoryClient({ category }: { category: string }) {
                                         <button 
                                             onClick={() => handleAction(product, true)} 
                                             disabled={!product.in_stock} 
-                                            className="h-10 px-6 bg-white text-black text-[10px] font-orbitron font-bold uppercase tracking-widest hover:bg-brand-purple hover:text-white transition-all disabled:opacity-20 flex items-center gap-2"
+                                            className="h-10 px-6 bg-white text-black text-[10px] font-saira font-bold uppercase tracking-widest hover:bg-brand-purple hover:text-white transition-all disabled:opacity-20 flex items-center gap-2"
                                         >
                                             Buy <FaArrowRight />
                                         </button>
@@ -323,7 +323,7 @@ export default function CategoryClient({ category }: { category: string }) {
 
              {!loading && filteredProducts.length === 0 && (
                 <div className="h-[50vh] flex flex-col items-center justify-center text-brand-silver border border-dashed border-white/10 m-8">
-                   <p className="font-orbitron text-xl mb-2">NO SIGNALS DETECTED</p>
+                   <p className="font-saira text-xl mb-2">NO SIGNALS DETECTED</p>
                    <p className="text-sm text-brand-silver/50 uppercase tracking-widest text-center mt-2">
                         Try adjusting your filters or checking a different category.
                     </p>

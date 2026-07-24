@@ -5,6 +5,7 @@ import { PrismaClient } from "@prisma/client";
 import { notFound } from "next/navigation";
 import { Reveal } from "@/components/ui/MotionWrappers";
 import BlogInteractions from "@/components/BlogInteractions";
+import { sanitizeHtml } from "@/lib/sanitizeHtml";
 
 export const dynamic = "force-dynamic";
 
@@ -146,7 +147,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                 prose-strong:text-white prose-strong:font-bold
                 prose-img:rounded-none prose-img:border prose-img:border-white/10
                 prose-blockquote:border-l-brand-purple prose-blockquote:text-white prose-blockquote:bg-white/5 prose-blockquote:py-2 prose-blockquote:px-6 prose-blockquote:not-italic"
-                dangerouslySetInnerHTML={{ __html: post.content }} 
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.content) }}
             />
         </Reveal>
       </article>

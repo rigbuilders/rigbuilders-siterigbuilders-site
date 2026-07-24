@@ -2,12 +2,23 @@
 
 import Navbar from "@/components/Navbar";
 import { useState, useEffect, useRef } from "react";
-import { 
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
+import {
   FaBold, FaImage, FaLink, FaHeading, FaCode, FaEye, FaPen, FaTrash, FaPlus, FaSave,
   FaThumbsUp, FaThumbsDown, FaCommentAlt, FaTimes, FaUser // <--- Added FaTimes, FaUser
 } from "react-icons/fa";
 
+// Attach the current Supabase access token so the API can authorize admin writes.
+async function authHeaders(extra: Record<string, string> = {}): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  return token ? { ...extra, Authorization: `Bearer ${token}` } : extra;
+}
+
 export default function AdminBlogEditor() {
+  const router = useRouter();
+  const [authChecked, setAuthChecked] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [posts, setPosts] = useState<any[]>([]); 
@@ -28,11 +39,21 @@ export default function AdminBlogEditor() {
   });
 
   useEffect(() => {
-    fetchPosts();
-  }, []);
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const superAdminEmail = "rigbuilders123@gmail.com";
+      if (!user || user.email !== superAdminEmail) {
+        router.push("/");
+        return;
+      }
+      setAuthChecked(true);
+      fetchPosts();
+    };
+    init();
+  }, [router]);
 
   const fetchPosts = async () => {
-    const res = await fetch("/api/blog/manage");
+    const res = await fetch("/api/blog/manage", { headers: await authHeaders() });
     const data = await res.json();
     if (res.ok) setPosts(data);
   };
@@ -50,7 +71,7 @@ export default function AdminBlogEditor() {
   const handleDelete = async () => {
       if (!editingId || !confirm("Are you sure you want to delete this transmission?")) return;
       setLoading(true);
-      await fetch(`/api/blog/manage?id=${editingId}`, { method: "DELETE" });
+      await fetch(`/api/blog/manage?id=${editingId}`, { method: "DELETE", headers: await authHeaders() });
       fetchPosts();
       handleCreateNew();
       setLoading(false);
@@ -68,7 +89,7 @@ export default function AdminBlogEditor() {
 
     const res = await fetch(url, {
         method: method,
-        headers: { "Content-Type": "application/json" },
+        headers: await authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(payload),
     });
 
@@ -155,6 +176,14 @@ export default function AdminBlogEditor() {
 
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen bg-[#121212] flex items-center justify-center text-white font-orbitron animate-pulse">
+        Verifying access...
+      </div>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#121212] text-white font-saira flex flex-col">

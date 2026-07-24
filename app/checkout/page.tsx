@@ -220,21 +220,29 @@ export default function CheckoutPage() {
     setLoading(true);
     setShowPaymentModal(false); 
     
-    // LOGIC: Calculate 10% if it is an Advance Payment, otherwise Full Amount
+    // NOTE: the amount charged is computed on the SERVER from the products table.
+    // These local figures are only used for optimistic UI display.
     const amountToPay = isAdvancePayment ? Math.round(finalTotal * 0.10) : finalTotal;
     const pendingAmount = isAdvancePayment ? (finalTotal - amountToPay) : 0;
-    
+
     // LABEL: This tag tells Ops/Procurement exactly what type of order this is
     const paymentModeLabel = isAdvancePayment ? "PARTIAL_COD" : "ONLINE";
 
     try {
-        // Create Razorpay Order for the Calculated Amount
+        // Create Razorpay Order. The server recomputes the real amount from the DB;
+        // we send the cart + coupon, NOT a price.
         const orderRes = await fetch("/api/payment/create", {
             method: "POST",
-            body: JSON.stringify({ amount: amountToPay }),
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                cartItems: cart,
+                couponCode: activeCoupon,
+                userId: user?.id || "guest",
+                isAdvance: isAdvancePayment,
+            }),
         });
         const orderData = await orderRes.json();
-        
+
         if (orderData.error) throw new Error(orderData.error);
 
         const res = await loadRazorpay();
@@ -320,12 +328,14 @@ export default function CheckoutPage() {
         ...paymentDetails,
         cartItems: cart,
         userId: user?.id || 'guest',
+        // The server recomputes the total from the DB; this is sent for reference only.
         totalAmount: finalTotal,
+        couponCode: activeCoupon,
         shippingAddress: formData,
         billingAddress: finalBillingAddress,
-        isGuest: isGuest, 
+        isGuest: isGuest,
         autoSaveAddress: !addressExists,
-        
+
         // NEW: Explicitly send Policy Details to Ops/Procurement
         codPolicy: codMode // 'full', 'partial', or 'none'
     };

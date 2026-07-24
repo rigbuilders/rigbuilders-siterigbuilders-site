@@ -6,14 +6,17 @@ import { useState, useEffect, useMemo } from "react";
 import { useCart } from "../context/CartContext";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import { FaDesktop, FaKeyboard, FaMouse } from "react-icons/fa";
-import { Reveal, StaggerGrid, StaggerItem } from "@/components/ui/MotionWrappers";
+import { Reveal } from "@/components/ui/MotionWrappers";
 import { toast } from "sonner";
+import { 
+    FaMicrochip, FaServer, FaMemory, FaGamepad, FaHdd, 
+    FaFan, FaPlug, FaBox, FaWindows, FaDesktop, FaKeyboard, FaMouse 
+} from "react-icons/fa";
 
-// Import new modular parts
+// Import modules
 import { Product, SelectionState } from "./types";
 import { filterInventory, calculateTotals } from "./logic";
-import { SelectionGrid, SummaryPanel, MobileBar, CollapsibleSection } from "./components/ConfigUI";
+import { SummaryPanel, MobileBar, CategoryCard, PremiumSelectionModal } from "./components/ConfigUI";
 
 export default function ConfiguratorPage() {
   const { addToCart } = useCart();
@@ -24,6 +27,9 @@ export default function ConfiguratorPage() {
   const [saving, setSaving] = useState(false);
   const [showMobileBar, setShowMobileBar] = useState(false);
   const [mounted, setMounted] = useState(false);
+
+  // New Modal State
+  const [activeModal, setActiveModal] = useState<keyof SelectionState | null>(null);
 
   const [selections, setSelections] = useState<SelectionState>({
     cpu: null, motherboard: null, gpu: null, ram: null, storage: null, 
@@ -56,7 +62,7 @@ export default function ConfiguratorPage() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // 2. LOGIC (Using extracted function)
+  // 2. LOGIC
   const data = useMemo(() => filterInventory(inventory, selections), [inventory, selections]);
   const totals = useMemo(() => calculateTotals(selections), [selections]);
 
@@ -100,6 +106,34 @@ export default function ConfiguratorPage() {
     router.push("/cart");
   };
 
+  // --- Modal Helpers ---
+  const getModalTitle = (cat: keyof SelectionState) => {
+    const titles: Record<string, string> = {
+        cpu: "Processor", motherboard: "Motherboard", ram: "Memory", gpu: "Graphics Card",
+        storage: "Storage", cooler: "Cooling", psu: "Power Supply", cabinet: "Cabinet",
+        osPrimary: "Operating System", monitor: "Monitor", combo: "Keyboard & Mouse Combo",
+        keyboard: "Keyboard", mouse: "Mouse"
+    };
+    return titles[cat as string] || cat;
+  };
+
+  const getModalItems = (cat: keyof SelectionState) => {
+    if (cat === 'osPrimary') return data.osList || [];
+    const map: Record<string, any[]> = {
+        cpu: data.cpus, motherboard: data.mobos, ram: data.rams, gpu: data.gpus,
+        storage: data.storages, cooler: data.coolers, psu: data.psus, cabinet: data.cabinets,
+        monitor: data.monitors, combo: data.combos, keyboard: data.keyboards, mouse: data.mice
+    };
+    return map[cat as string] || [];
+  };
+
+  const getModalWarning = (cat: keyof SelectionState) => {
+    if (cat === 'motherboard' && !selections.cpu) return "Select CPU first to ensure socket compatibility.";
+    if (cat === 'ram' && !selections.motherboard) return "Select Motherboard first to ensure DDR type compatibility.";
+    if (cat === 'cabinet' && selections.gpu) return `Filtering cases to fit ${selections.gpu.configurator_name || selections.gpu.name}.`;
+    return undefined;
+  };
+
   return (
     <div className="bg-[#121212] min-h-screen text-white font-saira flex flex-col relative overflow-x-hidden">
       <div className="fixed top-0 left-0 w-full h-full bg-[url('/images/noise.png')] opacity-[0.03] pointer-events-none z-0" />
@@ -109,7 +143,7 @@ export default function ConfiguratorPage() {
       <div className="flex-grow pt-12 pb-12 px-4 md:px-8 2xl:px-[100px] relative z-10">
         <Reveal><h1 className="font-orbitron text-4xl font-bold mb-8 text-white uppercase tracking-wide text-center lg:text-left">System <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-purple to-brand-blue">Configurator</span></h1></Reveal>
 
-        <div className="max-w-8xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start relative">
+        <div className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 items-start relative">
             {/* LEFT: SUMMARY */}
             <div className="lg:col-span-4 lg:sticky lg:top-32 h-fit space-y-6">
                 <Reveal delay={0.2}>
@@ -117,130 +151,66 @@ export default function ConfiguratorPage() {
                 </Reveal>
             </div>
 
-            {/* RIGHT: BUILDER */}
-            <div className="lg:col-span-8 space-y-4">
-    <StaggerGrid className="flex flex-col gap-4">
-        <StaggerItem>
-            <CollapsibleSection 
-                title="1. Processor" 
-                selected={selections.cpu ? (selections.cpu.configurator_name || selections.cpu.name) : null}
-            >
-                <SelectionGrid items={data.cpus} selectedId={selections.cpu?.id} onSelect={(i) => handleSelect('cpu', i)} />
-            </CollapsibleSection>
-        </StaggerItem>
+            {/* RIGHT: BUILDER GRID */}
+            <div className="lg:col-span-8 space-y-12 pb-24">
+                
+                {/* SECTION 1: PC COMPONENTS */}
+                <div>
+                    <div className="flex justify-between items-end border-b border-white/10 pb-3 mb-6">
+                        <h2 className="font-orbitron text-2xl font-bold text-white uppercase tracking-widest">PC Components</h2>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <CategoryCard title="Processor" icon={FaMicrochip} selectedItem={selections.cpu} onClick={() => setActiveModal('cpu')} />
+                        <CategoryCard title="Motherboard" icon={FaServer} selectedItem={selections.motherboard} onClick={() => setActiveModal('motherboard')} warning={!selections.cpu ? "Requires CPU" : undefined} />
+                        <CategoryCard title="Memory (RAM)" icon={FaMemory} selectedItem={selections.ram} onClick={() => setActiveModal('ram')} warning={!selections.motherboard ? "Requires Mobo" : undefined} />
+                        <CategoryCard title="Graphics Card" icon={FaGamepad} selectedItem={selections.gpu} onClick={() => setActiveModal('gpu')} />
+                        <CategoryCard title="Storage" icon={FaHdd} selectedItem={selections.storage} onClick={() => setActiveModal('storage')} />
+                        <CategoryCard title="Cooling" icon={FaFan} selectedItem={selections.cooler} onClick={() => setActiveModal('cooler')} />
+                        <CategoryCard title="Power Supply" icon={FaPlug} selectedItem={selections.psu} onClick={() => setActiveModal('psu')} />
+                        <CategoryCard title="Cabinet" icon={FaBox} selectedItem={selections.cabinet} onClick={() => setActiveModal('cabinet')} />
+                    </div>
+                </div>
 
-        <StaggerItem>
-            <CollapsibleSection 
-                title="2. Motherboard" 
-                selected={selections.motherboard ? (selections.motherboard.configurator_name || selections.motherboard.name) : null}
-            >
-                <SelectionGrid items={data.mobos} selectedId={selections.motherboard?.id} onSelect={(i) => handleSelect('motherboard', i)} warning={!selections.cpu ? "Select CPU first" : undefined} />
-            </CollapsibleSection>
-        </StaggerItem>
+                {/* SECTION 2: OPERATING SYSTEM */}
+                <div>
+                    <div className="flex justify-between items-end border-b border-white/10 pb-3 mb-6">
+                        <h2 className="font-orbitron text-2xl font-bold text-white uppercase tracking-widest">Operating System</h2>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <CategoryCard title="Primary OS" icon={FaWindows} selectedItem={selections.osPrimary} onClick={() => setActiveModal('osPrimary')} />
+                    </div>
+                </div>
 
-        <StaggerItem>
-            <CollapsibleSection 
-                title="3. Memory (RAM)" 
-                selected={selections.ram ? (selections.ram.configurator_name || selections.ram.name) : null}
-            >
-                <SelectionGrid items={data.rams} selectedId={selections.ram?.id} onSelect={(i) => handleSelect('ram', i)} warning={!selections.motherboard ? "Select Motherboard first" : undefined} />
-            </CollapsibleSection>
-        </StaggerItem>
+                {/* SECTION 3: ACCESSORIES */}
+                <div>
+                    <div className="flex justify-between items-end border-b border-white/10 pb-3 mb-6">
+                        <h2 className="font-orbitron text-2xl font-bold text-white uppercase tracking-widest">Accessories</h2>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <CategoryCard title="Monitor" icon={FaDesktop} selectedItem={selections.monitor} onClick={() => setActiveModal('monitor')} />
+                        <CategoryCard title="Keyboard & Mouse" icon={FaKeyboard} selectedItem={selections.combo} onClick={() => setActiveModal('combo')} />
+                        <CategoryCard title="Standalone Keyboard" icon={FaKeyboard} selectedItem={selections.keyboard} onClick={() => setActiveModal('keyboard')} />
+                        <CategoryCard title="Standalone Mouse" icon={FaMouse} selectedItem={selections.mouse} onClick={() => setActiveModal('mouse')} />
+                    </div>
+                </div>
 
-        <StaggerItem>
-            <CollapsibleSection 
-                title="4. Graphics Card" 
-                selected={selections.gpu ? (selections.gpu.configurator_name || selections.gpu.name) : null}
-            >
-                <SelectionGrid items={data.gpus} selectedId={selections.gpu?.id} onSelect={(i) => handleSelect('gpu', i)} />
-            </CollapsibleSection>
-        </StaggerItem>
-
-        <StaggerItem>
-            <CollapsibleSection 
-                title="5. Storage" 
-                selected={selections.storage ? (selections.storage.configurator_name || selections.storage.name) : null}
-            >
-                <SelectionGrid items={data.storages} selectedId={selections.storage?.id} onSelect={(i) => handleSelect('storage', i)} />
-            </CollapsibleSection>
-        </StaggerItem>
-
-        <StaggerItem>
-            <CollapsibleSection 
-                title="6. Cooling" 
-                selected={selections.cooler ? (selections.cooler.configurator_name || selections.cooler.name) : null}
-            >
-                <SelectionGrid items={data.coolers} selectedId={selections.cooler?.id} onSelect={(i) => handleSelect('cooler', i)} />
-            </CollapsibleSection>
-        </StaggerItem>
-
-        <StaggerItem>
-            <CollapsibleSection 
-                title="7. Power Supply" 
-                selected={selections.psu ? (selections.psu.configurator_name || selections.psu.name) : null}
-            >
-                <SelectionGrid items={data.psus} selectedId={selections.psu?.id} onSelect={(i) => handleSelect('psu', i)} />
-            </CollapsibleSection>
-        </StaggerItem>
-
-        <StaggerItem>
-            <CollapsibleSection 
-                title="8. Cabinet" 
-                selected={selections.cabinet ? (selections.cabinet.configurator_name || selections.cabinet.name) : null}
-            >
-                <SelectionGrid items={data.cabinets} selectedId={selections.cabinet?.id} onSelect={(i) => handleSelect('cabinet', i)} warning={selections.gpu ? `Showing cabinets compatible with ${selections.gpu.configurator_name || selections.gpu.name}` : undefined} />
-            </CollapsibleSection>
-        </StaggerItem>
-
-        <div className="py-4 flex items-center gap-4 opacity-50">
-            <div className="h-[1px] bg-white/20 flex-grow"></div>
-            <span className="font-orbitron text-sm uppercase tracking-widest text-brand-silver">Accessories</span>
-            <div className="h-[1px] bg-white/20 flex-grow"></div>
-        </div>
-
-        <StaggerItem>
-            <CollapsibleSection 
-                title="9. Monitor" 
-                icon={<FaDesktop />} 
-                selected={selections.monitor ? (selections.monitor.configurator_name || selections.monitor.name) : null}
-            >
-                <SelectionGrid items={data.monitors} selectedId={selections.monitor?.id} onSelect={(i) => handleSelect('monitor', i)} />
-            </CollapsibleSection>
-        </StaggerItem>
-
-        <StaggerItem>
-            <CollapsibleSection 
-                title="10. Keyboard & Mouse Combo" 
-                icon={<FaKeyboard />} 
-                selected={selections.combo ? (selections.combo.configurator_name || selections.combo.name) : null}
-            >
-                <SelectionGrid items={data.combos} selectedId={selections.combo?.id} onSelect={(i) => handleSelect('combo', i)} />
-            </CollapsibleSection>
-        </StaggerItem>
-
-        <StaggerItem>
-            <CollapsibleSection 
-                title="11. Keyboard (Individual)" 
-                icon={<FaKeyboard />} 
-                selected={selections.keyboard ? (selections.keyboard.configurator_name || selections.keyboard.name) : null}
-            >
-                <SelectionGrid items={data.keyboards} selectedId={selections.keyboard?.id} onSelect={(i) => handleSelect('keyboard', i)} />
-            </CollapsibleSection>
-        </StaggerItem>
-
-        <StaggerItem>
-            <CollapsibleSection 
-                title="12. Mouse (Individual)" 
-                icon={<FaMouse />} 
-                selected={selections.mouse ? (selections.mouse.configurator_name || selections.mouse.name) : null}
-            >
-                <SelectionGrid items={data.mice} selectedId={selections.mouse?.id} onSelect={(i) => handleSelect('mouse', i)} />
-            </CollapsibleSection>
-        </StaggerItem>
-    </StaggerGrid>
-</div>
+            </div>
         </div>
       </div>
+
+      {/* --- PREMIUM MODAL --- */}
+      {mounted && (
+          <PremiumSelectionModal
+              isOpen={activeModal !== null}
+              onClose={() => setActiveModal(null)}
+              title={activeModal ? getModalTitle(activeModal) : ""}
+              items={activeModal ? getModalItems(activeModal) : []}
+              selectedId={activeModal ? selections[activeModal]?.id : null}
+              onSelect={(item: Product) => activeModal && handleSelect(activeModal, item)}
+              warning={activeModal ? getModalWarning(activeModal) : undefined}
+          />
+      )}
+
       {mounted && <MobileBar show={showMobileBar} totalPrice={totals.totalPrice} totals={totals} selections={selections} onAddToCart={handleAddToCart} />}
       <Footer />
     </div>

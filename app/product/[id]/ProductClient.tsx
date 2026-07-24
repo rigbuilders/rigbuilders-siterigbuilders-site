@@ -264,7 +264,7 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
                         <div className="bg-[#E6C700]/10 border border-[#E6C700]/30 p-4 rounded-lg mb-6 text-sm flex items-start gap-3">
                             <span className="text-xl">⚠️</span>
                             <div>
-                                <strong className="text-[#E6C700] block uppercase tracking-wider text-xs mb-1 font-orbitron">Retail Box Note</strong>
+                                <strong className="text-[#E6C700] block uppercase tracking-wider text-xs mb-1 font-saira">Retail Box Note</strong>
                                 <span className="text-brand-silver text-xs leading-relaxed">This standalone processor does not include a stock thermal cooler. An aftermarket liquid or air cooler is required.</span>
                             </div>
                         </div>
@@ -274,7 +274,7 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
                         <div className="bg-blue-500/10 border border-blue-500/30 p-4 rounded-lg mb-6 text-sm flex items-start gap-3">
                             <span className="text-xl">🔒</span>
                             <div>
-                                <strong className="text-blue-400 block uppercase tracking-wider text-xs mb-1 font-orbitron">Secure Fulfillment</strong>
+                                <strong className="text-blue-400 block uppercase tracking-wider text-xs mb-1 font-saira">Secure Fulfillment</strong>
                                 <span className="text-brand-silver text-xs leading-relaxed">Prepaid orders only. Includes standard 5-7 Day Insured Delivery across India.</span>
                             </div>
                         </div>
@@ -282,7 +282,7 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
 
                     {/* --- LAYER B: SEMANTIC SPEC TRANSFORMER --- */}
                     <div className="mb-6 bg-[#1A1A1A]/50 p-6 rounded-xl border border-white/5">
-                        <h3 className="font-orbitron font-bold text-white mb-6 uppercase tracking-widest text-sm flex items-center gap-2">
+                        <h3 className="font-saira font-bold text-white mb-6 uppercase tracking-widest text-sm flex items-center gap-2">
                             <FaBolt className="text-brand-purple" /> {isPreBuilt ? "System Specifications" : "Technical Highlights"}
                         </h3>
                         
@@ -349,7 +349,7 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
                         <button 
                             onClick={() => handleAction(false)} 
                             disabled={!product.in_stock} 
-                            className="flex-1 py-5 px-4 border border-white/20 hover:border-white hover:bg-white hover:text-black font-orbitron font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed rounded"
+                            className="flex-1 py-5 px-4 border border-white/20 hover:border-white hover:bg-white hover:text-black font-saira font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed rounded"
                         >
                             <FaShoppingCart /> <span className="truncate">Add to Cart</span>
                         </button>
@@ -357,7 +357,7 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
                         <button 
                             onClick={() => handleAction(true)} 
                             disabled={!product.in_stock} 
-                            className="flex-1 py-5 px-4 bg-brand-purple hover:bg-white hover:text-black text-white font-orbitron font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-[0_0_20px_rgba(78,44,139,0.4)] hover:shadow-none disabled:opacity-50 disabled:cursor-not-allowed rounded"
+                            className="flex-1 py-5 px-4 bg-brand-purple hover:bg-white hover:text-black text-white font-saira font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-[0_0_20px_rgba(78,44,139,0.4)] hover:shadow-none disabled:opacity-50 disabled:cursor-not-allowed rounded"
                         >
                             Buy Now
                         </button>
@@ -371,7 +371,7 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
         <div className="mb-24 pt-16 border-t border-white/10 relative z-10">
             <Reveal>
                 <div className="text-center mb-10">
-                    <h2 className="text-2xl font-orbitron font-bold text-white uppercase tracking-wider">PRODUCT <span className="text-brand-purple">GALLERY</span></h2>
+                    <h2 className="text-2xl font-saira font-bold text-white uppercase tracking-wider">PRODUCT <span className="text-brand-purple">GALLERY</span></h2>
                 </div>
                 <div className="flex flex-col md:grid md:grid-cols-3 gap-4 h-auto">
                     <div className="w-full h-[400px] md:h-[600px] md:col-span-2 relative rounded-2xl overflow-hidden border border-white/5 group bg-[#151515] flex items-center justify-center">
@@ -379,7 +379,7 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
                         {product.image_url ? (
                             <img src={product.image_url} alt="Main Showcase" className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transform group-hover:scale-105 transition-all duration-1000 ease-out relative z-0" />
                         ) : (
-                            <div className="text-white/20 font-orbitron text-2xl -rotate-12">No Preview Available</div>
+                            <div className="text-white/20 font-saira text-2xl -rotate-12">No Preview Available</div>
                         )}
                     </div>
                     <div className="w-full h-[300px] md:h-[600px] flex flex-col gap-4">
@@ -399,7 +399,7 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
         {/* --- DESCRIPTION (RETAINED) --- */}
         <div className="mb-24 max-w-4xl mx-auto border-t border-white/10 pt-12 text-center">
             <Reveal>
-                <h3 className="text-2xl font-orbitron font-bold text-white uppercase tracking-wider pb-4 ">DESCRIPTION <span className="text-brand-purple"></span></h3>
+                <h3 className="text-2xl font-saira font-bold text-white uppercase tracking-wider pb-4 ">DESCRIPTION <span className="text-brand-purple"></span></h3>
                 <p className="text-brand-silver leading-loose whitespace-pre-line text-sm md:text-base font-light opacity-80 max-w-3xl mx-auto">
                     {product.description}
                 </p>
@@ -409,7 +409,7 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
         {/* --- RELATED PRODUCTS (RETAINED) --- */}
         {relatedProducts.length > 0 && (
             <div className="border-t border-white/10 pt-16 pb-20">
-                <h3 className="font-orbitron font-bold text-2xl mb-8 uppercase text-center">Related Gear</h3>
+                <h3 className="font-saira font-bold text-2xl mb-8 uppercase text-center">Related Gear</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     {relatedProducts.map((item) => (
                         <Link href={`/product/${item.id}`} key={item.id} className="group bg-[#151515] border border-white/5 rounded-xl p-4 hover:border-brand-purple/50 transition-all">
@@ -426,7 +426,7 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
         <div className="border-t border-white/10 pt-16">
              <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
                  <div className="lg:col-span-1">
-                     <h3 className="font-orbitron font-bold text-xl mb-6 uppercase tracking-wider">Write a Review</h3>
+                     <h3 className="font-saira font-bold text-xl mb-6 uppercase tracking-wider">Write a Review</h3>
                      <div className="bg-[#1A1A1A] p-6 rounded-xl border border-white/5">
                         <form onSubmit={submitReview} className="space-y-4">
                             <div>
@@ -448,7 +448,7 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
                      </div>
                  </div>
                  <div className="lg:col-span-2">
-                     <h3 className="font-orbitron font-bold text-xl mb-6 uppercase tracking-wider flex items-center justify-between">Customer Reviews <span className="text-sm font-saira text-brand-silver bg-white/5 px-3 py-1 rounded-full">{reviews.length}</span></h3>
+                     <h3 className="font-saira font-bold text-xl mb-6 uppercase tracking-wider flex items-center justify-between">Customer Reviews <span className="text-sm font-saira text-brand-silver bg-white/5 px-3 py-1 rounded-full">{reviews.length}</span></h3>
                      {reviews.length === 0 ? (
                          <div className="text-center py-12 border border-dashed border-white/10 rounded-xl bg-white/5"><p className="text-brand-silver">No reviews yet. Be the first to share your thoughts!</p></div>
                      ) : (

@@ -28,14 +28,17 @@ const orbitron = Orbitron({
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.rigbuilders.in"),
 
+  // Reinforces "Rig Builders" as the site/app name for Google's site-name feature.
+  applicationName: "Rig Builders",
+
   title: {
     default: "Rig Builders - Custom Gaming PCs & Workstations India",
-    template: "%s | Rig Builders India",
+    template: "%s | Rig Builders",
   },
   description: "India's premium custom PC builder. We commission high-performance Gaming PCs, Workstations, and Creator Rigs with pan-India insured delivery.",
-  
+
   keywords: ["Custom PC India", "Gaming PC Build", "Workstation PC", "Rig Builders", "Liquid Cooled PC"],
-  
+
   alternates: {
     canonical: "/",
   },
@@ -49,7 +52,8 @@ export const metadata: Metadata = {
   },
 
   openGraph: {
-    title: "Rig Builders India",
+    // Keep og:title consistent with the <title> so brand signals don't conflict.
+    title: "Rig Builders - Custom Gaming PCs & Workstations India",
     description: "Premium Custom PCs built for performance.",
     type: "website",
     locale: "en_IN",
@@ -85,41 +89,62 @@ export default function RootLayout({
 }>) {
   
   // JSON-LD SCHEMA (Brand Identity & Site Name for Google)
-  const jsonLd = [
-    {
-      "@context": "https://schema.org",
-      "@type": "WebSite",
-      "name": "Rig Builders",
-      "alternateName": ["RigBuilders", "Rig Builders India"],
-      "url": "https://www.rigbuilders.in/"
-    },
-    {
-      "@context": "https://schema.org",
-      "@type": "Organization",
-      "name": "Rig Builders",
-      "url": "https://www.rigbuilders.in",
-      "logo": "https://www.rigbuilders.in/icon.png", 
-      "sameAs": [
-        "https://www.instagram.com/rig_builders/?hl=en", 
-        "https://www.youtube.com/@RIGBUILDERS"
-      ],
-      "contactPoint": {
-        "@type": "ContactPoint",
-        "telephone": "+91-7707801014",
-        "contactType": "customer service",
-        "areaServed": "IN",
-        "availableLanguage": "en"
+  // A single connected @graph — WebSite is explicitly published by the
+  // Organization entity (@id linked). This is the pattern Google reads with the
+  // highest confidence when deciding the site name shown in Search.
+  const siteUrl = "https://www.rigbuilders.in";
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": `${siteUrl}/#organization`,
+        "name": "Rig Builders",
+        "url": siteUrl,
+        "logo": {
+          "@type": "ImageObject",
+          "url": `${siteUrl}/icon.png`,
+          "width": 512,
+          "height": 512,
+        },
+        "sameAs": [
+          "https://www.instagram.com/rig_builders/",
+          "https://www.youtube.com/@RIGBUILDERS",
+        ],
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "telephone": "+91-7707801014",
+          "contactType": "customer service",
+          "areaServed": "IN",
+          "availableLanguage": "en",
+        },
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": "MCB Z2 12267, Sahibzada Jujhar Singh Nagar",
+          "addressLocality": "Bathinda",
+          "addressRegion": "Punjab",
+          "postalCode": "151001",
+          "addressCountry": "IN",
+        },
       },
-      "address": {
-        "@type": "PostalAddress",
-        "streetAddress": "MCB Z2 12267, Sahibzada Jujhar Singh Nagar",
-        "addressLocality": "Bathinda",
-        "addressRegion": "Punjab",
-        "postalCode": "151001",
-        "addressCountry": "IN"
-      }
-    }
-  ];
+      {
+        "@type": "WebSite",
+        "@id": `${siteUrl}/#website`,
+        "name": "Rig Builders",
+        "alternateName": ["RigBuilders", "Rig Builders India"],
+        "url": siteUrl,
+        "publisher": { "@id": `${siteUrl}/#organization` },
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": `${siteUrl}/products?search={search_term_string}`,
+          },
+          "query-input": "required name=search_term_string",
+        },
+      },
+    ],
+  };
 
   return (
     <html lang="en">

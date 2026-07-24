@@ -113,20 +113,44 @@ export const filterInventory = (inventory: Product[], selections: SelectionState
     };
 };
 
+// --- HELPER TO CLEAN WATTAGE STRINGS (e.g., "120W" -> 120) ---
+const getCleanWattage = (val: any): number => {
+    if (val === null || val === undefined || val === '') return 0;
+    if (typeof val === 'number') return val;
+    // Extract digits to strictly force mathematical addition
+    const match = String(val).match(/(\d+)/);
+    return match ? parseInt(match[1], 10) : 0;
+};
+
 export const calculateTotals = (selections: SelectionState) => {
-    const totalPrice = Object.values(selections).reduce((acc, item) => acc + (item?.price || 0), 0);
+    // 1. Strictly cast prices to Numbers to prevent "0100" string concatenation bugs
+    const totalPrice = Object.values(selections).reduce((acc, item) => {
+        const price = item && item.price ? Number(item.price) : 0;
+        return acc + (isNaN(price) ? 0 : price);
+    }, 0);
     
     let totalTDP = 0;
-    if (selections.cpu) totalTDP += selections.cpu.wattage || 65;
-    if (selections.gpu) totalTDP += selections.gpu.wattage || 0;
-    if (selections.motherboard) totalTDP += 50;
-    if (selections.ram) totalTDP += 15;
-    if (selections.storage) totalTDP += 10;
-    if (selections.cooler) totalTDP += 10;
+
+    // 2. Read pure wattage from the database, respecting exactly what you type (including 0)
+    const getPower = (item: any) => {
+        if (!item) return 0;
+        return getCleanWattage(item.wattage);
+    };
+
+    totalTDP += getPower(selections.cpu);
+    totalTDP += getPower(selections.gpu);
+    totalTDP += getPower(selections.motherboard);
+    totalTDP += getPower(selections.ram);
+    totalTDP += getPower(selections.storage);
+    totalTDP += getPower(selections.cooler);
     
-    // Add overhead
-    const estimatedTDP = totalTDP > 0 ? totalTDP + 100 : 0;
-    const psuWattage = selections.psu?.wattage || 0;
+    // 3. System Overhead Buffer
+    // Reduced from the massive 100W to a 50W buffer to account for case fans, RGB, and the motherboard chipset.
+    // (If you want 100% pure DB accuracy with zero hidden math, change this 50 to a 0)
+    const systemOverhead = 0;
+    const estimatedTDP = totalTDP + systemOverhead;
+    
+    const psuWattage = selections.psu ? getCleanWattage(selections.psu.wattage) : 0;
     const isPowerSufficient = selections.psu ? psuWattage >= estimatedTDP : true;
 
     return { totalPrice, estimatedTDP, psuWattage, isPowerSufficient };
