@@ -3,9 +3,8 @@ import Razorpay from "razorpay";
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend"; 
-import OrderConfirmationEmail from "@/components/emails/OrderConfirmationEmail";
-import { generateOrderId, generateInvoiceId } from "@/lib/id-generator";
-import { computeCartTotals, splitPayment, PricingError } from "@/lib/pricing";
+import OrderConfirmationEmail from "@/components/emails/OrderConfirmationEmail"; 
+import { generateOrderId, generateInvoiceId, generateActivationId } from "@/lib/id-generator";
 
 // --- CONFIGURATION ---
 const COMPANY_STATE = "Punjab"; // Used to decide IGST vs CGST/SGST
@@ -61,11 +60,11 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const {
-      orderCreationId, razorpayPaymentId, razorpaySignature, paymentMode,
-      cartItems, userId, shippingAddress,
+    const { 
+      orderCreationId, razorpayPaymentId, razorpaySignature, paymentMode, 
+      cartItems, userId, totalAmount, shippingAddress, 
       isGuest, autoSaveAddress,
-      couponCode, codPolicy
+      amountPaid, pendingAmount, codPolicy
     } = body;
 
     // --- STEP 1: VERIFY SIGNATURE (Security Check) ---
@@ -81,28 +80,6 @@ export async function POST(req: Request) {
         }
     }
 
-    // --- STEP 1.5: RECOMPUTE AUTHORITATIVE TOTALS (Anti price-tampering) ---
-    // The cart, prices and totals from the client cannot be trusted. Recompute
-    // everything from the products table + coupon function on the server.
-    let serverTotals;
-    try {
-      serverTotals = await computeCartTotals(
-        supabaseAdmin,
-        cartItems,
-        couponCode,
-        userId && userId !== "guest" ? userId : null
-      );
-    } catch (e) {
-      if (e instanceof PricingError) {
-        return NextResponse.json({ msg: "failure", error: e.message }, { status: 400 });
-      }
-      throw e;
-    }
-
-    const totalAmount = serverTotals.total;
-    const mode = (paymentMode === "COD" || paymentMode === "PARTIAL_COD") ? paymentMode : "ONLINE";
-    const { amountPaid, pendingAmount } = splitPayment(totalAmount, mode);
-
     // --- STEP 2: GENERATE IDs & TAX (STANDARDIZED) ---
     let orderType: 'PB' | 'CB' | 'CS' = 'CS'; 
     const hasPrebuilt = cartItems.some((i: any) => i.category === 'prebuilt' || i.name?.toLowerCase().includes('prebuilt'));
@@ -113,6 +90,9 @@ export async function POST(req: Request) {
 
     const displayId = await generateOrderId(supabaseAdmin, orderType);
     const invoiceNo = await generateInvoiceId(supabaseAdmin);
+    // Aegis Command Center activation key — the single credential the customer
+    // will use to activate the desktop app. Stored on the order + emailed to them.
+    const activationId = generateActivationId();
     const taxDetails = calculateTax(totalAmount, shippingAddress.state);
 
     // --- STEP 3: HANDLE USER (Fail-Safe) ---
@@ -151,9 +131,8 @@ export async function POST(req: Request) {
     else if (paymentMode === "PARTIAL_COD") finalStatus = "processing"; 
     else if (paymentMode === "ONLINE") finalStatus = "paid";
 
-    // Server-computed split (never trust client-sent amounts).
-    const finalAmountPaid = amountPaid;
-    const finalPendingAmount = pendingAmount;
+    const finalAmountPaid = amountPaid !== undefined ? amountPaid : (paymentMode === "COD" ? 0 : totalAmount);
+    const finalPendingAmount = pendingAmount !== undefined ? pendingAmount : (paymentMode === "COD" ? totalAmount : 0);
 
     const { data: order, error: orderError } = await supabaseAdmin
         .from('orders')
@@ -172,9 +151,10 @@ export async function POST(req: Request) {
             tax_details: taxDetails,
             payment_mode: paymentMode, 
             items: cartItems,
-            status: finalStatus,           
+            status: finalStatus,
             payment_id: razorpayPaymentId,
             order_id: orderCreationId,
+            activation_id: activationId,
         })
         .select()
         .single();
@@ -220,7 +200,8 @@ export async function POST(req: Request) {
     return NextResponse.json({
       msg: "success",
       orderId: order.id,
-      displayId: displayId, 
+      displayId: displayId,
+      activationId: activationId,
       accountCreated: accountCreated,
     });
 

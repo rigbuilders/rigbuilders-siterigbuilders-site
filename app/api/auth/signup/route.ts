@@ -1,43 +1,16 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-import { hashPassword } from "@/lib/password";
 
-const prisma = new PrismaClient();
+// DEPRECATED / DISABLED.
+//
+// Account creation is handled entirely by Supabase Auth (see app/signup/page.tsx,
+// which calls supabase.auth.signUp). This legacy Prisma-based signup route is
+// unused by the app and wrote to a separate Neon `user` table — a duplicate auth
+// surface that allowed unauthenticated account creation. It is disabled so there
+// is a single source of truth for users.
 
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    const { email, password, fullName, phone } = body;
-
-    if (!email || !password) {
-      return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
-    }
-
-    // Check if user exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email: email },
-    });
-
-    if (existingUser) {
-      return NextResponse.json({ error: "User already exists" }, { status: 400 });
-    }
-
-    // SECURITY: never store plaintext passwords.
-    const hashed = await hashPassword(password);
-
-    const newUser = await prisma.user.create({
-      data: {
-        email,
-        password: hashed,
-        fullName,
-        phone,
-      },
-    });
-
-    return NextResponse.json({ message: "User created", userId: newUser.id }, { status: 201 });
-  } catch (error) {
-    // Log details server-side only; return a generic message to the client.
-    console.error("Signup error:", error);
-    return NextResponse.json({ error: "Could not create account" }, { status: 500 });
-  }
+export async function POST() {
+  return NextResponse.json(
+    { error: "This endpoint is deprecated. Create an account via the app (Supabase Auth)." },
+    { status: 410 }
+  );
 }

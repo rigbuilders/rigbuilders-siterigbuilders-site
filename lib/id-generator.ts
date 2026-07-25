@@ -1,74 +1,68 @@
 // lib/id-generator.ts
 import { SupabaseClient } from "@supabase/supabase-js";
 
+// Atomically get the next value for a named counter.
+// Requires the increment_counter() SQL function (see security/atomic_counters.sql).
+// Falls back to a timestamp-based suffix only if the RPC is unavailable, so an
+// order is never blocked — but with the RPC in place, values are collision-free.
+async function nextCounter(supabase: SupabaseClient, counterName: string): Promise<string> {
+  const { data, error } = await supabase.rpc("increment_counter", {
+    counter_name: counterName,
+  });
+
+  if (error || data === null || data === undefined) {
+    console.error(`Counter '${counterName}' RPC failed:`, error?.message);
+    // Non-sequential fallback (still unique-ish) so checkout never hard-fails.
+    return `X${Date.now().toString().slice(-4)}`;
+  }
+
+  return String(data).padStart(3, "0");
+}
+
 /**
- * Generates the next Order ID: RB-{TYPE}-{YY}-{XXX}
- * Example: RB-PB-26-001
+ * Next Order ID: RB-{TYPE}-{YY}-{XXX}  e.g. RB-PB-26-001
  */
-export const generateOrderId = async (supabase: SupabaseClient, type: 'PB' | 'CB' | 'CS') => {
-    const counterName = `rb_${type.toLowerCase()}`; // e.g., 'rb_pb'
-    const year = new Date().getFullYear().toString().slice(-2); // "26"
-
-    try {
-        // 1. Get current value
-        const { data: existing } = await supabase
-            .from('counters')
-            .select('*')
-            .eq('name', counterName)
-            .single();
-
-        let nextVal = 1;
-
-        if (existing) {
-            nextVal = existing.current_value + 1;
-            // 2. Increment in DB
-            await supabase
-                .from('counters')
-                .update({ current_value: nextVal })
-                .eq('name', counterName);
-        } else {
-            // 3. Create if missing
-            await supabase
-                .from('counters')
-                .insert([{ name: counterName, current_value: nextVal }]);
-        }
-
-        // 4. Format: RB-PB-26-001
-        const seqStr = String(nextVal).padStart(3, '0');
-        return `RB-${type}-${year}-${seqStr}`;
-
-    } catch (err) {
-        console.error("ID Generation Failed:", err);
-        return `RB-${type}-${year}-${Date.now().toString().slice(-3)}`;
-    }
+export const generateOrderId = async (
+  supabase: SupabaseClient,
+  type: "PB" | "CB" | "CS"
+) => {
+  const counterName = `rb_${type.toLowerCase()}`;
+  const year = new Date().getFullYear().toString().slice(-2);
+  const seq = await nextCounter(supabase, counterName);
+  return `RB-${type}-${year}-${seq}`;
 };
 
 /**
- * Generates the next Invoice Number: INV-RB-{YY}-{XXX}
- * Example: INV-RB-26-001
+ * Next Invoice Number: INV-RB-{YY}-{XXX}  e.g. INV-RB-26-001
  */
 export const generateInvoiceId = async (supabase: SupabaseClient) => {
-    const year = new Date().getFullYear().toString().slice(-2);
-    
-    try {
-        const { data: existing } = await supabase
-            .from('counters')
-            .select('*')
-            .eq('name', 'invoice')
-            .single();
+  const year = new Date().getFullYear().toString().slice(-2);
+  const seq = await nextCounter(supabase, "invoice");
+  return `INV-RB-${year}-${seq}`;
+};
 
-        let nextVal = 1;
+/**
+ * Aegis Activation ID: RB-XXXX-XXXX-XXXX  e.g. RB-BH95-6EG7-KUMN
+ *
+ * A random, high-entropy key — the single credential that activates the Aegis
+ * Command Center desktop app. Stored on the order row (`orders.activation_id`)
+ * and printed on the customer's confirmation email / documents. Uses a 32-char
+ * alphabet with no ambiguous glyphs (no 0/O, 1/I), so it's easy to read and type.
+ * ~60 bits of entropy — not guessable or enumerable.
+ *
+ * Sync + dependency-free: uses Web Crypto, which exists in both Node 18+
+ * (server routes) and the browser (admin console).
+ */
+const ACTIVATION_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 32 chars
 
-        if (existing) {
-            nextVal = existing.current_value + 1;
-            await supabase.from('counters').update({ current_value: nextVal }).eq('name', 'invoice');
-        } else {
-            await supabase.from('counters').insert([{ name: 'invoice', current_value: nextVal }]);
-        }
-
-        return `INV-RB-${year}-${String(nextVal).padStart(3, '0')}`;
-
-    } catch (err) {
-        return `INV-ERR-${Date.now()}`;
-    }
+export const generateActivationId = (): string => {
+  const bytes = new Uint8Array(12);
+  crypto.getRandomValues(bytes);
+  let key = "";
+  for (let i = 0; i < 12; i++) {
+    // 256 % 32 === 0, so a raw byte modulo 32 is perfectly unbiased.
+    key += ACTIVATION_ALPHABET[bytes[i] % 32];
+    if (i === 3 || i === 7) key += "-";
+  }
+  return `RB-${key}`;
 };

@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import { FaSearch, FaPlus, FaTrash, FaAmazon, FaStore, FaGlobe, FaUser, FaPhone, FaMapMarker, FaEnvelope, FaDesktop, FaGamepad, FaMicrochip } from "react-icons/fa";
 import { toast } from "sonner";
-import { generateOrderId } from "@/lib/id-generator";
+import { generateOrderId, generateActivationId } from "@/lib/id-generator";
 
 export default function CreateOrderPage() {
   const router = useRouter();
@@ -118,8 +118,9 @@ export default function CreateOrderPage() {
             status: finalStatus,
             payment_mode: source === 'offline' ? 'CASH/UPI' : 'AMAZON_PAY',
             total_amount: totalAmount,
-            shipping_address: customer, 
-            items: cart, 
+            shipping_address: customer,
+            items: cart,
+            activation_id: generateActivationId(),
             created_at: new Date().toISOString()
         };
 

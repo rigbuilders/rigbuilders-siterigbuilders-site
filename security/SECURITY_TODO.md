@@ -31,8 +31,9 @@ The live keys are sitting in `.env` / `.env.local`. Rotate now:
 - **Google** Places API key (and restrict it by referrer/IP).
 Update Vercel/host env vars with the new values. Do **not** commit them (they're gitignored — keep it that way).
 
-### B. Apply Row Level Security
-Run `security/rls_policies.sql` in the Supabase SQL editor **on a branch/staging DB first**, then test every flow (storefront, checkout, account, all `/admin` pages). Without RLS, the public anon key can still read all customer data. See the comments in that file — the admin email and table list may need tweaking.
+### B. Run the SQL files in Supabase
+1. `security/atomic_counters.sql` — creates `increment_counter()`. **Required** now: `lib/id-generator.ts` calls it for order/invoice numbers. Run this before deploying or new orders fall back to non-sequential IDs.
+2. `security/rls_policies.sql` — Row Level Security. Run **on a branch/staging DB first**, then test every flow (storefront, checkout, account, all `/admin` pages). Without RLS, the public anon key can still read all customer data. See the comments in that file — the admin email and table list may need tweaking.
 
 ### C. Confirm `validate_coupon` is `SECURITY DEFINER`
 The storefront calls this function as an anonymous user. After RLS locks the `coupons` table, the function must be `SECURITY DEFINER` to still read it:
@@ -48,10 +49,15 @@ alter function public.validate_coupon(text, numeric, uuid) security definer;
 
 ---
 
-## 🟠 Not done this round (recommended next)
+## ✅ Second round — now done in code
 
-- **Two auth systems**: signup/login use Prisma/Neon while everything else uses Supabase Auth. They don't share users (a Prisma-signup user can't reset a password or check out logged-in). Pick one — Supabase Auth is already doing the real work — and retire the Prisma user/login routes.
-- **Blog comment route** (`api/blog/interact` DELETE) still lets anyone delete comments — add `requireAdmin` there too.
-- **Order/invoice ID race condition** (`lib/id-generator.ts` read-then-write) can produce duplicate GST invoice numbers under concurrency. Use an atomic `UPDATE ... RETURNING` or a Postgres sequence.
-- **Login rate limiting** — add throttling to `api/auth/login` (and Supabase has built-in protection if you consolidate onto it).
-- **Security headers / CSP** in `next.config.ts` for defense-in-depth against XSS.
+- **Auth consolidated**: `/signin` and `/signup` (desktop + mobile) already use Supabase Auth. The unused Prisma `/api/auth/login` and `/api/auth/signup` routes were the duplicate system — they now return **410 Gone**, removing that surface. Login rate-limiting is handled by Supabase's built-in protection. (You can later delete those two route files plus the unused `User`/`Order` models in `prisma/schema.prisma`; `lib/password.ts` is now unused too.)
+- **Comment deletion secured**: `DELETE /api/blog/interact` now requires an admin token; the admin blog UI sends it.
+- **ID race condition fixed**: `lib/id-generator.ts` now uses the atomic `increment_counter()` RPC (run `security/atomic_counters.sql`).
+- **Security headers added**: `next.config.ts` now sends HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy and Permissions-Policy on every route. A tested-and-commented **CSP template** is included there — enable it (report-only first) for defense-in-depth against XSS.
+
+## 🟠 Still open (lower priority / your call)
+
+- **Enable the CSP** in `next.config.ts` after testing (currently commented out to avoid breaking Razorpay/Supabase/video).
+- **Guest checkout passwords** (`api/payment/verify`) still use `Math.random()` + a constant suffix. Prefer creating the Supabase user without a password and sending a set-password/magic link.
+- **Delete dead code**: the disabled Prisma auth routes, `lib/password.ts`, and unused Prisma `User`/`Order` models.

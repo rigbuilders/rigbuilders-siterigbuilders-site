@@ -146,7 +146,7 @@ export default function AdminBlogEditor() {
   const handleDeleteComment = async (commentId: string) => {
       if(!confirm("Delete this comment and all its replies?")) return;
       
-      const res = await fetch(`/api/blog/interact?commentId=${commentId}`, { method: "DELETE" });
+      const res = await fetch(`/api/blog/interact?commentId=${commentId}`, { method: "DELETE", headers: await authHeaders() });
       if (res.ok) {
           if (editingId) fetchComments(editingId); // Refresh list
           setFormData(prev => ({ ...prev, commentsCount: Math.max(0, prev.commentsCount - 1) })); // Update counter

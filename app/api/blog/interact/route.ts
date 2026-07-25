@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
+import { requireAdmin } from "@/lib/adminAuth";
 
 const prisma = new PrismaClient();
 
@@ -70,6 +71,12 @@ export async function GET(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    // SECURITY: only admins may delete comments/threads.
+    const auth = await requireAdmin(request);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { searchParams } = new URL(request.url);
     const commentId = searchParams.get("commentId");
 

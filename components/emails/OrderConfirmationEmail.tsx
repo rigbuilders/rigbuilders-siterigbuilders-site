@@ -9,12 +9,13 @@ interface EmailProps {
 
 export default function OrderConfirmationEmail({ order }: EmailProps) {
   // Safe extraction of data from the 'order' object
-  const { 
-    display_id = "ORD-PENDING", 
-    full_name = "Customer", 
-    items = [], 
+  const {
+    display_id = "ORD-PENDING",
+    full_name = "Customer",
+    items = [],
     total_amount = 0,
-    shipping_address = {}
+    shipping_address = {},
+    activation_id = ""
   } = order || {};
 
   return (
@@ -43,6 +44,18 @@ export default function OrderConfirmationEmail({ order }: EmailProps) {
             <Text style={infoText}><strong>Order ID:</strong> {display_id}</Text>
             <Text style={infoText}><strong>Total Amount:</strong> ₹{total_amount.toLocaleString('en-IN')}</Text>
           </Section>
+
+          {/* AEGIS ACTIVATION ID — the key to activate the Command Center app */}
+          {activation_id ? (
+            <Section style={activationBox}>
+              <Text style={activationLabel}>YOUR AEGIS ACTIVATION ID</Text>
+              <Text style={activationCode}>{activation_id}</Text>
+              <Text style={activationHelp}>
+                Keep this safe. Enter it in the Aegis Command Center app to activate
+                your machine and unlock its warranty &amp; tuning features.
+              </Text>
+            </Section>
+          ) : null}
 
           <Hr style={hr} />
 
@@ -91,6 +104,10 @@ const container = { backgroundColor: '#ffffff', margin: '0 auto', padding: '20px
 const h1 = { color: '#333', fontSize: '24px', fontWeight: 'bold', textAlign: 'center' as const, margin: '30px 0' };
 const text = { color: '#525f7f', fontSize: '16px', lineHeight: '24px', textAlign: 'left' as const, padding: '0 40px' };
 const infoBox = { padding: '20px 40px', backgroundColor: '#f9f9f9', margin: '20px 0' };
+const activationBox = { padding: '20px 40px', backgroundColor: '#0f0f10', margin: '20px 40px', borderRadius: '8px', textAlign: 'center' as const };
+const activationLabel = { color: '#9aa4b2', fontSize: '11px', fontWeight: 'bold', letterSpacing: '2px', margin: '0 0 8px' };
+const activationCode = { color: '#ffffff', fontSize: '26px', fontWeight: 'bold', letterSpacing: '3px', fontFamily: 'monospace', margin: '0 0 10px' };
+const activationHelp = { color: '#9aa4b2', fontSize: '12px', lineHeight: '18px', margin: 0 };
 const infoText = { margin: '5px 0', color: '#333', fontSize: '14px' };
 const subHeading = { color: '#333', fontSize: '18px', fontWeight: 'bold', padding: '0 40px', marginBottom: '10px' };
 const itemText = { fontSize: '14px', color: '#525f7f', padding: '0 40px' };
