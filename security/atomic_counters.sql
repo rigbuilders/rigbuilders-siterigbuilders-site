@@ -10,11 +10,14 @@
 -- statement (INSERT ... ON CONFLICT DO UPDATE ... RETURNING), so concurrent
 -- callers can never receive the same number.
 --
+-- NOTE: named next_counter_value (NOT increment_counter) to avoid colliding with
+-- any pre-existing increment_counter() function in your database.
+--
 -- Run this once in the Supabase SQL editor. It is called by lib/id-generator.ts
 -- via the service-role client (bypasses RLS).
 -- =====================================================================
 
-create or replace function public.increment_counter(counter_name text)
+create or replace function public.next_counter_value(counter_name text)
 returns integer
 language plpgsql
 as $$

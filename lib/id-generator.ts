@@ -2,11 +2,11 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
 // Atomically get the next value for a named counter.
-// Requires the increment_counter() SQL function (see security/atomic_counters.sql).
+// Requires the next_counter_value() SQL function (see security/atomic_counters.sql).
 // Falls back to a timestamp-based suffix only if the RPC is unavailable, so an
 // order is never blocked — but with the RPC in place, values are collision-free.
 async function nextCounter(supabase: SupabaseClient, counterName: string): Promise<string> {
-  const { data, error } = await supabase.rpc("increment_counter", {
+  const { data, error } = await supabase.rpc("next_counter_value", {
     counter_name: counterName,
   });
 

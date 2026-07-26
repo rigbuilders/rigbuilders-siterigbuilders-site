@@ -8,15 +8,13 @@ import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import { Reveal } from "@/components/ui/MotionWrappers";
 import { toast } from "sonner";
-import { 
-    FaMicrochip, FaServer, FaMemory, FaGamepad, FaHdd, 
-    FaFan, FaPlug, FaBox, FaWindows, FaDesktop, FaKeyboard, FaMouse 
-} from "react-icons/fa";
 
 // Import modules
 import { Product, SelectionState } from "./types";
 import { filterInventory, calculateTotals } from "./logic";
-import { SummaryPanel, MobileBar, CategoryCard, PremiumSelectionModal } from "./components/ConfigUI";
+import { MobileBar, PremiumSelectionModal } from "./components/ConfigUI";
+import { ConfiguratorSummary } from "./components/ConfiguratorSummary";
+import { ConfiguratorGrid } from "./components/ConfiguratorGrid";
 
 export default function ConfiguratorPage() {
   const { addToCart } = useCart();
@@ -27,8 +25,6 @@ export default function ConfiguratorPage() {
   const [saving, setSaving] = useState(false);
   const [showMobileBar, setShowMobileBar] = useState(false);
   const [mounted, setMounted] = useState(false);
-
-  // New Modal State
   const [activeModal, setActiveModal] = useState<keyof SelectionState | null>(null);
 
   const [selections, setSelections] = useState<SelectionState>({
@@ -50,10 +46,10 @@ export default function ConfiguratorPage() {
       if (data) {
         setInventory(data.map(p => ({
             ...p,
-            id: p.id, name: p.name, price: p.price,configurator_name: p.configurator_name,
+            id: p.id, name: p.name, price: p.price, configurator_name: p.configurator_name,
             category: p.category === "memory" ? "ram" : p.category, 
             brand: p.brand, image: p.image_url, inStock: p.in_stock,
-            ...p.specs // Spec fields from DB override top-level
+            ...p.specs
         })));
       }
       setLoading(false);
@@ -70,7 +66,6 @@ export default function ConfiguratorPage() {
   const handleSelect = (category: keyof SelectionState, item: Product) => {
     setSelections(prev => {
         const newSel = { ...prev, [category]: prev[category]?.id === item.id ? null : item };
-        // Auto-Reset logic
         if (category === 'cpu' && prev.motherboard && prev.motherboard.socket !== item.socket) { newSel.motherboard = null; newSel.ram = null; }
         if (category === 'motherboard' && prev.ram && prev.ram.memory_type !== item.memory_type) { newSel.ram = null; }
         if (category === 'combo' && item) { newSel.keyboard = null; newSel.mouse = null; }
@@ -137,68 +132,44 @@ export default function ConfiguratorPage() {
   return (
     <div className="bg-[#121212] min-h-screen text-white font-saira flex flex-col relative overflow-x-hidden">
       <div className="fixed top-0 left-0 w-full h-full bg-[url('/images/noise.png')] opacity-[0.03] pointer-events-none z-0" />
-      <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-brand-purple/10 blur-[150px] pointer-events-none z-0" />
       <Navbar />
       
       <div className="flex-grow pt-12 pb-12 px-4 md:px-8 2xl:px-[100px] relative z-10">
-        <Reveal><h1 className="font-orbitron text-4xl font-bold mb-8 text-white uppercase tracking-wide text-center lg:text-left">System <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-purple to-brand-blue">Configurator</span></h1></Reveal>
+        <Reveal>
+            <h1 className="font-orbitron text-4xl font-bold mb-12 text-white uppercase tracking-wide">
+                System <span className="text-[#FFE600]">Configurator</span>
+            </h1>
+        </Reveal>
 
-        <div className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 items-start relative">
-            {/* LEFT: SUMMARY */}
-            <div className="lg:col-span-4 lg:sticky lg:top-32 h-fit space-y-6">
+        <div className="max-w-[1800px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 items-start relative">
+            
+            {/* LEFT: LIVE RECEIPT (Sticky) */}
+            <div className="lg:col-span-4 lg:sticky lg:top-28 lg:self-start z-20 h-fit">
                 <Reveal delay={0.2}>
-                    <SummaryPanel selections={selections} totals={totals} user={user} onSave={handleSave} onAddToCart={handleAddToCart} saving={saving} />
+                    <ConfiguratorSummary 
+                        selections={selections} 
+                        totals={totals} 
+                        user={user} 
+                        onSave={handleSave} 
+                        onAddToCart={handleAddToCart} 
+                        saving={saving} 
+                    />
                 </Reveal>
             </div>
 
-            {/* RIGHT: BUILDER GRID */}
-            <div className="lg:col-span-8 space-y-12 pb-24">
-                
-                {/* SECTION 1: PC COMPONENTS */}
-                <div>
-                    <div className="flex justify-between items-end border-b border-white/10 pb-3 mb-6">
-                        <h2 className="font-orbitron text-2xl font-bold text-white uppercase tracking-widest">PC Components</h2>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        <CategoryCard title="Processor" icon={FaMicrochip} selectedItem={selections.cpu} onClick={() => setActiveModal('cpu')} />
-                        <CategoryCard title="Motherboard" icon={FaServer} selectedItem={selections.motherboard} onClick={() => setActiveModal('motherboard')} warning={!selections.cpu ? "Requires CPU" : undefined} />
-                        <CategoryCard title="Memory (RAM)" icon={FaMemory} selectedItem={selections.ram} onClick={() => setActiveModal('ram')} warning={!selections.motherboard ? "Requires Mobo" : undefined} />
-                        <CategoryCard title="Graphics Card" icon={FaGamepad} selectedItem={selections.gpu} onClick={() => setActiveModal('gpu')} />
-                        <CategoryCard title="Storage" icon={FaHdd} selectedItem={selections.storage} onClick={() => setActiveModal('storage')} />
-                        <CategoryCard title="Cooling" icon={FaFan} selectedItem={selections.cooler} onClick={() => setActiveModal('cooler')} />
-                        <CategoryCard title="Power Supply" icon={FaPlug} selectedItem={selections.psu} onClick={() => setActiveModal('psu')} />
-                        <CategoryCard title="Cabinet" icon={FaBox} selectedItem={selections.cabinet} onClick={() => setActiveModal('cabinet')} />
-                    </div>
-                </div>
-
-                {/* SECTION 2: OPERATING SYSTEM */}
-                <div>
-                    <div className="flex justify-between items-end border-b border-white/10 pb-3 mb-6">
-                        <h2 className="font-orbitron text-2xl font-bold text-white uppercase tracking-widest">Operating System</h2>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        <CategoryCard title="Primary OS" icon={FaWindows} selectedItem={selections.osPrimary} onClick={() => setActiveModal('osPrimary')} />
-                    </div>
-                </div>
-
-                {/* SECTION 3: ACCESSORIES */}
-                <div>
-                    <div className="flex justify-between items-end border-b border-white/10 pb-3 mb-6">
-                        <h2 className="font-orbitron text-2xl font-bold text-white uppercase tracking-widest">Accessories</h2>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        <CategoryCard title="Monitor" icon={FaDesktop} selectedItem={selections.monitor} onClick={() => setActiveModal('monitor')} />
-                        <CategoryCard title="Keyboard & Mouse" icon={FaKeyboard} selectedItem={selections.combo} onClick={() => setActiveModal('combo')} />
-                        <CategoryCard title="Standalone Keyboard" icon={FaKeyboard} selectedItem={selections.keyboard} onClick={() => setActiveModal('keyboard')} />
-                        <CategoryCard title="Standalone Mouse" icon={FaMouse} selectedItem={selections.mouse} onClick={() => setActiveModal('mouse')} />
-                    </div>
-                </div>
-
+            {/* RIGHT: COMPONENT GRID */}
+            <div className="lg:col-span-8 pb-24 z-10 relative">
+                <Reveal delay={0.3}>
+                    <ConfiguratorGrid 
+                        selections={selections} 
+                        setActiveModal={setActiveModal} 
+                    />
+                </Reveal>
             </div>
+            
         </div>
       </div>
 
-      {/* --- PREMIUM MODAL --- */}
       {mounted && (
           <PremiumSelectionModal
               isOpen={activeModal !== null}

@@ -1,7 +1,32 @@
 import type { NextConfig } from "next";
 
+// Content-Security-Policy — the main defense-in-depth control against XSS.
+//
+// This is shipped as "Report-Only" first: the browser does NOT block anything,
+// it only logs violations to the devtools Console. Click through the whole site
+// (checkout with Razorpay, admin realtime, the hero video, reviews) and watch for
+// "Content Security Policy" violation messages. If a legit resource is flagged,
+// add its origin to the right directive below. Once the console is clean, switch
+// the header key from "Content-Security-Policy-Report-Only" to
+// "Content-Security-Policy" to start enforcing.
+const cspValue = [
+  "default-src 'self'",
+  // 'unsafe-inline' covers the JSON-LD script + Next's styled-jsx. Razorpay + Vercel Analytics scripts.
+  "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://*.razorpay.com https://va.vercel-scripts.com",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  // Supabase REST + realtime (wss), Razorpay, India Post pincode API, Vercel Analytics.
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.razorpay.com https://api.postalpincode.in https://va.vercel-scripts.com https://vitals.vercel-insights.com",
+  "frame-src https://*.razorpay.com https://api.razorpay.com",
+  "media-src 'self' https://cdn.pixabay.com",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'self'",
+].join("; ");
+
 // Baseline security response headers applied to every route.
-// These are safe defaults that do not affect Razorpay/Supabase functionality.
 const securityHeaders = [
   // Force HTTPS for 2 years, including subdomains.
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
@@ -13,6 +38,8 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   // Lock down powerful browser features the site doesn't use.
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), interest-cohort=()" },
+  // CSP in report-only mode — see note above. Rename to "Content-Security-Policy" to enforce.
+  { key: "Content-Security-Policy-Report-Only", value: cspValue },
 ];
 
 const nextConfig: NextConfig = {
@@ -27,33 +54,3 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
-
-// ---------------------------------------------------------------------------
-// OPTIONAL: Content-Security-Policy (defense-in-depth against XSS).
-//
-// A CSP is powerful but easy to get wrong — a missing source silently breaks a
-// feature. This app loads several third parties (Razorpay, Supabase, Vercel
-// Analytics, a Pixabay hero video, the India Post pincode API). Enable this only
-// after testing every page, ideally first via "Content-Security-Policy-Report-Only".
-//
-// To turn it on, add this object to the `headers` array above:
-//
-// {
-//   key: "Content-Security-Policy",
-//   value: [
-//     "default-src 'self'",
-//     // 'unsafe-inline' is needed for the JSON-LD script + styled-jsx; tighten with nonces later.
-//     "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://*.razorpay.com https://va.vercel-scripts.com",
-//     "style-src 'self' 'unsafe-inline'",
-//     "img-src 'self' data: blob: https:",
-//     "font-src 'self' data:",
-//     "connect-src 'self' https://*.supabase.co https://*.razorpay.com https://api.postalpincode.in https://va.vercel-scripts.com",
-//     "frame-src https://*.razorpay.com https://api.razorpay.com",
-//     "media-src 'self' https://cdn.pixabay.com",
-//     "object-src 'none'",
-//     "base-uri 'self'",
-//     "form-action 'self'",
-//     "frame-ancestors 'self'",
-//   ].join("; "),
-// }
-// ---------------------------------------------------------------------------

@@ -56,8 +56,16 @@ alter function public.validate_coupon(text, numeric, uuid) security definer;
 - **ID race condition fixed**: `lib/id-generator.ts` now uses the atomic `increment_counter()` RPC (run `security/atomic_counters.sql`).
 - **Security headers added**: `next.config.ts` now sends HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy and Permissions-Policy on every route. A tested-and-commented **CSP template** is included there — enable it (report-only first) for defense-in-depth against XSS.
 
-## 🟠 Still open (lower priority / your call)
+## ✅ Third round — now done in code
 
-- **Enable the CSP** in `next.config.ts` after testing (currently commented out to avoid breaking Razorpay/Supabase/video).
-- **Guest checkout passwords** (`api/payment/verify`) still use `Math.random()` + a constant suffix. Prefer creating the Supabase user without a password and sending a set-password/magic link.
-- **Delete dead code**: the disabled Prisma auth routes, `lib/password.ts`, and unused Prisma `User`/`Order` models.
+- **CSP enabled (report-only)**: `next.config.ts` now sends `Content-Security-Policy-Report-Only`. It does NOT block anything yet — it logs violations to the browser Console. Click through the whole site, check the console, add any missing origins, then rename the header key to `Content-Security-Policy` to enforce.
+- **Guest checkout passwords fixed**: `api/payment/verify` now uses `crypto.randomBytes(24)` (cryptographically random, never exposed) instead of the predictable `Math.random()` + constant suffix. Guests access the account later via "Forgot password" or Google.
+- **Dead Prisma models removed**: `User`/`Order` deleted from `prisma/schema.prisma` (blog `Post`/`Comment` kept).
+
+## 🧹 Final cleanup you can run locally (I can't `rm` in this environment)
+
+The two auth routes are safe **410 stubs** and `lib/password.ts` is now unused. To delete them fully:
+```bash
+git rm app/api/auth/login/route.ts app/api/auth/signup/route.ts lib/password.ts
+```
+Optional: drop the now-unused Neon `User`/`Order` tables in the database (they no longer appear in the schema, so Prisma ignores them; dropping is just tidiness).

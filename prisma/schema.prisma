@@ -10,34 +10,12 @@ datasource db {
   directUrl = env("POSTGRES_URL_NON_POOLING") // Used for migrations
 }
 
-// --- 1. USER SYSTEM ---
-model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String   
-  fullName  String?
-  phone     String?
-  createdAt DateTime @default(now())
-  orders    Order[] 
-}
+// NOTE: User authentication and orders live in Supabase (Auth + the `orders`
+// tables), not in Prisma. Prisma is used only for the blog (Post/Comment) against
+// the Neon database. The former Prisma `User`/`Order` models were unused and have
+// been removed. The old Neon tables (if any) can be dropped separately in the DB.
 
-// --- 2. ORDER SYSTEM ---
-model Order {
-  id            String   @id @default(uuid())
-  buildName     String   
-  totalPrice    Int
-  status        String   @default("Pending") // Pending, Paid, Built, Shipped
-  createdAt     DateTime @default(now())
-  
-  // Link to User
-  userId        String
-  user          User     @relation(fields: [userId], references: [id])
-  
-  // PC Details (Stored as stringified JSON)
-  configuration String     
-}
-
-// --- 3. BLOG SYSTEM (NEW) ---
+// --- BLOG SYSTEM ---
 model Post {
   id          String    @id @default(uuid())
   title       String

@@ -6,66 +6,16 @@ import Link from "next/link";
 import Image from "next/image";
 import { Reveal } from "@/components/ui/MotionWrappers";
 import { FaArrowRight } from "react-icons/fa";
+import { HUB_CATEGORIES } from "@/app/data/categories";
 
-// --- DATA CONFIGURATION ---
-const categories = [
-  { 
-    id: "cpu", 
-    name: "PROCESSORS", 
-    sub: "CORE ARCHITECTURE",
-    desc: "Intel Core Ultra & AMD Ryzen",
-    image: "/images/Products/cpuv1.jpg" 
-  },
-  { 
-    id: "gpu", 
-    name: "GRAPHICS CARD", 
-    sub: "VISUAL ENGINES",
-    desc: "NVIDIA RTX, Intel ARC & AMD Radeon",
-    image: "/images/Products/gpuv1.jpg" 
-  },
-  { 
-    id: "motherboard", 
-    name: "MOBO", 
-    sub: "SYSTEM FOUNDATION",
-    desc: "Z790, X670 & B650 Chipsets",
-    image: "/images/Products/mobov2.jpg" 
-  },
-  { 
-    id: "storage", 
-    name: "STORAGE", 
-    sub: "DATA VAULTS",
-    desc: "NVMe Gen4 & Gen5 Solutions",
-    image: "/images/Products/nvmev2.jpg" 
-  },
-  { 
-    id: "cabinet", 
-    name: "CHASSIS", 
-    sub: "ARMOR PLATING",
-    desc: "Mid-Tower, Full-Tower & ITX",
-    image: "/images/Products/pc cabinetv2.jpg" 
-  },
-  { 
-    id: "psu", 
-    name: "POWER", 
-    sub: "ENERGY REACTORS",
-    desc: "Gold & Platinum Modular Units",
-    image: "/images/Products/psuv2.jpg" 
-  },
-  { 
-    id: "memory", 
-    name: "MEMORY", 
-    sub: "SYSTEM CACHE",
-    desc: "High-Bandwidth DDR5 Modules",
-    image: "/images/Products/ramv2.jpg" 
-  },
-  { 
-    id: "cooler", 
-    name: "COOLING", 
-    sub: "THERMAL CONTROL",
-    desc: "AIO Liquid & Air Solutions",
-    image: "/images/Products/aiov2.jpg" 
-  },
-];
+// Hub cards come from the single source of truth (app/data/categories.ts).
+const categories = HUB_CATEGORIES.map((c) => ({
+  id: c.slug,
+  name: c.hub!.name,
+  sub: c.hub!.sub,
+  desc: c.hub!.desc,
+  image: c.hub!.image,
+}));
 
 export default function ProductHubClient() {
   return (

@@ -90,9 +90,9 @@ export async function POST(req: Request) {
 
     const displayId = await generateOrderId(supabaseAdmin, orderType);
     const invoiceNo = await generateInvoiceId(supabaseAdmin);
-    // Aegis Command Center activation key — the single credential the customer
-    // will use to activate the desktop app. Stored on the order + emailed to them.
-    const activationId = generateActivationId();
+    // Aegis Command Center activation key — ONLY machine orders get one:
+    // prebuilt (PB) or custom build (CB). A parts/accessories order (CS) is null.
+    const activationId = orderType === 'CS' ? null : generateActivationId();
     const taxDetails = calculateTax(totalAmount, shippingAddress.state);
 
     // --- STEP 3: HANDLE USER (Fail-Safe) ---
@@ -105,7 +105,11 @@ export async function POST(req: Request) {
           if (existingUser) {
               finalUserId = existingUser.id;
           } else {
-              const tempPassword = Math.random().toString(36).slice(-8) + "Rig!23"; 
+              // SECURITY: use a cryptographically-random password that is never
+              // exposed anywhere. Math.random() + a constant suffix was predictable
+              // (every guest account shared the same pattern). The guest accesses
+              // the account later via "Forgot password" or Google sign-in.
+              const tempPassword = crypto.randomBytes(24).toString("hex") + "Aa1!";
               const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
                   email: shippingAddress.email,
                   password: tempPassword,
@@ -154,7 +158,6 @@ export async function POST(req: Request) {
             status: finalStatus,
             payment_id: razorpayPaymentId,
             order_id: orderCreationId,
-            activation_id: activationId,
         })
         .select()
         .single();
@@ -166,6 +169,20 @@ export async function POST(req: Request) {
 
     console.log("✅ Order Saved:", order.id);
 
+    // --- STEP 4.5: RECORD ACTIVATION (machine orders only) ---
+    // Writes the key to the dedicated `activations` table, linked to this order.
+    // Non-fatal: a failure here must never break a paid order.
+    if (activationId) {
+        const { error: actErr } = await supabaseAdmin.from('activations').insert({
+            activation_id: activationId,
+            activation_billing_id: invoiceNo,
+            order_id: order.id,
+            build_type: orderType === 'PB' ? 'prebuilt' : 'custom',
+            source: 'checkout',
+        });
+        if (actErr) console.error("⚠️ Activation record failed:", actErr.message);
+    }
+
     // --- STEP 5: SEND EMAIL ---
     if (resend) {
         // We catch email errors separately so they don't crash the order success screen
@@ -175,8 +192,8 @@ export async function POST(req: Request) {
             bcc: ['rigbuilders123@gmail.com'], 
             subject: `Order Placed: ${displayId}`, 
             react: OrderConfirmationEmail({
-                order: order,         
-                taxDetails: taxDetails 
+                order: activationId ? { ...order, activation_id: activationId } : order,
+                taxDetails: taxDetails
             }),
         }).then(() => console.log("📧 Email sent")).catch((e) => console.error("📧 Email failed:", e));
     }

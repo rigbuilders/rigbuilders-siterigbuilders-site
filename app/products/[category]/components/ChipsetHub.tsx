@@ -11,30 +11,40 @@ interface ChipsetHubProps {
 }
 
 export default function ChipsetHub({ category, maker, series, products }: ChipsetHubProps) {
-  
+
+  // Case-insensitive comparison so a DB value of "Nvidia"/"nvidia" still matches
+  // a URL maker of "NVIDIA" (previously an exact === match silently rendered empty).
+  const eq = (a?: string | null, b?: string | null) =>
+    (a ?? "").toString().trim().toLowerCase() === (b ?? "").toString().trim().toLowerCase();
+
   // 1. Extract what series and models ACTUALLY exist in your database for this Maker
   const availableSeries = Array.from(new Set(products
-      .filter(p => p.specs?.chipset_maker === maker && p.specs?.chipset_series)
+      .filter(p => eq(p.specs?.chipset_maker, maker) && p.specs?.chipset_series)
       .map(p => p.specs?.chipset_series)
   ));
 
   const availableModels = Array.from(new Set(products
-      .filter(p => p.specs?.chipset_maker === maker && p.specs?.chipset_series === series && p.specs?.chipset)
+      .filter(p => eq(p.specs?.chipset_maker, maker) && eq(p.specs?.chipset_series, series) && p.specs?.chipset)
       .map(p => p.specs?.chipset)
   ));
+
+  // Normalised maker for display colours (robust to casing in the URL).
+  const m = (maker || "").trim().toUpperCase();
+  const accent = m === "NVIDIA" ? "text-green-500" : m === "AMD" ? "text-red-500" : "text-blue-500";
+  const accentBg = m === "NVIDIA" ? "bg-green-500" : m === "AMD" ? "bg-red-500" : "bg-blue-500";
 
   return (
     <div className="min-h-[calc(100vh-80px)] bg-[#0A0A0A] flex flex-col items-center pt-20 px-6 relative z-10">
       
       {/* Background Accents */}
-      <div className={`absolute top-0 right-0 w-[600px] h-[600px] blur-[150px] pointer-events-none opacity-20 ${maker === 'NVIDIA' ? 'bg-green-500' : maker === 'AMD' ? 'bg-red-500' : 'bg-blue-500'}`} />
+      <div className={`absolute top-0 right-0 w-[600px] h-[600px] blur-[150px] pointer-events-none opacity-20 ${accentBg}`} />
 
       <div className="text-center mb-16 relative z-10">
         <span className="text-brand-silver text-xs font-bold tracking-[0.3em] uppercase mb-4 block">
             Select Series
         </span>
         <h1 className="font-orbitron text-5xl md:text-6xl font-black text-white uppercase tracking-tighter flex items-center justify-center gap-4">
-            <FaMicrochip className={maker === 'NVIDIA' ? 'text-green-500' : maker === 'AMD' ? 'text-red-500' : 'text-blue-500'} />
+            <FaMicrochip className={accent} />
             {maker} <span className="opacity-30">{category === 'gpu' ? 'GRAPHICS' : 'PLATFORMS'}</span>
         </h1>
       </div>
