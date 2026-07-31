@@ -2,11 +2,11 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
 // Atomically get the next value for a named counter.
-// Requires the next_counter_value() SQL function (see security/atomic_counters.sql).
+// Requires the increment_counter() SQL function (see security/atomic_counters.sql).
 // Falls back to a timestamp-based suffix only if the RPC is unavailable, so an
 // order is never blocked — but with the RPC in place, values are collision-free.
 async function nextCounter(supabase: SupabaseClient, counterName: string): Promise<string> {
-  const { data, error } = await supabase.rpc("next_counter_value", {
+  const { data, error } = await supabase.rpc("increment_counter", {
     counter_name: counterName,
   });
 
@@ -65,4 +65,14 @@ export const generateActivationId = (): string => {
     if (i === 3 || i === 7) key += "-";
   }
   return `RB-${key}`;
+};
+
+/**
+ * Sequential Activation Billing ID: AB-000001, AB-000002, …
+ * A human-friendly running licence number (starts at 1). Uses the same atomic
+ * `counters` table as the order/invoice generators, so numbers never collide.
+ */
+export const generateActivationBillingId = async (supabase: SupabaseClient) => {
+  const seq = await nextCounter(supabase, "activation_billing");
+  return `AB-${seq.padStart(6, "0")}`;
 };

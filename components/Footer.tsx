@@ -5,7 +5,7 @@ export default function Footer() {
   return (
     <footer className="bg-brand-black border-t border-white/5 pt-16 pb-8 md:pt-20 md:pb-10">
       {/* 1. Changed 'text-center md:text-left' to 'text-left' to align everything left globally */}
-      <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 md:gap-12 mb-12 md:mb-16 text-left">
+      <div className="rb-shell grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 md:gap-12 mb-12 md:mb-16 text-left">
         
         {/* BRAND COLUMN */}
         {/* 2. Changed 'items-center md:items-start' to 'items-start' */}
@@ -72,7 +72,7 @@ export default function Footer() {
       </div>
 
       {/* Copyright Bar */}
-      <div className="max-w-7xl mx-auto px-6 pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center text-xs text-brand-silver/50 font-saira gap-4 md:gap-0">
+      <div className="rb-shell pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center text-xs text-brand-silver/50 font-saira gap-4 md:gap-0">
         <p>© {new Date().getFullYear()} Rig Builders. All Rights Reserved.</p>
         <p>Designed for Performance.</p>
       </div>

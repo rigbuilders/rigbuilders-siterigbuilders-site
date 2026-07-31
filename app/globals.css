@@ -2,6 +2,28 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+  /* Canonical horizontal container.
+     Keeps the navbar, breadcrumb, page content and footer aligned to the SAME
+     gutter at every width and zoom level. The gutter is a fixed 30px (matching
+     the navbar) so it never jumps at responsive breakpoints — which was the cause
+     of the misalignment when zooming in/out. Content is capped at 1920px and
+     centred so ultra-wide screens stay aligned too. */
+  .rb-shell {
+    width: 100%;
+    max-width: 1920px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 30px;
+    padding-right: 30px;
+  }
+  /* Full-bleed variant (gutter only, no max-width) for edge-to-edge sections. */
+  .rb-gutter {
+    padding-left: 30px;
+    padding-right: 30px;
+  }
+}
+
 :root {
   --background: #121212;
   --foreground: #ededed;

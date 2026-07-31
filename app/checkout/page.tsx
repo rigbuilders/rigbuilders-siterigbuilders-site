@@ -380,7 +380,7 @@ export default function CheckoutPage() {
       <div className="fixed top-0 left-0 w-full h-[500px] bg-brand-purple/5 blur-[120px] pointer-events-none z-0" />
       <Navbar />
       
-      <div className="flex-grow pt-32 pb-12 px-[20px] md:px-[40px] lg:px-[80px] 2xl:px-[100px] relative z-10">
+      <div className="flex-grow pt-32 pb-12 rb-shell relative z-10">
         <Reveal>
           <h1 className="font-orbitron text-4xl font-bold mb-12 text-white uppercase tracking-wide">
              SECURE <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-purple to-brand-blue">CHECKOUT</span>

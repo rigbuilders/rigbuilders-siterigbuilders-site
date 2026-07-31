@@ -188,7 +188,7 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
         breadcrumbName={product.breadcrumb_name}
       />
 
-      <div className="flex-grow pt-12 pb-12 px-[20px] md:px-[40px] 2xl:px-[100px] relative z-10">
+      <div className="flex-grow pt-12 pb-12 rb-shell relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 xl:gap-20 mb-24">
             
             {/* GALLERY */}

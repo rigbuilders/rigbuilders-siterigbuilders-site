@@ -66,7 +66,7 @@ export default function ProductBreadcrumb({
   };
 
   return (
-    <div className="pt-[20px] pb-4 px-[20px] md:px-[40px] 2xl:px-[100px] relative z-10 border-b border-white/5 bg-[#121212]">
+    <div className="pt-[20px] pb-4 rb-shell relative z-10 border-b border-white/5 bg-[#121212]">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <div className="flex flex-wrap items-center gap-2 text-sm text-brand-silver font-medium">
         {crumbs.map((c, i) => (

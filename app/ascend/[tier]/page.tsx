@@ -38,7 +38,7 @@ export default function AscendTierPage({ params }: { params: Promise<{ tier: str
         </div>
       </div>
 
-      <div className="flex-grow max-w-7xl mx-auto px-6 py-12 w-full">
+      <div className="flex-grow rb-shell py-12">
         {loading ? (
             <div className="text-center text-brand-silver">Loading systems...</div>
         ) : (

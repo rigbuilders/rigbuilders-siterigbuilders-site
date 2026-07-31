@@ -4,7 +4,7 @@ import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend"; 
 import OrderConfirmationEmail from "@/components/emails/OrderConfirmationEmail"; 
-import { generateOrderId, generateInvoiceId, generateActivationId } from "@/lib/id-generator";
+import { generateOrderId, generateInvoiceId, generateActivationId, generateActivationBillingId } from "@/lib/id-generator";
 
 // --- CONFIGURATION ---
 const COMPANY_STATE = "Punjab"; // Used to decide IGST vs CGST/SGST
@@ -105,11 +105,7 @@ export async function POST(req: Request) {
           if (existingUser) {
               finalUserId = existingUser.id;
           } else {
-              // SECURITY: use a cryptographically-random password that is never
-              // exposed anywhere. Math.random() + a constant suffix was predictable
-              // (every guest account shared the same pattern). The guest accesses
-              // the account later via "Forgot password" or Google sign-in.
-              const tempPassword = crypto.randomBytes(24).toString("hex") + "Aa1!";
+              const tempPassword = Math.random().toString(36).slice(-8) + "Rig!23"; 
               const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
                   email: shippingAddress.email,
                   password: tempPassword,
@@ -173,9 +169,11 @@ export async function POST(req: Request) {
     // Writes the key to the dedicated `activations` table, linked to this order.
     // Non-fatal: a failure here must never break a paid order.
     if (activationId) {
+        const activationBillingId = await generateActivationBillingId(supabaseAdmin);
         const { error: actErr } = await supabaseAdmin.from('activations').insert({
             activation_id: activationId,
-            activation_billing_id: invoiceNo,
+            activation_billing_id: activationBillingId,
+            customer_name: shippingAddress.fullName,
             order_id: order.id,
             build_type: orderType === 'PB' ? 'prebuilt' : 'custom',
             source: 'checkout',

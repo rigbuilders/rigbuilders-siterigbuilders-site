@@ -1,13 +1,12 @@
 "use client";
 
 import Navbar from "@/components/Navbar";
-import Link from "next/link";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import { FaSearch, FaPlus, FaTrash, FaAmazon, FaStore, FaGlobe, FaUser, FaPhone, FaMapMarker, FaEnvelope, FaDesktop, FaGamepad, FaMicrochip, FaBoxOpen, FaExternalLinkAlt, FaReceipt } from "react-icons/fa";
+import { FaSearch, FaPlus, FaTrash, FaAmazon, FaStore, FaGlobe, FaUser, FaPhone, FaMapMarker, FaEnvelope, FaDesktop, FaGamepad, FaMicrochip } from "react-icons/fa";
 import { toast } from "sonner";
-import { generateOrderId, generateActivationId } from "@/lib/id-generator";
+import { generateOrderId, generateActivationId, generateActivationBillingId } from "@/lib/id-generator";
 
 export default function CreateOrderPage() {
   const router = useRouter();
@@ -26,10 +25,6 @@ export default function CreateOrderPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [cart, setCart] = useState<any[]>([]);
-
-  // Custom (billing-only) item — NOT saved to the products inventory
-  const [showCustomForm, setShowCustomForm] = useState(false);
-  const [customItem, setCustomItem] = useState({ name: "", price: "", brand: "", category: "" });
 
   // Auth Check
   useEffect(() => {
@@ -66,29 +61,6 @@ export default function CreateOrderPage() {
 
   const removeFromCart = (tempId: number) => {
     setCart(cart.filter(c => c.tempId !== tempId));
-  };
-
-  // Add a one-off item that exists only on this bill (never touches inventory).
-  const addCustomToCart = () => {
-    const price = parseFloat(customItem.price);
-    if (!customItem.name.trim() || isNaN(price) || price < 0) {
-      toast.error("Enter an item name and a valid price.");
-      return;
-    }
-    setCart([
-      ...cart,
-      {
-        name: customItem.name.trim(),
-        price,
-        brand: customItem.brand.trim() || "Custom",
-        category: customItem.category.trim() || "custom",
-        isCustom: true, // flag: billing-only, not from inventory
-        tempId: Math.random(),
-      },
-    ]);
-    setCustomItem({ name: "", price: "", brand: "", category: "" });
-    setShowCustomForm(false);
-    toast.success("Custom item added to order");
   };
 
   // --- ID GENERATION ---
@@ -164,9 +136,11 @@ export default function CreateOrderPage() {
         // 2.5 Record Aegis activation (machine orders only: prebuilt / custom).
         if (orderType !== 'CS') {
             const activationId = generateActivationId();
+            const activationBillingId = await generateActivationBillingId(supabase);
             const { error: actErr } = await supabase.from('activations').insert({
                 activation_id: activationId,
-                activation_billing_id: finalDisplayId,
+                activation_billing_id: activationBillingId,
+                customer_name: customer.name,
                 order_id: newOrder.id,
                 build_type: orderType === 'PB' ? 'prebuilt' : 'custom',
                 source: 'ops',
@@ -358,75 +332,6 @@ export default function CreateOrderPage() {
                             ))}
                         </div>
                     )}
-
-                    {/* --- TWO MORE WAYS TO ADD AN ITEM --- */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
-                        {/* Option 1: Temporary billing-only item */}
-                        <button
-                            type="button"
-                            onClick={() => setShowCustomForm(v => !v)}
-                            className={`flex items-center justify-center gap-2 p-3 rounded border text-xs font-bold uppercase tracking-wider transition-all ${showCustomForm ? "bg-brand-purple border-brand-purple text-white" : "bg-black border-white/10 text-brand-silver hover:border-brand-purple"}`}
-                        >
-                            <FaReceipt /> Custom Bill Item
-                        </button>
-
-                        {/* Option 2: Link out to inventory to add a real product */}
-                        <Link
-                            href="/admin/products"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center justify-center gap-2 p-3 rounded border border-white/10 bg-black text-brand-silver text-xs font-bold uppercase tracking-wider hover:border-green-500 hover:text-green-400 transition-all"
-                        >
-                            <FaBoxOpen /> New Inventory Product <FaExternalLinkAlt className="text-[9px] opacity-60" />
-                        </Link>
-                    </div>
-
-                    {/* Custom (billing-only) item form */}
-                    {showCustomForm && (
-                        <div className="mt-3 bg-black/40 border border-dashed border-brand-purple/40 p-4 rounded space-y-3 animate-in fade-in slide-in-from-top-2">
-                            <input
-                                type="text"
-                                placeholder="Item name"
-                                className="w-full bg-black border border-white/10 p-3 rounded text-sm focus:border-brand-purple outline-none"
-                                value={customItem.name}
-                                onChange={e => setCustomItem({ ...customItem, name: e.target.value })}
-                            />
-                            <div className="grid grid-cols-2 gap-3">
-                                <input
-                                    type="number"
-                                    min="0"
-                                    placeholder="Price (₹)"
-                                    className="w-full bg-black border border-white/10 p-3 rounded text-sm focus:border-brand-purple outline-none"
-                                    value={customItem.price}
-                                    onChange={e => setCustomItem({ ...customItem, price: e.target.value })}
-                                />
-                                <input
-                                    type="text"
-                                    placeholder="Brand (optional)"
-                                    className="w-full bg-black border border-white/10 p-3 rounded text-sm focus:border-brand-purple outline-none"
-                                    value={customItem.brand}
-                                    onChange={e => setCustomItem({ ...customItem, brand: e.target.value })}
-                                />
-                            </div>
-                            <input
-                                type="text"
-                                placeholder="Category (optional)"
-                                className="w-full bg-black border border-white/10 p-3 rounded text-sm focus:border-brand-purple outline-none"
-                                value={customItem.category}
-                                onChange={e => setCustomItem({ ...customItem, category: e.target.value })}
-                            />
-                            <button
-                                type="button"
-                                onClick={addCustomToCart}
-                                className="w-full bg-brand-purple hover:bg-white hover:text-black text-white py-2.5 rounded text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2"
-                            >
-                                <FaPlus /> Add to Order
-                            </button>
-                            <p className="text-[10px] text-brand-silver/60 leading-relaxed">
-                                Billed on this order only — this item is <span className="text-brand-silver font-bold">not</span> saved to inventory. To stock a product permanently, use “New Inventory Product”.
-                            </p>
-                        </div>
-                    )}
                 </div>
 
                 {/* Summary */}
@@ -447,12 +352,7 @@ export default function CreateOrderPage() {
                                             <FaTrash size={12} />
                                         </button>
                                         <div className="truncate">
-                                            <div className="text-sm font-bold text-white truncate flex items-center gap-2">
-                                                {item.name}
-                                                {item.isCustom && (
-                                                    <span className="shrink-0 text-[8px] font-bold uppercase tracking-wider bg-brand-purple/20 text-brand-purple border border-brand-purple/30 px-1.5 py-0.5 rounded">Temp</span>
-                                                )}
-                                            </div>
+                                            <div className="text-sm font-bold text-white truncate">{item.name}</div>
                                             <div className="text-[10px] text-brand-silver uppercase">{item.brand} • {item.category}</div>
                                         </div>
                                     </div>

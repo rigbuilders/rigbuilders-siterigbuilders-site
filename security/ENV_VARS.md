@@ -29,6 +29,29 @@ the repo (plus `prisma/schema.prisma`). Compare it against your Vercel list.
 |---|---|---|
 | `ADMIN_EMAILS` | lib/adminAuth | `rigbuilders123@gmail.com` |
 
+## 🤖 Chatbot (WhatsApp / Instagram / Messenger auto-replies)
+Server-only, used by `lib/chatbot/*` and `app/api/webhook/[channel]/route.ts`. Each is
+independently optional — a missing one just disables that provider/channel, never crashes
+the route. You need at least one of Gemini/Together for replies to work at all, and
+`META_VERIFY_TOKEN` + a channel's own token for that channel's webhook to work.
+| Variable | Used by | Default if unset |
+|---|---|---|
+| `GEMINI_API_KEY` | llm/providers/gemini | disables Gemini |
+| `GEMINI_MODEL` | llm/providers/gemini | `gemini-2.5-flash-lite` |
+| `TOGETHER_API_KEY` | llm/providers/together | disables Together |
+| `TOGETHER_MODEL` | llm/providers/together | `meta-llama/Llama-3.3-70B-Instruct-Turbo-Free` |
+| `META_VERIFY_TOKEN` | webhook GET handshake, all 3 adapters | disables all 3 channels |
+| `WA_PHONE_ID` | adapters/whatsapp | disables WhatsApp |
+| `WHATSAPP_ACCESS_TOKEN` | adapters/whatsapp | disables WhatsApp |
+| `INSTAGRAM_ACCESS_TOKEN` | adapters/instagram | disables Instagram |
+| `INSTAGRAM_BUSINESS_ID` | adapters/instagram | falls back to `/me/messages` endpoint |
+| `MESSENGER_ACCESS_TOKEN` | adapters/messenger | disables Messenger |
+| `META_GRAPH_API_VERSION` | adapters/meta-graph-client | `v21.0` |
+
+This feature reuses `SUPABASE_SERVICE_ROLE_KEY` and `NEXT_PUBLIC_SUPABASE_URL` above (via
+`lib/supabaseAdmin.ts`) — no separate Supabase credentials needed. It writes to three new
+tables (`chatbot_users`, `chatbot_conversations`, `chatbot_messages`) in the same project.
+
 ---
 
 ## ⚠️ Important mismatch to check

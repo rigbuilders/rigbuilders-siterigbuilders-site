@@ -137,7 +137,7 @@ export default function DashboardPage() {
     <main className="min-h-screen bg-[#121212] text-white font-saira">
       <Navbar />
 
-      <div className="max-w-7xl mx-auto px-6 py-12 pt-24 grid grid-cols-1 lg:grid-cols-4 gap-8">
+      <div className="rb-shell py-12 pt-24 grid grid-cols-1 lg:grid-cols-4 gap-8">
         
         {/* SIDEBAR */}
         <div className="lg:col-span-1 space-y-2">

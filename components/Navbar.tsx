@@ -180,7 +180,7 @@ export default function Navbar() {
     <>
     
     <nav className="sticky top-0 left-0 w-full z-[100] bg-[#090909] border-b border-white/10 font-orbitron" onMouseLeave={() => setActiveMenu(null)}>
-      <div className="h-[80px] px-[30px] flex items-center justify-between relative bg-[#090909] z-50">
+      <div className="h-[80px] rb-shell flex items-center justify-between relative bg-[#090909] z-50">
         {/* MOBILE HAMBURGER */}
         <div className="lg:hidden flex items-center">
             <button onClick={() => setMobileMenuOpen(true)} className="text-white text-2xl p-2"><FaBars /></button>

@@ -37,7 +37,7 @@ function OrderSuccessContent() {
   }, [orderId, router]);
 
   return (
-    <div className="flex-grow pt-32 pb-24 px-[20px] md:px-[40px] xl:px-[100px] relative z-10">
+    <div className="flex-grow pt-32 pb-24 rb-shell relative z-10">
         
         {/* --- HERO: PURE SUCCESS --- */}
         <div className="text-center mb-32">
