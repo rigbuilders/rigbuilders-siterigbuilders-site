@@ -35,7 +35,7 @@ const numToWords = (input: number): string => {
   return parts.join(' ');
 };
 
-const NAVY = '#1a2230';
+const NAVY = '#0b0b0b';
 const STEEL = '#2e4a6b';
 
 const styles = StyleSheet.create({
