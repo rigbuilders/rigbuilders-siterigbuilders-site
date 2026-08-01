@@ -6,7 +6,12 @@ import { SupabaseClient } from "@supabase/supabase-js";
 // Falls back to a timestamp-based suffix only if the RPC is unavailable, so an
 // order is never blocked — but with the RPC in place, values are collision-free.
 async function nextCounter(supabase: SupabaseClient, counterName: string): Promise<string> {
-  const { data, error } = await supabase.rpc("increment_counter", {
+  // Calls the atomic counter function from security/atomic_counters.sql.
+  // NOTE: a pre-existing increment_counter(row_name text) in the DB has a
+  // DIFFERENT parameter name, so calling increment_counter with { counter_name }
+  // silently failed (PostgREST matches args by name) and fell through to the
+  // X#### fallback below — which is why order/invoice IDs were random.
+  const { data, error } = await supabase.rpc("next_counter_value", {
     counter_name: counterName,
   });
 

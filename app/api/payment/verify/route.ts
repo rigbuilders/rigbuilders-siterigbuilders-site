@@ -62,9 +62,10 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { 
       orderCreationId, razorpayPaymentId, razorpaySignature, paymentMode, 
-      cartItems, userId, totalAmount, shippingAddress, 
+      cartItems, userId, totalAmount, shippingAddress,
       isGuest, autoSaveAddress,
-      amountPaid, pendingAmount, codPolicy
+      amountPaid, pendingAmount, codPolicy,
+      couponCode, discount
     } = body;
 
     // --- STEP 1: VERIFY SIGNATURE (Security Check) ---
@@ -126,10 +127,12 @@ export async function POST(req: Request) {
     console.log("💾 Attempting to save order to DB...");
     const dbUserId = (finalUserId && finalUserId !== 'guest') ? finalUserId : null;
 
-    let finalStatus = "processing"; 
-    if (paymentMode === "COD") finalStatus = "pending";
-    else if (paymentMode === "PARTIAL_COD") finalStatus = "processing"; 
-    else if (paymentMode === "ONLINE") finalStatus = "paid";
+    // Enter the fulfilment pipeline at 'processing' regardless of payment mode, so
+    // the order flows Procurement → Build → Docs like a manual (ops/create) order.
+    // Previously ONLINE→'paid' and COD→'pending' were NOT in the Build Station's
+    // status filter, so paid/COD web orders skipped straight to Docs & Dispatch.
+    // Payment state is tracked separately via payment_mode / amount_paid / pending_amount.
+    const finalStatus = "processing";
 
     const finalAmountPaid = amountPaid !== undefined ? amountPaid : (paymentMode === "COD" ? 0 : totalAmount);
     const finalPendingAmount = pendingAmount !== undefined ? pendingAmount : (paymentMode === "COD" ? totalAmount : 0);
@@ -149,11 +152,15 @@ export async function POST(req: Request) {
             amount_paid: finalAmountPaid,
             pending_amount: finalPendingAmount,
             tax_details: taxDetails,
-            payment_mode: paymentMode, 
+            payment_mode: paymentMode,
             items: cartItems,
             status: finalStatus,
             payment_id: razorpayPaymentId,
             order_id: orderCreationId,
+            // Record the coupon + discount so admin/coupons can show who redeemed
+            // what. (Requires the coupon_code / discount columns — see the SQL note.)
+            coupon_code: couponCode || null,
+            discount: Number(discount) || 0,
         })
         .select()
         .single();
@@ -179,6 +186,26 @@ export async function POST(req: Request) {
             source: 'checkout',
         });
         if (actErr) console.error("⚠️ Activation record failed:", actErr.message);
+    }
+
+    // --- STEP 4.6: SEED PROCUREMENT PIPELINE ---
+    // Mirror the manual ops/create flow: one procurement row per cart item so the
+    // order appears in the Procurement stage. Non-fatal — never break a paid order.
+    try {
+      const procurementPayload = (cartItems || []).map((item: any) => ({
+        order_id: order.id,
+        product_name: item.name,
+        category: item.category || 'other',
+        status: 'pending',
+        quantity: item.quantity || 1,
+        cost_price: 0,
+      }));
+      if (procurementPayload.length > 0) {
+        const { error: procErr } = await supabaseAdmin.from('procurement_items').insert(procurementPayload);
+        if (procErr) console.error("⚠️ Procurement seed failed:", procErr.message);
+      }
+    } catch (procCrash) {
+      console.error("⚠️ Procurement seed crashed:", procCrash);
     }
 
     // --- STEP 5: SEND EMAIL ---

@@ -331,6 +331,7 @@ export default function CheckoutPage() {
         // The server recomputes the total from the DB; this is sent for reference only.
         totalAmount: finalTotal,
         couponCode: activeCoupon,
+        discount: discount,
         shippingAddress: formData,
         billingAddress: finalBillingAddress,
         isGuest: isGuest,
