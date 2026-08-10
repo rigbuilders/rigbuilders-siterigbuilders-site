@@ -5,9 +5,10 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import { 
-  FaBox, FaClipboardList, FaPlusCircle, FaShoppingCart, FaTools, 
-  FaFileInvoice, FaChartPie, FaPenNib, FaTags, FaShieldAlt, FaArrowRight 
+import {
+  FaBox, FaClipboardList, FaPlusCircle, FaShoppingCart, FaTools,
+  FaFileInvoice, FaChartPie, FaPenNib, FaTags, FaShieldAlt, FaArrowRight,
+  FaComments
 } from "react-icons/fa";
 
 export default function AdminDashboard() {
@@ -75,6 +76,13 @@ export default function AdminDashboard() {
           icon: <FaFileInvoice />,
           desc: "Generate tax invoices (PDF), print bills, and mark orders as shipped.",
           color: "text-green-400 border-green-400/20 hover:bg-green-400/10"
+        },
+        {
+          title: "Chatbot Inbox",
+          href: "/admin/chatbot",
+          icon: <FaComments />,
+          desc: "Live WhatsApp/Instagram/Messenger conversations. Reply manually, pause the bot, or exclude numbers.",
+          color: "text-cyan-400 border-cyan-400/20 hover:bg-cyan-400/10"
         },
       ]
     },

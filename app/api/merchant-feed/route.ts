@@ -2,10 +2,12 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabaseClient';
 
 export async function GET() {
-  // 1. Fetch all active products from your database
+  // 1. Fetch all active, PUBLISHED products from your database — drafts from
+  //    the auto-listing pipeline must never reach the Google Shopping feed.
   const { data: products, error } = await supabase
     .from('products')
-    .select('*');
+    .select('*')
+    .eq('listing_status', 'published');
 
   if (error || !products) {
     return new NextResponse('Error fetching products from database', { status: 500 });

@@ -27,7 +27,7 @@ export interface ProviderConfig {
 export function getGeminiConfig(): ProviderConfig | null {
   const apiKey = raw("GEMINI_API_KEY");
   if (!apiKey) return null;
-  return { apiKey, model: optional("GEMINI_MODEL", "gemini-2.5-flash-lite") };
+  return { apiKey, model: optional("GEMINI_MODEL", "gemini-3.5-flash-lite") };
 }
 
 export function getTogetherConfig(): ProviderConfig | null {

@@ -32,8 +32,8 @@ export default function ProductManager() {
 
   // --- FORM DATA ---
   const [formData, setFormData] = useState({
-    id: "", name: "", breadcrumb_name: "", price: "", mrp: "", warranty: "", 
-    nickname: "",configurator_name: "",
+    id: "", name: "", breadcrumb_name: "", price: "", mrp: "", warranty: "",
+    configurator_name: "",
     category: "cpu", group: "components", series: "", tier: "", brand: "", feed_image_url: "",
     image_url: "", in_stock: true, description: "", features_text: "",
     gallery_urls: [] as string[], cod_policy: "full_cod",
@@ -153,7 +153,7 @@ export default function ProductManager() {
 
   const resetForm = () => {
     setFormData({
-      id: "", name: "", breadcrumb_name: "", price: "", mrp: "", warranty: "", nickname: "",configurator_name: "",
+      id: "", name: "", breadcrumb_name: "", price: "", mrp: "", warranty: "", configurator_name: "",
       category: "cpu", group: "components", series: "", tier: "", brand: "", image_url: "", in_stock: true,
       cod_policy: "full_cod", description: "", features_text: "", gallery_urls: [],
       cat_name: "", cat_subtitle: "", cat_description: "", cat_image: "", 
@@ -253,16 +253,15 @@ export default function ProductManager() {
       if (formData.specs?.color) specs.color = formData.specs.color;
       if (formData.specs?.variant_label) specs.variant_label = formData.specs.variant_label;
 
-      const payload = {
+      const payload: any = {
         name: formData.name,
-        nickname: formData.nickname || null,
         configurator_name: formData.configurator_name || null,
         breadcrumb_name: formData.breadcrumb_name || null,
         price: parseFloat(formData.price),
         mrp: formData.mrp ? parseFloat(formData.mrp) : null,
-        
-        variant_group_id: formData.variant_group_id || null, 
-        
+
+        variant_group_id: formData.variant_group_id || null,
+
         warranty: formData.warranty || null,
         category: formData.category,
         series: formData.series || null,
@@ -272,12 +271,12 @@ export default function ProductManager() {
         feed_image_url: formData.feed_image_url ? cleanPath(formData.feed_image_url) : null,
         in_stock: formData.in_stock,
         cod_policy: formData.cod_policy,
-        specs: specs, 
+        specs: specs,
         length_mm: specs.length_mm || 0,
         max_gpu_length_mm: specs.max_gpu_length_mm || 0,
         description: formData.description,
         features: formData.features_text.split('\n').filter(line => line.trim() !== ""),
-        gallery_urls: formData.gallery_urls.map(cleanPath).filter(url => url !== "" && url !== "/")
+        gallery_urls: formData.gallery_urls.map(cleanPath).filter(url => url !== "" && url !== "/"),
       };
 
       const { error } = activeTab === "edit" && formData.id
@@ -306,9 +305,9 @@ export default function ProductManager() {
 
     setFormData({
       ...formData,
-      id: p.id, name: p.name, nickname: p.nickname || "", breadcrumb_name: p.breadcrumb_name || "", price: p.price.toString(),configurator_name: p.configurator_name || "",
-      
-      variant_group_id: p.variant_group_id || "", 
+      id: p.id, name: p.name, breadcrumb_name: p.breadcrumb_name || "", price: p.price.toString(),configurator_name: p.configurator_name || "",
+
+      variant_group_id: p.variant_group_id || "",
       specs: s, 
       
       mrp: p.mrp ? p.mrp.toString() : "", warranty: p.warranty || "",
@@ -346,8 +345,7 @@ export default function ProductManager() {
     setActiveTab("edit");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
-  
- 
+
   const handleDelete = async (id: string) => {
     if (!confirm("Delete product?")) return;
     await supabase.from('products').delete().eq('id', id);
@@ -392,7 +390,7 @@ export default function ProductManager() {
     
     // 2. Pre-fill Form but CLEAR identity fields
     setFormData({
-        ...formData, 
+        ...formData,
         // Shared
         category: parentProduct.category,
         group: parentProduct.group || s.group || "components",
@@ -416,10 +414,9 @@ export default function ProductManager() {
         chipset: s.chipset || "",
         
         // UNIQUE (Reset these so user types new ones)
-        name: `${parentProduct.name} (Variant)`, 
+        name: `${parentProduct.name} (Variant)`,
         price: parentProduct.price?.toString() || "",
         mrp: parentProduct.mrp?.toString() || "",
-        nickname: "", 
         id: "", // Empty ID = Creates New Item
         
         // RESET VARIANT LABEL (Forces user to name it, e.g. "White")
@@ -437,20 +434,22 @@ export default function ProductManager() {
     <div className="min-h-screen bg-[#121212] text-white font-saira pb-20">
       <Navbar />
       <div className="pt-24 px-6 max-w-[1600px] mx-auto">
-        <div className="flex items-center gap-4 mb-8">
-            <div className="w-12 h-12 bg-brand-purple rounded-xl flex items-center justify-center text-2xl">
-                <FaBoxOpen />
-            </div>
-            <div>
-                <h1 className="font-orbitron text-3xl font-bold text-white">PRODUCT MANAGER</h1>
-                <p className="text-brand-silver">Inventory & Variant Control</p>
+        <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
+            <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-brand-purple rounded-xl flex items-center justify-center text-2xl">
+                    <FaBoxOpen />
+                </div>
+                <div>
+                    <h1 className="font-orbitron text-3xl font-bold text-white">PRODUCT MANAGER</h1>
+                    <p className="text-brand-silver">Inventory & Variant Control</p>
+                </div>
             </div>
         </div>
         
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
             {/* LEFT: FORM */}
             <div className="xl:col-span-4 relative">
-                <ProductForm 
+                <ProductForm
                     formData={formData} setFormData={setFormData} handleSubmit={handleSubmit} resetForm={resetForm}
                     loading={loading} activeTab={activeTab}
                     existingBrands={existingBrands} existingCategories={existingCategories}

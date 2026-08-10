@@ -26,7 +26,11 @@ async function processInbound(adapter: ChannelAdapter, rawPayload: unknown): Pro
 
   try {
     const reply = await handleMessage(message);
-    await adapter.sendReply(message.externalUserId, reply);
+    // null means: excluded number, or a human already has this conversation
+    // handed off — stay silent, the message is already saved for the admin inbox.
+    if (reply) {
+      await adapter.sendReply(message.externalUserId, reply);
+    }
   } catch (err) {
     console.error(
       `[webhook:${adapter.channelId}] failed to handle message from ${message.externalUserId}: ${(err as Error).message}`

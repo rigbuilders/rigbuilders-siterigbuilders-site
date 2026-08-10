@@ -18,40 +18,39 @@ export async function POST(req: Request) {
     }
 
     if (!data || !Array.isArray(data)) {
-        return NextResponse.json({ error: "Invalid Data" }, { status: 400 });
+      return NextResponse.json({ error: "Invalid Data" }, { status: 400 });
     }
 
     let updatedCount = 0;
-    const errors = [];
+    const errors: any[] = [];
 
-    // 2. Iterate and Update
+    // 2. Iterate and update matching products
     for (const item of data) {
-        // Item format: { nickname: "7800x3d", price: 32000, stock: "In Stock" }
-        if (!item.nickname) continue;
+      // Item format: { nickname: "7800x3d", price: 32000, stock: "In Stock" }
+      if (!item.nickname) continue;
 
-        const isStock = item.stock?.toLowerCase() === "in stock" || item.stock === true;
+      const isStock = item.stock?.toLowerCase() === "in stock" || item.stock === true;
 
-        const { error } = await supabaseAdmin
-            .from('products')
-            .update({ 
-                price: item.price, 
-                in_stock: isStock 
-            })
-            .eq('nickname', item.nickname); // <--- THE MAGIC LINK
+      const { error } = await supabaseAdmin
+        .from("products")
+        .update({
+          price: item.price,
+          in_stock: isStock,
+        })
+        .eq("nickname", item.nickname);
 
-        if (!error) {
-            updatedCount++;
-        } else {
-            errors.push({ nick: item.nickname, err: error.message });
-        }
+      if (error) {
+        errors.push({ nick: item.nickname, err: error.message });
+      } else {
+        updatedCount++;
+      }
     }
 
-    return NextResponse.json({ 
-        success: true, 
-        updated: updatedCount, 
-        errors: errors.length > 0 ? errors : null 
+    return NextResponse.json({
+      success: true,
+      updated: updatedCount,
+      errors: errors.length > 0 ? errors : null,
     });
-
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

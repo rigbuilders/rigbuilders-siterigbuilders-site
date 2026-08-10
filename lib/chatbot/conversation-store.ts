@@ -79,6 +79,14 @@ export async function findOrCreateUser(
   return mapUser(created);
 }
 
+/**
+ * Finds the user's current *open* conversation on this channel (active OR
+ * handed_off — both mean "still ongoing"), or opens a new one. Deliberately
+ * does NOT filter to status='active' only: if a human has paused the bot on
+ * an ongoing conversation (handed_off), the next inbound message must land
+ * in that same conversation, not spawn a fresh 'active' one that would let
+ * the bot bypass the pause.
+ */
 export async function findOrCreateActiveConversation(
   userId: string,
   channel: string
@@ -88,7 +96,7 @@ export async function findOrCreateActiveConversation(
     .select("*")
     .eq("user_id", userId)
     .eq("channel", channel)
-    .eq("status", "active")
+    .in("status", ["active", "handed_off"])
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle<ConversationRow>();
@@ -108,6 +116,18 @@ export async function findOrCreateActiveConversation(
     throw new Error(`Failed to create conversation: ${insertError?.message ?? "unknown error"}`);
   }
   return mapConversation(created);
+}
+
+export async function updateConversationStatus(
+  conversationId: string,
+  status: "active" | "handed_off" | "closed"
+): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from("chatbot_conversations")
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq("id", conversationId);
+
+  if (error) throw new Error(`Failed to update conversation status: ${error.message}`);
 }
 
 export async function appendMessage(

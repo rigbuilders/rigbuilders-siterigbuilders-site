@@ -32,6 +32,11 @@ export default function Hero() {
       
       <div className="relative z-20 text-center px-6 max-w-5xl mx-auto mt-10">
         <Reveal>
+          {/* Visible brand wordmark as TEXT (the logo is an image Google can't read) —
+              a real on-page "Rig Builders" signal near the top of the homepage to help
+              Google adopt it as the site name. */}
+          
+
           <div className="inline-block mb-4 md:mb-6 border border-white/10 bg-white/5 backdrop-blur-md px-3 py-1.5 md:px-4 md:py-2 rounded-full">
              <p className="font-saira text-brand-silver tracking-[0.15em] md:tracking-[0.2em] text-[9px] md:text-xs font-bold uppercase">
                 New: RTX 50-Series Configurations Available
