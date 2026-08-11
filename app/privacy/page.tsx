@@ -3,7 +3,7 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Reveal } from "@/components/ui/MotionWrappers";
-import { FaShieldAlt, FaUserSecret, FaLock, FaCookie } from "react-icons/fa";
+import { FaShieldAlt, FaUserSecret, FaLock, FaCookie, FaTrash } from "react-icons/fa";
 
 export default function PrivacyPage() {
   return (
@@ -66,9 +66,16 @@ export default function PrivacyPage() {
             content="To fulfill your order, specific data must be shared with trusted partners: Razorpay (Payment Verification) and Logistics Partners (BlueDart/Delhivery for shipping). These partners are authorized to use your data solely for the purpose of completing the transaction."
         />
 
+        {/* SECTION 5 - ADDED FOR META COMPLIANCE */}
+        <Section 
+            icon={<FaTrash />}
+            title="5. Data Deletion & Account Erasure" 
+            content="You have the right to request the complete deletion of your personal data from our systems. To initiate a data deletion request, please send an email to info@rigbuilders.in from your registered email address with the subject line 'Data Deletion Request'. We will process your request and permanently wipe your information from our active databases within 7 business days."
+        />
+
         <div className="border-t border-white/10 pt-10 mt-10 text-center">
             <p className="text-brand-silver text-sm mb-4">Questions regarding your data?</p>
-            <a href="mailto:privacy@rigbuilders.in" className="text-brand-purple font-bold hover:text-white transition-colors">info@rigbuilders.in</a>
+            <a href="mailto:info@rigbuilders.in" className="text-brand-purple font-bold hover:text-white transition-colors">info@rigbuilders.in</a>
         </div>
 
       </div>
