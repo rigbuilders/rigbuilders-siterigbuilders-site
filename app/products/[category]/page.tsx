@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import CategoryClient from './CategoryClient';
-import { getCategory, getCanonicalRedirect } from '@/app/data/categories';
+import { getCategoryBySlug, getCanonicalRedirectDB } from '@/lib/categories.server';
 
 type SearchParams = { [key: string]: string | string[] | undefined };
 
@@ -15,7 +15,7 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { category } = await params;
   const sp = await searchParams;
-  const cat = getCategory(category);
+  const cat = await getCategoryBySlug(category);
 
   if (!cat) return { title: "Category Not Found" };
 
@@ -60,7 +60,7 @@ export default async function Page(
   const sp = await searchParams;
 
   // Redirect non-canonical aliases (e.g. /products/memory -> /products/ram).
-  const canonical = getCanonicalRedirect(category);
+  const canonical = await getCanonicalRedirectDB(category);
   if (canonical) {
     const qs = new URLSearchParams(
       Object.entries(sp).flatMap(([k, v]) =>
@@ -70,7 +70,7 @@ export default async function Page(
     redirect(`/products/${canonical}${qs ? `?${qs}` : ''}`);
   }
 
-  const cat = getCategory(category);
+  const cat = await getCategoryBySlug(category);
   if (!cat) notFound();
 
   // Fetch + normalise products on the server (dedupe variant groups).
@@ -78,6 +78,7 @@ export default async function Page(
     .from('products')
     .select('*')
     .eq('category', cat!.db)
+    .eq('listing_status', 'published')
     .order('created_at', { ascending: true });
 
   const seenGroups = new Set<string>();
@@ -103,7 +104,7 @@ export default async function Page(
         </div>
       }
     >
-      <CategoryClient category={cat!.slug} initialProducts={initialProducts} />
+      <CategoryClient category={cat!.slug} initialProducts={initialProducts} categoryData={cat} />
     </Suspense>
   );
 }

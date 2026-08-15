@@ -174,36 +174,77 @@ export default function Navbar() {
     };
     getUser();
   }, []);
-  
-  
+
+  // --- DB-DRIVEN CATEGORY MENUS (with hardcoded fallback) ---
+  const FALLBACK_MENU = {
+    components: [
+      { slug: "cpu", label: "Processors" }, { slug: "gpu", label: "Graphics Cards" },
+      { slug: "motherboard", label: "Motherboards" }, { slug: "ram", label: "Memory (RAM)" },
+      { slug: "storage", label: "Storage" }, { slug: "psu", label: "Power Supply" },
+      { slug: "cabinet", label: "PC Cabinets" }, { slug: "cooler", label: "Cooling" },
+    ],
+    accessories: [
+      { slug: "monitor", label: "Displays" }, { slug: "keyboard", label: "Keyboards" },
+      { slug: "mouse", label: "Mouse" }, { slug: "combo", label: "Combos" },
+      { slug: "mousepad", label: "Mouse Pads" }, { slug: "usb", label: "USB Drives" },
+    ],
+  };
+  const [menu, setMenu] = useState(FALLBACK_MENU);
+
+  useEffect(() => {
+    const loadCats = async () => {
+      try {
+        const { data } = await supabase
+          .from("categories")
+          .select("id, name, short_name, group_id, sort_order")
+          .eq("active", true)
+          .order("sort_order", { ascending: true });
+        if (!data || data.length === 0) return; // keep fallback
+        const comp = data.filter((c: any) => c.group_id === "components").map((c: any) => ({ slug: c.id, label: c.short_name || c.name }));
+        const acc = data.filter((c: any) => c.group_id === "accessories").map((c: any) => ({ slug: c.id, label: c.short_name || c.name }));
+        setMenu({
+          components: comp.length ? comp : FALLBACK_MENU.components,
+          accessories: acc.length ? acc : FALLBACK_MENU.accessories,
+        });
+      } catch {
+        /* keep fallback */
+      }
+    };
+    loadCats();
+  }, []);
+
   return (
     <>
     
     <nav className="sticky top-0 left-0 w-full z-[100] bg-[#090909] border-b border-white/10 font-orbitron" onMouseLeave={() => setActiveMenu(null)}>
       <div className="h-[80px] rb-shell flex items-center justify-between relative bg-[#090909] z-50">
-        {/* MOBILE HAMBURGER */}
-        <div className="lg:hidden flex items-center">
+        {/* MOBILE HAMBURGER — cq-mobile-flex/cq-desktop-* below react to the
+            actual rendered width of the page area (see [container-name:rb-page]
+            on ChatWidget's squeeze wrapper), not the raw browser viewport, so
+            this falls back to its own tablet/mobile layout once the chat
+            window has squeezed the page down that far, on any screen size. */}
+        <div className="cq-mobile-flex items-center">
             <button onClick={() => setMobileMenuOpen(true)} className="text-white text-2xl p-2"><FaBars /></button>
         </div>
 
         {/* LOGO */}
         <Link href="/" className="flex-shrink-0 flex items-center justify-center">
-           <div className="hidden lg:block relative h-10 w-40">
+           <div className="cq-desktop-block relative h-10 w-40">
                <Image src="/icons/navbar/logo.png" alt="Rig Builders" fill className="object-contain object-left brightness-0 invert" priority />
            </div>
-           <div className="lg:hidden relative h-10 w-10">
+           <div className="cq-mobile-block relative h-10 w-10">
                <Image src="/icons/navbar/logo.svg" alt="Rig Builders" fill className="object-contain brightness-0 invert" priority />
            </div>
         </Link>
 
         {/* MOBILE SEARCH */}
-        <div className="lg:hidden flex items-center">
+        <div className="cq-mobile-flex items-center">
             <button onClick={() => setMobileSearchOpen(true)} className="text-white text-xl p-2"><FaSearch /></button>
         </div>
 
         {/* DESKTOP RIGHT SECTION (Links + Icons) */}
-        <div className="hidden lg:flex items-center h-full gap-[35px]">
-          
+        <div className="cq-desktop-flex items-center h-full gap-[35px]">
+
           {/* NAV LINKS */}
           <div className="flex items-center gap-[35px] text-[15px] font-bold tracking-widest text-white h-full">
             {["products", "desktops", "accessories", "support"].map((menu) => (
@@ -219,17 +260,17 @@ export default function Navbar() {
             <Link href="/cart" className="relative group p-2 hover:opacity-80"><Image src="/icons/navbar/cart.png" alt="Cart" width={28} height={28} /></Link>
 
             {/* User Icon */}
-            <div 
-              className="relative h-full flex items-center group" 
-              onMouseEnter={() => handleMouseEnter("user")} 
+            <div
+              className="relative h-full flex items-center group"
+              onMouseEnter={() => handleMouseEnter("user")}
               onMouseLeave={handleMouseLeave}
             >
               <button className="p-2 hover:opacity-80">
                 <Image src="/icons/navbar/User Account.svg" alt="Account" width={26} height={26} />
               </button>
-              
+
               {/* The UserAccountMenu component already has 'pt-2' in your code.
-                 Combined with the handleMouseLeave delay above, this creates a 
+                 Combined with the handleMouseLeave delay above, this creates a
                  perfect bridge so the menu won't close unexpectedly.
               */}
               {activeMenu === "user" && <UserAccountMenu user={user} />}
@@ -240,9 +281,9 @@ export default function Navbar() {
               <button className="p-2 hover:opacity-80"><Image src="/icons/navbar/search.svg" alt="Search" width={28} height={28} /></button>
               {activeMenu === "search" && <SearchMenu />}
             </div>
-            
+
             <Link href="/configure">
-              <button className="border border-white text-white w-[150px] h-[36px] text-[11px] font-bold tracking-[0.15em] hover:bg-white hover:text-[#121212] transition-all uppercase flex items-center justify-center">BUILD YOURS</button>
+              <button className="cq-build-btn border border-white text-white w-[150px] h-[36px] text-[11px] font-bold tracking-[0.15em] hover:bg-white hover:text-[#121212] transition-all uppercase items-center justify-center">BUILD YOURS</button>
             </Link>
           </div>
         </div>
@@ -262,14 +303,9 @@ export default function Navbar() {
                 <div className="flex gap-4 mb-6"><Image src="/icons/navbar/products/PC Components.svg" alt="Icon" width={32} height={32} /><Image src="/icons/navbar/products/PC Components 2.png" alt="Icon" width={32} height={32} /></div>
                 <h3 className="font-orbitron text-lg font-bold mb-4 text-white uppercase tracking-wider">PC Components</h3>
                 <ul className="space-y-2 text-sm text-brand-silver">
-                    <li><Link href="/products/cpu" className="hover:text-brand-purple transition-colors">Processors</Link></li>
-                    <li><Link href="/products/gpu" className="hover:text-brand-purple transition-colors">Graphics Cards</Link></li>
-                    <li><Link href="/products/motherboard" className="hover:text-brand-purple transition-colors">Motherboards</Link></li>
-                    <li><Link href="/products/ram" className="hover:text-brand-purple transition-colors">Memory (RAM)</Link></li>
-                    <li><Link href="/products/storage" className="hover:text-brand-purple transition-colors">Storage</Link></li>
-                    <li><Link href="/products/psu" className="hover:text-brand-purple transition-colors">Power Supply</Link></li>
-                    <li><Link href="/products/cabinet" className="hover:text-brand-purple transition-colors">PC Cabinets</Link></li>
-                    <li><Link href="/products/cooler" className="hover:text-brand-purple transition-colors">Cooling</Link></li>
+                    {menu.components.map((c) => (
+                      <li key={c.slug}><Link href={`/products/${c.slug}`} className="hover:text-brand-purple transition-colors">{c.label}</Link></li>
+                    ))}
                 </ul>
             </div>
 
@@ -290,12 +326,9 @@ export default function Navbar() {
                 <div className="mb-6"><Image src="/icons/navbar/products/Accessories.png" alt="Accessories" width={40} height={40} /></div>
                 <h3 className="font-orbitron text-lg font-bold mb-4 text-white uppercase tracking-wider">Accessories</h3>
                 <ul className="space-y-2 text-sm text-brand-silver">
-                    <li><Link href="/products/monitor" className="hover:text-brand-purple">Displays</Link></li>
-                    <li><Link href="/products/keyboard" className="hover:text-brand-purple">Keyboards</Link></li>
-                    <li><Link href="/products/mouse" className="hover:text-brand-purple">Mouse</Link></li>
-                    <li><Link href="/products/combo" className="hover:text-brand-purple">Combos</Link></li>
-                    <li><Link href="/products/mousepad" className="hover:text-brand-purple">Mouse Pads</Link></li>
-                    <li><Link href="/products/usb" className="hover:text-brand-purple">USB Drives</Link></li>
+                    {menu.accessories.map((c) => (
+                      <li key={c.slug}><Link href={`/products/${c.slug}`} className="hover:text-brand-purple">{c.label}</Link></li>
+                    ))}
                 </ul>
             </div>
 

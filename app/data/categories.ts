@@ -30,17 +30,17 @@ export interface CategoryConfig {
 export const CATEGORIES: CategoryConfig[] = [
   {
     slug: "cpu", db: "cpu", title: "Processors (CPU)", short: "Processor",
-    funnel: "landing",
+    funnel: "simple", // re-routing preserved (hubStep kept); flip to "landing" per-category to re-enable
     hub: { name: "PROCESSORS", sub: "CORE ARCHITECTURE", desc: "Intel Core Ultra & AMD Ryzen", image: "/images/Products/cpuv1.jpg", order: 1 },
   },
   {
     slug: "gpu", db: "gpu", title: "Graphics Cards (GPU)", short: "Graphics Card",
-    funnel: "landing", hubStep: true,
+    funnel: "simple", // re-routing preserved (hubStep kept); flip to "landing" per-category to re-enable hubStep: true,
     hub: { name: "GRAPHICS CARD", sub: "VISUAL ENGINES", desc: "NVIDIA RTX, Intel ARC & AMD Radeon", image: "/images/Products/gpuv1.jpg", order: 2 },
   },
   {
     slug: "motherboard", db: "motherboard", title: "Motherboards", short: "Motherboard",
-    funnel: "landing", hubStep: true,
+    funnel: "simple", // re-routing preserved (hubStep kept); flip to "landing" per-category to re-enable hubStep: true,
     hub: { name: "MOBO", sub: "SYSTEM FOUNDATION", desc: "Z790, X670 & B650 Chipsets", image: "/images/Products/mobov2.jpg", order: 3 },
   },
   {

@@ -56,6 +56,20 @@ export async function POST(
     return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
   }
 
+  // The website channel has no push API to send through — there's no persistent
+  // connection to a browser tab the way there is a phone number/page ID for the
+  // Meta channels. The widget instead polls /api/chatbot/website/thread and
+  // picks up this message the same way it would any other new message.
+  if (conversation.channel === "website") {
+    try {
+      await appendMessage(id, "assistant", text, "human");
+      await updateConversationStatus(id, "handed_off");
+      return NextResponse.json({ status: "ok" });
+    } catch (err) {
+      return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    }
+  }
+
   const adapter = ADAPTERS[conversation.channel];
   const externalUserId = conversation.chatbot_users?.channel_identities?.[conversation.channel];
 

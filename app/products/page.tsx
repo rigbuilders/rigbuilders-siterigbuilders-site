@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import ProductHubClient from "./ProductHubClient";
+import { getHubCategories } from "@/lib/categories.server";
 
 // 1. SET PROPER SEO METADATA
 export const metadata: Metadata = {
@@ -21,7 +22,15 @@ export const metadata: Metadata = {
   },
 };
 
-// 2. RENDER THE CLIENT UI
-export default function ProductHubPage() {
-  return <ProductHubClient />;
+// 2. RENDER THE CLIENT UI (categories fetched server-side, DB-driven with fallback)
+export default async function ProductHubPage() {
+  const hubCategories = await getHubCategories();
+  const cards = hubCategories.map((c) => ({
+    id: c.slug,
+    name: c.hub!.name,
+    sub: c.hub!.sub,
+    desc: c.hub!.desc,
+    image: c.hub!.image,
+  }));
+  return <ProductHubClient categories={cards} />;
 }

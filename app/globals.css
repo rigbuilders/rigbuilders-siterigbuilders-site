@@ -22,6 +22,46 @@
     padding-left: 30px;
     padding-right: 30px;
   }
+
+  /* Container-query equivalents of Tailwind's `lg:` breakpoint (1024px),
+     keyed to an ancestor's actual rendered width instead of the browser
+     viewport. Opt an ancestor in via [container-type:inline-size]
+     [container-name:rb-page] (see ChatWidget.tsx's page-squeeze wrapper) —
+     anything inside it using these classes falls back to its own
+     tablet/mobile layout once THAT container gets narrow (e.g. because the
+     chat window has squeezed the page into less width), on any screen size,
+     instead of shrinking its own text/icons to cram into less room. Add
+     more breakpoints here the same way if another component needs one. */
+  .cq-mobile-flex { display: flex; }
+  .cq-mobile-block { display: block; }
+  .cq-desktop-flex { display: none; }
+  .cq-desktop-block { display: none; }
+
+  @container rb-page (min-width: 1024px) {
+    .cq-mobile-flex,
+    .cq-mobile-block {
+      display: none;
+    }
+    .cq-desktop-flex {
+      display: flex;
+    }
+    .cq-desktop-block {
+      display: block;
+    }
+  }
+
+  /* One extra step before the full tablet switch above: once the container
+     is narrow enough to be getting tight (but not narrow enough to drop to
+     the hamburger yet), lose the "Build Yours" button first — it's the least
+     essential piece of the row — while the nav links and cart/account/search
+     icons keep showing normally. Only applies inside the >=1024px zone
+     above; below 1024px the whole row (button included) is already hidden. */
+  .cq-build-btn { display: flex; }
+  @container rb-page (max-width: 1199.98px) {
+    .cq-build-btn {
+      display: none;
+    }
+  }
 }
 
 :root {

@@ -39,6 +39,24 @@ export function getTogetherConfig(): ProviderConfig | null {
   };
 }
 
+/**
+ * TEMPORARY, local-testing-only provider: a locally-running Ollama server
+ * (e.g. `ollama run qwen3.5:2b-q4_K_M`). Only used by the website chat widget
+ * while Together billing is being sorted out — see website-stream.ts. To
+ * revert, just delete/comment OLLAMA_BASE_URL from .env.local; no code
+ * changes needed, the website channel falls straight back to Together.
+ */
+export interface OllamaConfig {
+  baseUrl: string;
+  model: string;
+}
+
+export function getOllamaConfig(): OllamaConfig | null {
+  const baseUrl = raw("OLLAMA_BASE_URL");
+  if (!baseUrl) return null;
+  return { baseUrl, model: optional("OLLAMA_MODEL", "qwen3.5:2b-q4_K_M") };
+}
+
 // ---- Meta channels (each optional and independent) ----
 export interface WhatsAppConfig {
   verifyToken: string;

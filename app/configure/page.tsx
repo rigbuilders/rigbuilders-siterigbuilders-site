@@ -130,11 +130,11 @@ export default function ConfiguratorPage() {
   };
 
   return (
-    <div className="bg-[#121212] min-h-screen text-white font-saira flex flex-col relative overflow-x-hidden">
+    <div className="bg-[#121212] min-h-screen text-white font-saira flex flex-col relative">
       <div className="fixed top-0 left-0 w-full h-full bg-[url('/images/noise.png')] opacity-[0.03] pointer-events-none z-0" />
       <Navbar />
-      
-      <div className="flex-grow pt-12 pb-12 px-4 md:px-8 2xl:px-[100px] relative z-10">
+
+      <div className="flex-grow pt-12 pb-12 px-4 md:px-8 2xl:px-[100px] relative z-10 overflow-x-hidden">
         <Reveal>
             <h1 className="font-orbitron text-4xl font-bold mb-12 text-white uppercase tracking-wide">
                 System <span className="text-[#FFE600]">Configurator</span>

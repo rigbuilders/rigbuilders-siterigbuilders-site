@@ -8,8 +8,10 @@ import { Reveal } from "@/components/ui/MotionWrappers";
 import { FaArrowRight } from "react-icons/fa";
 import { HUB_CATEGORIES } from "@/app/data/categories";
 
-// Hub cards come from the single source of truth (app/data/categories.ts).
-const categories = HUB_CATEGORIES.map((c) => ({
+type HubCard = { id: string; name: string; sub: string; desc: string; image: string };
+
+// Fallback used only if the server passes nothing (DB unreachable at build).
+const FALLBACK_CARDS: HubCard[] = HUB_CATEGORIES.map((c) => ({
   id: c.slug,
   name: c.hub!.name,
   sub: c.hub!.sub,
@@ -17,7 +19,8 @@ const categories = HUB_CATEGORIES.map((c) => ({
   image: c.hub!.image,
 }));
 
-export default function ProductHubClient() {
+export default function ProductHubClient({ categories: categoriesProp }: { categories?: HubCard[] }) {
+  const categories = categoriesProp && categoriesProp.length > 0 ? categoriesProp : FALLBACK_CARDS;
   return (
     <div className="min-h-screen bg-[#121212] text-white font-saira flex flex-col">
       <Navbar />

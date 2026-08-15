@@ -4,11 +4,19 @@ import { usePathname } from "next/navigation";
 import FloatingBuilderBtn from "@/components/FloatingBuilderBtn";
 import { Headset } from "lucide-react";
 
+// Re-enabled — the Rix AI chatbot (ChatWidget) is temporarily pulled off the
+// live site (see app/layout.tsx) since it's not production-ready yet, so
+// these go back to occupying the bottom-right spot in the meantime. Flip
+// back to false (and re-enable <ChatWidget> in layout.tsx) once the chatbot
+// is ready to ship.
+const WIDGETS_ENABLED = true;
+
 export default function DesktopWidgets() {
   const pathname = usePathname();
-  
-  // Instantly hides these widgets if you are in the mobile sandbox
-  if (pathname?.startsWith("/m")) return null;
+
+  // Same hiding technique already used for the /m mobile sandbox — an early
+  // return, nothing below it removed.
+  if (!WIDGETS_ENABLED || pathname?.startsWith("/m")) return null;
 
   return (
     <div className="hidden md:block">

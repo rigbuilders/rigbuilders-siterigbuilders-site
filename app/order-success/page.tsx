@@ -100,16 +100,18 @@ function OrderSuccessContent() {
 
 export default function OrderSuccessPage() {
   return (
-    <div className="bg-[#121212] min-h-screen text-white font-saira flex flex-col relative overflow-hidden">
+    <div className="bg-[#121212] min-h-screen text-white font-saira flex flex-col relative">
       <div className="fixed top-0 left-0 w-full h-[600px] bg-brand-purple/5 blur-[150px] pointer-events-none z-0" />
       <Navbar />
-      <Suspense fallback={
-        <div className="min-h-screen flex items-center justify-center text-white pt-20">
-            <div className="text-brand-purple font-orbitron animate-pulse">LOADING...</div>
-        </div>
-      }>
-        <OrderSuccessContent />
-      </Suspense>
+      <div className="overflow-hidden">
+        <Suspense fallback={
+          <div className="min-h-screen flex items-center justify-center text-white pt-20">
+              <div className="text-brand-purple font-orbitron animate-pulse">LOADING...</div>
+          </div>
+        }>
+          <OrderSuccessContent />
+        </Suspense>
+      </div>
       <Footer />
     </div>
   );

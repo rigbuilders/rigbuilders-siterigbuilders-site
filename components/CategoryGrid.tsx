@@ -1,41 +1,21 @@
-"use client";
-
 import Link from "next/link";
 import { FaArrowRight } from "react-icons/fa";
+import { getAssets } from "@/lib/categories.server";
 
-// Data Configuration matches your requested images and paths
-const categories = [
-  { 
-    title: "GRAPHICS CARDS", 
-    id: "gpu", 
-    image: "/images/Products/gpu.jpg", 
-    span: "md:col-span-2", // Landscape
-    position: "object-center"
-  },
-  { 
-    title: "PROCESSORS", 
-    id: "cpu", 
-    image: "/images/Products/cpu.jpg", 
-    span: "md:col-span-1", // Square
-    position: "object-center"
-  },
-  { 
-    title: "STORAGE", 
-    id: "storage", 
-    image: "/images/Products/nvme.jpg", 
-    span: "md:col-span-1", // Square
-    position: "object-center"
-  },
-  { 
-    title: "DISPLAYS", 
-    id: "monitor", 
-    image: "/images/Accessories/monitor.jpg", 
-    span: "md:col-span-2", // Landscape
-    position: "center"
-  }
+// The curated bento layout (which categories are featured + their span/position)
+// stays in code — it's editorial design. Only the IMAGES are DB-editable, pulled
+// from site_assets by tag with the current path as fallback.
+const FEATURED = [
+  { title: "GRAPHICS CARDS", id: "gpu", tag: "home-featured-gpu", fallback: "/images/Products/gpu.jpg", span: "md:col-span-2", position: "object-center" },
+  { title: "PROCESSORS", id: "cpu", tag: "home-featured-cpu", fallback: "/images/Products/cpu.jpg", span: "md:col-span-1", position: "object-center" },
+  { title: "STORAGE", id: "storage", tag: "home-featured-storage", fallback: "/images/Products/nvme.jpg", span: "md:col-span-1", position: "object-center" },
+  { title: "DISPLAYS", id: "monitor", tag: "home-featured-monitor", fallback: "/images/Accessories/monitor.jpg", span: "md:col-span-2", position: "center" },
 ];
 
-export default function CategoryGrid() {
+export default async function CategoryGrid() {
+  const assetMap = await getAssets(FEATURED.map((f) => f.tag));
+  const categories = FEATURED.map((f) => ({ ...f, image: assetMap[f.tag] || f.fallback }));
+
   return (
     <section className="bg-[#121212] py-10 relative z-10 border-t border-white/5">
       {/* Container aligned to Navbar: 30px padding at 1440px */}

@@ -38,14 +38,14 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="bg-[#121212] min-h-screen text-white font-saira flex flex-col relative overflow-hidden">
-      
+    <div className="bg-[#121212] min-h-screen text-white font-saira flex flex-col relative">
+
       {/* Background Ambience */}
       <div className="fixed top-0 left-0 w-full h-[500px] bg-brand-purple/5 blur-[120px] pointer-events-none z-0" />
-      
+
       <Navbar />
-      
-      <div className="flex-grow pt-32 pb-12 flex items-center justify-center px-6 relative z-10">
+
+      <div className="flex-grow pt-32 pb-12 flex items-center justify-center px-6 relative z-10 overflow-hidden">
         <div className="w-full max-w-md bg-[#1A1A1A] p-8 rounded-xl border border-white/5 shadow-2xl">
           <h1 className="font-orbitron text-2xl font-bold mb-4 text-white">Reset Password</h1>
           <p className="text-brand-silver text-sm mb-8">

@@ -47,6 +47,8 @@ the route. You need at least one of Gemini/Together for replies to work at all, 
 | `INSTAGRAM_BUSINESS_ID` | adapters/instagram | falls back to `/me/messages` endpoint |
 | `MESSENGER_ACCESS_TOKEN` | adapters/messenger | disables Messenger |
 | `META_GRAPH_API_VERSION` | adapters/meta-graph-client | `v21.0` |
+| `OLLAMA_BASE_URL` | llm/providers/ollama | **TEMPORARY** — unset means "use Together"; set to `http://localhost:11434` for local Ollama testing only, delete when done |
+| `OLLAMA_MODEL` | llm/providers/ollama | `llama3:latest ` (only read if `OLLAMA_BASE_URL` is set) |
 
 This feature reuses `SUPABASE_SERVICE_ROLE_KEY` and `NEXT_PUBLIC_SUPABASE_URL` above (via
 `lib/supabaseAdmin.ts`) — no separate Supabase credentials needed. It writes to three new

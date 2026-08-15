@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import {
   FaBox, FaClipboardList, FaPlusCircle, FaShoppingCart, FaTools,
   FaFileInvoice, FaChartPie, FaPenNib, FaTags, FaShieldAlt, FaArrowRight,
-  FaComments
+  FaComments, FaLayerGroup
 } from "react-icons/fa";
 
 export default function AdminDashboard() {
@@ -95,6 +95,13 @@ export default function AdminDashboard() {
           icon: <FaBox />,
           desc: "Add or edit website products, manage prices, specs, and stock levels.",
           color: "text-brand-silver border-white/10 hover:border-brand-purple hover:bg-brand-purple/5"
+        },
+        {
+          title: "Category Builder",
+          href: "/admin/categories",
+          icon: <FaLayerGroup />,
+          desc: "Create, edit and remove storefront categories, hub cards and images.",
+          color: "text-cyan-400 border-cyan-400/20 hover:bg-cyan-400/10"
         },
         {
           title: "Master Order List",

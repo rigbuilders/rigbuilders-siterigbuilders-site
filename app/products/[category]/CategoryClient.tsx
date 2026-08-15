@@ -20,13 +20,16 @@ const FILTER_KEYS = ["brand", "budget", "socket", "memory", "capacity", "form_fa
 export default function CategoryClient({
   category,
   initialProducts,
+  categoryData,
 }: {
   category: string;
   initialProducts: any[];
+  categoryData?: any;
 }) {
-  // Server (page.tsx) already validated the category and redirected aliases, so
-  // `cat` is present here; we still optional-chain to keep hooks unconditional.
-  const cat = getCategory(category);
+  // Prefer the DB-resolved category passed from the server (so the funnel flag
+  // set in the admin Category Builder actually controls behaviour); fall back to
+  // the code config for safety.
+  const cat = categoryData ?? getCategory(category);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -88,8 +91,8 @@ export default function CategoryClient({
   // --- STAGE GATING (simple + derived purely from URL / config) ---
   // 1. Landing: brand/maker picker for gpu/cpu/motherboard, before any selection.
   const showLanding = cat?.funnel === "landing" && !pMaker && !pChipset && !pBrand && !hasActiveFilters;
-  // 2. Chipset hub: series → model, once a maker is picked (gpu/motherboard) but no model yet.
-  const showHub = !!cat?.hubStep && !!pMaker && !pChipset && !hasActiveFilters;
+  // 2. Chipset hub: series → model — only when the funnel is enabled for this category.
+  const showHub = cat?.funnel === "landing" && !!cat?.hubStep && !!pMaker && !pChipset && !hasActiveFilters;
 
   // --- FILTERING (client-side over server-provided products) ---
   const filteredProducts = useMemo(() => {

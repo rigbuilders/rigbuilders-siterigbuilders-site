@@ -38,6 +38,7 @@ const CHANNEL_COLOR: Record<string, string> = {
   whatsapp: "text-green-400 border-green-400/30 bg-green-400/10",
   instagram: "text-pink-400 border-pink-400/30 bg-pink-400/10",
   messenger: "text-blue-400 border-blue-400/30 bg-blue-400/10",
+  website: "text-brand-purple border-brand-purple/30 bg-brand-purple/10",
 };
 
 async function authedFetch(path: string, options: RequestInit = {}) {
@@ -238,11 +239,18 @@ export default function ChatbotInbox() {
                 <option value="whatsapp">WhatsApp</option>
                 <option value="instagram">Instagram</option>
                 <option value="messenger">Messenger</option>
+                <option value="website">Website</option>
               </select>
               <input
                 value={newNumber}
                 onChange={(e) => setNewNumber(e.target.value)}
-                placeholder={newChannel === "whatsapp" ? "Phone number, e.g. 917707801014" : "Platform user ID"}
+                placeholder={
+                  newChannel === "whatsapp"
+                    ? "Phone number, e.g. 917707801014"
+                    : newChannel === "website"
+                    ? "Visitor ID (from the conversation list)"
+                    : "Platform user ID"
+                }
                 className="bg-[#121212] border border-white/10 rounded px-3 py-2 text-sm flex-1 min-w-[200px]"
               />
               <input

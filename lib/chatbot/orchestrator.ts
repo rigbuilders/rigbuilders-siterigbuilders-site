@@ -5,6 +5,7 @@ import {
   getRecentHistory,
 } from "./conversation-store";
 import { isExcluded } from "./exclusions";
+import { getProductKnowledge } from "./product-knowledge";
 import { SYSTEM_PROMPT } from "./system-prompt";
 import { generateReply } from "./llm/router";
 import type { NormalizedMessage } from "./types";
@@ -38,8 +39,13 @@ export async function handleMessage(msg: NormalizedMessage): Promise<string | nu
 
   const history = await getRecentHistory(conversation.id);
 
+  // Look up matching products and fold them into the system prompt for this
+  // one call only — keeps the base prompt small and the data always fresh.
+  const productContext = await getProductKnowledge(msg.text);
+  const systemPrompt = productContext ? `${SYSTEM_PROMPT}\n\n${productContext}` : SYSTEM_PROMPT;
+
   try {
-    const { text, provider } = await generateReply(SYSTEM_PROMPT, history, msg.text);
+    const { text, provider } = await generateReply(systemPrompt, history, msg.text);
     await appendMessage(conversation.id, "assistant", text, provider);
     return text;
   } catch (err) {

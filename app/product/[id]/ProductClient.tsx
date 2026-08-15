@@ -29,7 +29,7 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
   
   // Initialize with Server Data (Instant Load)
   const [product, setProduct] = useState<any>(initialProduct);
-  const [activeImg, setActiveImg] = useState(initialProduct.image_url);
+  const [activeImg, setActiveImg] = useState(initialProduct.image_url || initialProduct.gallery_urls?.[0] || "");
 
   // Client-only State
   const [relatedProducts, setRelatedProducts] = useState<any[]>([]);
@@ -169,7 +169,7 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
   };
 
   return (
-    <div className="bg-[#121212] min-h-screen text-white font-saira flex flex-col relative overflow-hidden">
+    <div className="bg-[#121212] min-h-screen text-white font-saira flex flex-col relative">
       <div className="fixed top-0 left-0 w-full h-full bg-[url('/images/noise.png')] opacity-[0.03] pointer-events-none z-0" />
       <div className="fixed top-0 right-0 w-[600px] h-[600px] bg-brand-purple/10 blur-[180px] pointer-events-none z-0" />
 
@@ -179,16 +179,17 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
         dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
       />
 
-      {/* Breadcrumb Navigation */}
-      <ProductBreadcrumb 
-        category={product.category}
-        name={product.name}
-        series={product.series}
-        tier={product.tier}
-        breadcrumbName={product.breadcrumb_name}
-      />
+      <div className="flex flex-col flex-grow overflow-hidden">
+        {/* Breadcrumb Navigation */}
+        <ProductBreadcrumb
+          category={product.category}
+          name={product.name}
+          series={product.series}
+          tier={product.tier}
+          breadcrumbName={product.breadcrumb_name}
+        />
 
-      <div className="flex-grow pt-12 pb-12 rb-shell relative z-10">
+        <div className="flex-grow pt-12 pb-12 rb-shell relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 xl:gap-20 mb-24">
             
             {/* GALLERY */}
@@ -211,12 +212,16 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
                         onTouchMove={onTouchMove}
                         onTouchEnd={onTouchEnd}
                     >
-                        <img 
-                            src={activeImg} 
-                            alt={product.name} 
-                            className="w-full h-full object-contain z-10 group-hover:scale-105 transition-transform duration-500 select-none" 
-                            draggable={false} 
-                        />
+                        {activeImg ? (
+                            <img
+                                src={activeImg}
+                                alt={product.name}
+                                className="w-full h-full object-contain z-10 group-hover:scale-105 transition-transform duration-500 select-none"
+                                draggable={false}
+                            />
+                        ) : (
+                            <span className="text-brand-silver/20 font-saira text-3xl font-bold -rotate-12 select-none px-6 text-center">{product.name}</span>
+                        )}
                         {allImages.length > 1 && (
                             <>
                                 <button onClick={handlePrevImg} className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-black/80 text-white flex items-center justify-center hover:bg-brand-purple opacity-0 md:group-hover:opacity-100 transition-all cursor-pointer">
@@ -413,7 +418,9 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     {relatedProducts.map((item) => (
                         <Link href={`/product/${item.id}`} key={item.id} className="group bg-[#151515] border border-white/5 rounded-xl p-4 hover:border-brand-purple/50 transition-all">
-                            <div className="h-40 bg-[#0a0a0a] mb-4 flex items-center justify-center"><img src={item.image_url} className="h-full object-contain" /></div>
+                            <div className="h-40 bg-[#0a0a0a] mb-4 flex items-center justify-center">
+                                {item.image_url ? <img src={item.image_url} alt={item.name} className="h-full object-contain" /> : <span className="text-brand-silver/20 text-xs text-center px-2">{item.name}</span>}
+                            </div>
                             <h4 className="font-bold text-white text-sm truncate">{item.name}</h4>
                             <div className="text-brand-silver">₹{item.price.toLocaleString("en-IN")}</div>
                         </Link>
@@ -473,8 +480,9 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
                  </div>
              </div>
         </div>
+        <Footer />
       </div>
-      <Footer />
+      </div>
     </div>
   );
 }

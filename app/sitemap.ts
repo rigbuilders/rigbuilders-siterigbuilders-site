@@ -1,6 +1,6 @@
 import { MetadataRoute } from 'next';
 import { supabase } from '@/lib/supabaseClient';
-import { CATEGORY_SLUGS } from '@/app/data/categories';
+import { getCategorySlugs } from '@/lib/categories.server';
 
 const baseUrl = "https://www.rigbuilders.in";
 
@@ -26,9 +26,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 1.0,
   }));
 
-  // 2. CATEGORIES — canonical slugs from the shared config (no memory/ram dupes).
-  //    Exclude 'prebuilt' (it has its own /desktops flow, already covered above).
-  const categories = CATEGORY_SLUGS.filter((s) => s !== "prebuilt");
+  // 2. CATEGORIES — canonical slugs from the DB (with code fallback), so new
+  //    categories appear in the sitemap automatically. Exclude 'prebuilt'.
+  const categories = (await getCategorySlugs()).filter((s) => s !== "prebuilt");
 
   const categoryUrls = categories.map(cat => ({
     url: `${baseUrl}/products/${cat}`,

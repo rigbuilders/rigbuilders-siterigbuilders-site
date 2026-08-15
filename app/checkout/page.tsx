@@ -377,11 +377,11 @@ export default function CheckoutPage() {
   };
 
   return (
-    <div className="bg-[#121212] min-h-screen text-white font-saira flex flex-col relative overflow-hidden">
+    <div className="bg-[#121212] min-h-screen text-white font-saira flex flex-col relative">
       <div className="fixed top-0 left-0 w-full h-[500px] bg-brand-purple/5 blur-[120px] pointer-events-none z-0" />
       <Navbar />
-      
-      <div className="flex-grow pt-32 pb-12 rb-shell relative z-10">
+
+      <div className="flex-grow pt-32 pb-12 rb-shell relative z-10 overflow-hidden">
         <Reveal>
           <h1 className="font-orbitron text-4xl font-bold mb-12 text-white uppercase tracking-wide">
              SECURE <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-purple to-brand-blue">CHECKOUT</span>

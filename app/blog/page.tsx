@@ -25,13 +25,14 @@ export default async function BlogFeedPage() {
   });
 
   return (
-    <main className="min-h-screen bg-[#121212] text-white font-saira relative overflow-hidden">
+    <main className="min-h-screen bg-[#121212] text-white font-saira relative">
       {/* Background FX */}
       <div className="fixed top-0 left-0 w-full h-full bg-[url('/images/noise.png')] opacity-[0.03] pointer-events-none z-0" />
       <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-brand-purple/10 blur-[150px] pointer-events-none z-0" />
 
       <Navbar />
-      
+
+      <div className="overflow-hidden">
       {/* HERO HEADER */}
       <section className="relative pt-20 pb-20 px-6 text-center border-b border-white/5 z-10">
         <Reveal>
@@ -117,6 +118,7 @@ export default async function BlogFeedPage() {
       </section>
 
       <Footer />
+      </div>
     </main>
   );
 }

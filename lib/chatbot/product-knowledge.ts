@@ -1,0 +1,371 @@
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
+
+/**
+ * Simple keyword-based product lookup for the chatbot (Phase 3a "RAG").
+ * No embeddings/vector DB — just matches words from the customer's message
+ * against product name/breadcrumb/configurator name/brand, ranks by how many
+ * words hit, and formats the top matches (including every spec field, not
+ * just the ones Google's feed happens to show) for the system prompt.
+ *
+ * Queries the `products` table directly via supabaseAdmin — this never goes
+ * through /api/merchant-feed. The two are separate consumers of the same
+ * table with very different output shapes (Google's XML tags vs. plain text
+ * for an LLM) and different filtering needs.
+ */
+
+const STOPWORDS = new Set([
+  "the", "a", "an", "is", "are", "do", "does", "what", "which", "how",
+  "much", "many", "for", "of", "in", "on", "with", "and", "or", "to",
+  "i", "want", "need", "have", "has", "can", "you", "your", "tell", "me",
+  "about", "price", "cost", "spec", "specs", "specification", "please",
+  "this", "that", "it", "im", "i'm", "buy", "get",
+]);
+
+interface ProductRow {
+  id: string;
+  name: string;
+  breadcrumb_name: string | null;
+  configurator_name: string | null;
+  nickname: string | null;
+  brand: string | null;
+  category: string;
+  price: number;
+  mrp: number | null;
+  warranty: string | null;
+  in_stock: boolean;
+  description: string | null;
+  features: string[] | null;
+  specs: Record<string, unknown> | null;
+  series: string | null;
+  tier: number | null;
+  image_url: string | null;
+}
+
+const PRODUCT_SELECT =
+  "id, name, breadcrumb_name, configurator_name, nickname, brand, category, price, mrp, warranty, in_stock, description, features, specs, series, tier, image_url";
+
+/** The shape the website widget renders as a product card — see ChatProductCard.tsx. */
+export interface ProductCard {
+  id: string;
+  name: string;
+  price: number;
+  mrp: number | null;
+  imageUrl: string | null;
+  inStock: boolean;
+  category: string;
+  brand: string | null;
+}
+
+/**
+ * Maps a phrase a customer might type to a real `category` value (see
+ * BASE_CATEGORIES in app/admin/products/constants.ts). Longer/more specific
+ * phrases first so e.g. "graphics card" matches before a shorter substring
+ * would (not strictly required here since we check every entry, but keeps
+ * the list readable in the same order it's evaluated).
+ */
+const CATEGORY_ALIASES: Record<string, string> = {
+  "graphics card": "gpu",
+  "graphic card": "gpu",
+  "power supply": "psu",
+  "pre-built": "prebuilt",
+  "hard drive": "storage",
+  processor: "cpu",
+  processors: "cpu",
+  cpu: "cpu",
+  gpu: "gpu",
+  graphics: "gpu",
+  motherboard: "motherboard",
+  mobo: "motherboard",
+  ram: "ram",
+  memory: "ram",
+  storage: "storage",
+  ssd: "storage",
+  hdd: "storage",
+  psu: "psu",
+  cabinet: "cabinet",
+  case: "cabinet",
+  cooler: "cooler",
+  cooling: "cooler",
+  windows: "os",
+  monitor: "monitor",
+  display: "monitor",
+  keyboard: "keyboard",
+  mouse: "mouse",
+  mousepad: "mousepad",
+  usb: "usb",
+  prebuilt: "prebuilt",
+  desktop: "prebuilt",
+  desktops: "prebuilt",
+};
+
+// Common component brands carried in the catalog — matched against the
+// `brand` column with ILIKE, so exact DB casing doesn't matter.
+const BRAND_ALIASES: Record<string, string> = {
+  intel: "Intel",
+  amd: "AMD",
+  nvidia: "NVIDIA",
+  asus: "ASUS",
+  msi: "MSI",
+  gigabyte: "Gigabyte",
+  corsair: "Corsair",
+  "cooler master": "Cooler Master",
+  nzxt: "NZXT",
+  samsung: "Samsung",
+  "western digital": "Western Digital",
+  seagate: "Seagate",
+  kingston: "Kingston",
+  logitech: "Logitech",
+};
+
+function detectCategoryAndBrand(text: string): { category?: string; brand?: string } {
+  const lower = text.toLowerCase();
+  const category = Object.entries(CATEGORY_ALIASES).find(([alias]) => lower.includes(alias))?.[1];
+  const brand = Object.entries(BRAND_ALIASES).find(([alias]) => lower.includes(alias))?.[1];
+  return { category, brand };
+}
+
+// Human-friendly labels for known spec keys (falls back to a titleized raw key).
+const SPEC_LABELS: Record<string, string> = {
+  socket: "Socket",
+  chipset_maker: "Chipset Maker",
+  chipset_series: "Chipset Series",
+  chipset: "Chipset",
+  wattage: "TDP / Wattage",
+  memory_type: "Memory Type",
+  form_factor: "Form Factor",
+  capacity: "Capacity",
+  vram: "VRAM",
+  length_mm: "Length (mm)",
+  storage_type: "Storage Type",
+  radiator_size: "Radiator Size",
+  max_gpu_length_mm: "Max GPU Length Supported (mm)",
+  supported_motherboards: "Supports Motherboard Sizes",
+  supported_radiators: "Supports Radiator Sizes",
+  color: "Color",
+};
+
+// Internal bookkeeping keys that shouldn't be shown to the LLM/customer.
+const SPEC_HIDE = new Set(["group", "variant_label"]);
+
+/**
+ * Which spec keys actually make sense for each category — mirrors exactly
+ * what app/admin/products/page.tsx writes into `specs` per category (see
+ * ProductForm.tsx). `specs` is a single shared JSONB column across every
+ * category, so without this filter a stray/legacy key (e.g. a leftover
+ * `length_mm` on a CPU row) would get read back out and handed to the LLM as
+ * if it were a real GPU-length spec for a processor. Categories not listed
+ * here (custom/admin-added ones) fall back to showing everything present.
+ */
+const CATEGORY_SPEC_ALLOWLIST: Record<string, string[]> = {
+  cpu: ["socket", "wattage"],
+  gpu: ["chipset_maker", "chipset_series", "chipset", "vram", "memory_type", "length_mm", "wattage", "color"],
+  motherboard: ["chipset_maker", "chipset_series", "chipset", "socket", "memory_type", "form_factor", "wattage"],
+  ram: ["memory_type", "capacity", "color"],
+  storage: ["capacity", "storage_type"],
+  psu: ["wattage"],
+  cabinet: ["max_gpu_length_mm", "supported_motherboards", "supported_radiators", "color"],
+  cooler: ["radiator_size", "color"],
+  os: [],
+  monitor: ["color", "capacity", "style"],
+  keyboard: ["color", "style"],
+  mouse: ["color", "style"],
+  combo: ["color", "style"],
+  mousepad: ["color", "style"],
+  usb: ["color", "capacity"],
+  // prebuilt intentionally omitted — its specs are already curated,
+  // human-readable BOM labels ("Processor", "Graphics Card (Slot 1)", ...),
+  // not raw technical keys, so those should always pass through as-is.
+};
+
+function extractKeywords(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length >= 3 && !STOPWORDS.has(w))
+    .slice(0, 6); // cap so the DB filter stays reasonably sized
+}
+
+function formatSpecs(specs: Record<string, unknown> | null, category: string): string {
+  if (!specs) return "";
+  const lines: string[] = [];
+  const allowlist = CATEGORY_SPEC_ALLOWLIST[category];
+
+  for (const [key, value] of Object.entries(specs)) {
+    if (SPEC_HIDE.has(key)) continue;
+    if (allowlist && !allowlist.includes(key)) continue; // category mismatch — skip
+    if (value === null || value === undefined || value === "") continue;
+
+    const label = SPEC_LABELS[key] ?? key.replace(/_/g, " ");
+    const displayValue = Array.isArray(value) ? value.join(", ") : String(value);
+    if (!displayValue) continue;
+
+    lines.push(`  - ${label}: ${displayValue}`);
+  }
+
+  return lines.join("\n");
+}
+
+function formatProduct(p: ProductRow): string {
+  const lines = [
+    `${p.name}${p.brand ? ` (${p.brand})` : ""}`,
+    `  - Category: ${p.category}${p.series ? `, Series: ${p.series.toUpperCase()}${p.tier ? " " + p.tier : ""}` : ""}`,
+    `  - Price: ₹${p.price}${p.mrp && p.mrp > p.price ? ` (MRP ₹${p.mrp})` : ""}`,
+    `  - Stock: ${p.in_stock ? "In stock" : "Out of stock"}`,
+  ];
+
+  if (p.warranty) lines.push(`  - Warranty: ${p.warranty}`);
+
+  const specLines = formatSpecs(p.specs, p.category);
+  if (specLines) lines.push(specLines);
+
+  if (p.features && p.features.length > 0) {
+    lines.push(`  - Features: ${p.features.join("; ")}`);
+  }
+
+  if (p.description) lines.push(`  - Description: ${p.description}`);
+
+  return lines.join("\n");
+}
+
+/**
+ * Finds products relevant to a customer's message. Two strategies, tried in
+ * order:
+ *
+ * 1. Structured category/brand lookup — if the message names a category
+ *    ("processors", "graphics card") and optionally a brand ("Intel"), query
+ *    for every published product in that category (+ brand filter if given).
+ *    This is what guarantees completeness: "do you have Intel processors"
+ *    returns *all* Intel CPUs, not just however many happen to rank highest
+ *    in a fuzzy text search.
+ * 2. Fuzzy keyword search — falls back to matching words from the message
+ *    against name/breadcrumb/configurator/nickname/brand text, for queries
+ *    that name a specific product rather than a whole category ("how much is
+ *    the 7800X3D").
+ *
+ * Never throws — a lookup failure just means no product context this turn,
+ * not a broken reply.
+ */
+export async function findRelevantProducts(userMessage: string, limit = 8): Promise<ProductRow[]> {
+  const { category, brand } = detectCategoryAndBrand(userMessage);
+
+  if (category) {
+    let query = supabaseAdmin
+      .from("products")
+      .select(PRODUCT_SELECT)
+      .eq("listing_status", "published")
+      .eq("category", category)
+      .order("price", { ascending: true })
+      .limit(limit);
+
+    if (brand) query = query.ilike("brand", `%${brand}%`);
+
+    const { data, error } = await query;
+    if (error) {
+      console.error(`[chatbot:product-knowledge] category lookup failed: ${error.message}`);
+    } else if (data && data.length > 0) {
+      return data as ProductRow[];
+    }
+    // No category match (or brand filter too narrow) — fall through to fuzzy search.
+  }
+
+  const keywords = extractKeywords(userMessage);
+  if (keywords.length === 0) return [];
+
+  const orFilter = keywords
+    .flatMap((k) => [
+      `name.ilike.%${k}%`,
+      `breadcrumb_name.ilike.%${k}%`,
+      `configurator_name.ilike.%${k}%`,
+      `nickname.ilike.%${k}%`,
+      `brand.ilike.%${k}%`,
+    ])
+    .join(",");
+
+  const { data, error } = await supabaseAdmin
+    .from("products")
+    .select(PRODUCT_SELECT)
+    .eq("listing_status", "published")
+    .or(orFilter)
+    .limit(20);
+
+  if (error) {
+    console.error(`[chatbot:product-knowledge] lookup failed: ${error.message}`);
+    return [];
+  }
+  if (!data || data.length === 0) return [];
+
+  // Rank with breadcrumb_name (the short, clean product identity, e.g. "Ryzen 7
+  // 7800X3D") as the primary signal, nickname/configurator_name as strong
+  // secondary signals, and the full SEO title only as a low-confidence
+  // fallback — it's long and keyword-stuffed, so on its own it's a weaker
+  // signal of what the customer actually meant.
+  const scored = (data as ProductRow[]).map((p) => {
+    const breadcrumb = (p.breadcrumb_name ?? "").toLowerCase();
+    const nickname = (p.nickname ?? "").toLowerCase();
+    const configurator = (p.configurator_name ?? "").toLowerCase();
+    const seoName = p.name.toLowerCase();
+
+    let score = 0;
+    for (const k of keywords) {
+      if (breadcrumb.includes(k)) score += 3;
+      if (nickname.includes(k)) score += 3;
+      if (configurator.includes(k)) score += 2;
+      if (seoName.includes(k)) score += 1;
+      if ((p.brand ?? "").toLowerCase().includes(k)) score += 1;
+    }
+    return { product: p, score };
+  });
+
+  return scored
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((s) => s.product);
+}
+
+/**
+ * Formats an already-fetched product list into the text block appended to
+ * the system prompt. Split out from findRelevantProducts so website-stream.ts
+ * can query once and use the result both for this prompt context and for the
+ * product cards rendered in the widget.
+ */
+export function buildProductContext(products: ProductRow[]): string {
+  if (products.length === 0) return "";
+  return (
+    "Relevant product data from the Rig Builders catalog (this is live, accurate data — use " +
+    "it for exact prices/specs/stock, and never state numbers beyond what's listed here). " +
+    "You don't need to enumerate every single one in full detail — a short summary covering " +
+    "what's relevant to the question is enough:\n\n" +
+    products.map(formatProduct).join("\n\n")
+  );
+}
+
+/** Maps DB rows to the plain-data shape the website widget renders as cards. */
+export function toProductCards(products: ProductRow[]): ProductCard[] {
+  return products.map((p) => ({
+    id: p.id,
+    name: p.breadcrumb_name?.trim() || p.name,
+    price: p.price,
+    mrp: p.mrp,
+    imageUrl: p.image_url,
+    inStock: p.in_stock,
+    category: p.category,
+    brand: p.brand,
+  }));
+}
+
+/**
+ * Looks up products relevant to a customer's message and returns a compact
+ * text block ready to append to the system prompt for this one LLM call.
+ * Returns "" when nothing matches — the orchestrator skips adding an empty
+ * block rather than confusing the prompt with a "no results" note.
+ *
+ * Kept as the entry point for channels without card UI (WhatsApp, Instagram,
+ * Messenger) — the website widget uses findRelevantProducts directly so it
+ * can also build product cards from the same result.
+ */
+export async function getProductKnowledge(userMessage: string, limit = 3): Promise<string> {
+  const products = await findRelevantProducts(userMessage, limit);
+  return buildProductContext(products);
+}

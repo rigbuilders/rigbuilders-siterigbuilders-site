@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import type { ChatbotUser, ChatMessage, ChatRole, Conversation } from "./types";
+import type { ChatbotUser, ChatMessage, ChatRole, Conversation, StoredMessage } from "./types";
 
 const MAX_HISTORY_MESSAGES = 20;
 // Rough stand-in for a real token budget until we wire up a tokenizer.
@@ -116,6 +116,70 @@ export async function findOrCreateActiveConversation(
     throw new Error(`Failed to create conversation: ${insertError?.message ?? "unknown error"}`);
   }
   return mapConversation(created);
+}
+
+/**
+ * Read-only lookup for the website widget's polling endpoint — unlike
+ * findOrCreateActiveConversation, this never creates a user or conversation.
+ * A stray poll from a visitorId that hasn't sent a message yet should just
+ * see "nothing here" rather than spawning an empty conversation row.
+ */
+export async function findExistingConversation(
+  channel: string,
+  externalUserId: string
+): Promise<Conversation | null> {
+  const { data: user, error: userError } = await supabaseAdmin
+    .from("chatbot_users")
+    .select("id")
+    .contains("channel_identities", { [channel]: externalUserId })
+    .limit(1)
+    .maybeSingle<{ id: string }>();
+
+  if (userError) {
+    throw new Error(`Failed to look up user: ${userError.message}`);
+  }
+  if (!user) return null;
+
+  const { data: conversation, error: convError } = await supabaseAdmin
+    .from("chatbot_conversations")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("channel", channel)
+    .in("status", ["active", "handed_off"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<ConversationRow>();
+
+  if (convError) {
+    throw new Error(`Failed to look up conversation: ${convError.message}`);
+  }
+  return conversation ? mapConversation(conversation) : null;
+}
+
+/**
+ * Full chronological message list for a conversation (unlike
+ * getRecentHistory, not capped/reversed — used by the website widget to
+ * render the whole thread and to notice new messages a human added).
+ */
+export async function getMessages(conversationId: string): Promise<StoredMessage[]> {
+  const { data, error } = await supabaseAdmin
+    .from("chatbot_messages")
+    .select("id, role, content, provider, created_at")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw new Error(`Failed to load messages: ${error.message}`);
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    conversationId,
+    role: row.role,
+    content: row.content,
+    provider: row.provider,
+    createdAt: row.created_at,
+  }));
 }
 
 export async function updateConversationStatus(
