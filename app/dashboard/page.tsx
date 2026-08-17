@@ -6,6 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import { FaBoxOpen, FaSave, FaMicrochip, FaTrash, FaMapMarkerAlt, FaImage } from "react-icons/fa";
+import OrderTimeline from "@/components/OrderTimeline";
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("orders");
@@ -45,6 +46,7 @@ export default function DashboardPage() {
       // Normalize & Merge Orders
       const formattedNew = (newOrdersData || []).map(o => ({
         id: o.id, display_id: o.display_id, created_at: o.created_at, total_amount: o.total_amount, status: o.status, source_table: 'orders',
+        awb_number: o.awb_number || null,
         itemsList: o.items?.map((i: any) => ({ product_name: i.name || i.product_name, category: i.category, image: i.image_url || i.image || i.img || null })) || []
       }));
 
@@ -258,6 +260,9 @@ export default function DashboardPage() {
                             <span>Shipped</span>
                           </div>
                         </div>
+
+                        {/* --- LIVE STATUS TIMELINE (order_events) --- */}
+                        <OrderTimeline orderId={order.id} awb={order.awb_number} />
 
                     </div>
                 ))

@@ -46,3 +46,10 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# chatbot eval harness — generated artifacts, not source (see
+# scripts/chatbot-eval/README.md)
+/scripts/chatbot-eval/test-cases.json
+/scripts/chatbot-eval/results.jsonl
+/scripts/chatbot-eval/report.json
+/scripts/chatbot-eval/report.md
