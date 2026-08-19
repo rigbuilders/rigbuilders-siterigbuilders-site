@@ -24,6 +24,15 @@ async function processInbound(adapter: ChannelAdapter, rawPayload: unknown): Pro
   const message = adapter.parseIncoming(rawPayload);
   if (!message) return; // status update, echo, unsupported type, etc. — nothing to reply to
 
+  if (adapter.markAsRead && message.messageId) {
+    try {
+      await adapter.markAsRead(message.messageId);
+    } catch (err) {
+      // Cosmetic (blue ticks) — never worth losing the reply over.
+      console.error(`[webhook:${adapter.channelId}] markAsRead failed: ${(err as Error).message}`);
+    }
+  }
+
   try {
     const reply = await handleMessage(message);
     // null means: excluded number, or a human already has this conversation

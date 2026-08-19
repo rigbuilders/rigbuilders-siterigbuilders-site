@@ -100,7 +100,14 @@ function looksLikeBuildRequest(text: string): boolean {
   // budget, e.g. "gaming pc under 80k". Requiring all three together avoids
   // misreading an ordinary product question ("is this pc good for gaming")
   // as a request for a full custom quotation.
-  const mentionsMachine = /\b(pc|rig|system|desktop|computer|setup)\b/.test(lower);
+  //
+  // "workstation" and a bare "build" belong here too — found via eval
+  // testing: phrasings like "quote a workstation for CAD under ₹40000" or
+  // "a build for content creation" were falling through to kind:"none"
+  // entirely (never even reaching needs_info) because neither trigger
+  // pattern above nor this noun list matched, even though extractUseCase/
+  // extractBudget both parse them fine on their own.
+  const mentionsMachine = /\b(pc|rig|system|desktop|computer|setup|workstation|build)\b/.test(lower);
   return mentionsMachine && extractUseCase(lower) !== null && extractBudget(lower) !== null;
 }
 

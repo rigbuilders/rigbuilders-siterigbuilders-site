@@ -90,8 +90,13 @@ const CATEGORY_ALIASES: Record<string, string> = {
   monitor: "monitor",
   display: "monitor",
   keyboard: "keyboard",
-  mouse: "mouse",
+  // "mousepad" MUST come before "mouse" — detectCategoryAndBrand takes the
+  // first alias whose key is a substring of the message, and "mousepad"
+  // itself contains "mouse", so with the order reversed (as this was until
+  // eval testing caught it) every mousepad question matched "mouse" first
+  // and got routed to the wrong category entirely.
   mousepad: "mousepad",
+  mouse: "mouse",
   usb: "usb",
   prebuilt: "prebuilt",
   desktop: "prebuilt",
@@ -122,6 +127,65 @@ function detectCategoryAndBrand(text: string): { category?: string; brand?: stri
   const category = Object.entries(CATEGORY_ALIASES).find(([alias]) => lower.includes(alias))?.[1];
   const brand = Object.entries(BRAND_ALIASES).find(([alias]) => lower.includes(alias))?.[1];
   return { category, brand };
+}
+
+function includesWord(lower: string, word: string): boolean {
+  if (!word) return false;
+  const escaped = word.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`\\b${escaped}\\b`).test(lower);
+}
+
+/**
+ * Fallback for when CATEGORY_ALIASES above has no entry at all for a real
+ * category — found via eval testing: "bag" is a real, published category in
+ * the catalog (it's also missing from BASE_CATEGORIES in
+ * app/admin/products/constants.ts, so it looks like it was added straight
+ * to the DB-driven categories table Navbar.tsx already reads from, without
+ * either hardcoded list being updated to match) that silently fell through
+ * to fuzzy keyword search and returned unrelated products (mice, in
+ * testing) instead. Checks the real category id/name/short_name from the
+ * categories table against the message. Uses word-boundary matching, not a
+ * plain substring check, since category ids can be short ("os") and a bare
+ * .includes() would false-positive inside unrelated words ("cost", "most").
+ */
+async function detectDynamicCategory(text: string): Promise<string | undefined> {
+  const { data, error } = await supabaseAdmin.from("categories").select("id, name, short_name").eq("active", true);
+  if (error || !data) return undefined;
+
+  const lower = text.toLowerCase();
+  for (const c of data as { id: string; name: string | null; short_name: string | null }[]) {
+    const candidates = [c.id, c.name, c.short_name].filter(Boolean) as string[];
+    if (candidates.some((cand) => includesWord(lower, cand))) return c.id;
+  }
+  return undefined;
+}
+
+/**
+ * Fallback for when BRAND_ALIASES above doesn't recognize a brand the
+ * customer actually typed — found via eval testing: a real catalog brand
+ * ("Colorful", on a motherboard) outside that ~14-brand hardcoded list
+ * silently lost its brand filter, so "do you have Colorful motherboards"
+ * fell back to an unfiltered category listing (any motherboard, any brand)
+ * instead of matching the real Colorful product or correctly saying "no."
+ * Queries the real distinct brand values for this category and checks
+ * whether any of them appears as a substring of the message — this way any
+ * brand actually in the catalog gets matched, not just the common ones.
+ */
+async function detectDynamicBrand(text: string, category: string): Promise<string | undefined> {
+  const { data, error } = await supabaseAdmin
+    .from("products")
+    .select("brand")
+    .eq("listing_status", "published")
+    .eq("category", category)
+    .not("brand", "is", null);
+
+  if (error || !data) return undefined;
+
+  const lower = text.toLowerCase();
+  // Longest name first so e.g. "western digital" wins over a shorter
+  // accidental substring match.
+  const brands = [...new Set(data.map((r) => r.brand as string).filter(Boolean))].sort((a, b) => b.length - a.length);
+  return brands.find((b) => lower.includes(b.toLowerCase()));
 }
 
 // Human-friendly labels for known spec keys (falls back to a titleized raw key).
@@ -247,9 +311,12 @@ function formatProduct(p: ProductRow): string {
  * not a broken reply.
  */
 export async function findRelevantProducts(userMessage: string, limit = 8): Promise<ProductRow[]> {
-  const { category, brand } = detectCategoryAndBrand(userMessage);
+  const { category: aliasCategory, brand: aliasBrand } = detectCategoryAndBrand(userMessage);
+  const category = aliasCategory ?? (await detectDynamicCategory(userMessage));
 
   if (category) {
+    const brand = aliasBrand ?? (await detectDynamicBrand(userMessage, category));
+
     let query = supabaseAdmin
       .from("products")
       .select(PRODUCT_SELECT)

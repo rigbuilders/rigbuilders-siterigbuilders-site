@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import type { ChatbotUser, ChatMessage, ChatRole, Conversation, StoredMessage } from "./types";
+import type { ChatbotUser, ChatMessage, ChatRole, Conversation, MediaType, StoredMessage } from "./types";
 
 const MAX_HISTORY_MESSAGES = 20;
 // Rough stand-in for a real token budget until we wire up a tokenizer.
@@ -164,7 +164,7 @@ export async function findExistingConversation(
 export async function getMessages(conversationId: string): Promise<StoredMessage[]> {
   const { data, error } = await supabaseAdmin
     .from("chatbot_messages")
-    .select("id, role, content, provider, created_at")
+    .select("id, role, content, provider, created_at, media_url, media_type")
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });
 
@@ -179,6 +179,8 @@ export async function getMessages(conversationId: string): Promise<StoredMessage
     content: row.content,
     provider: row.provider,
     createdAt: row.created_at,
+    mediaUrl: row.media_url ?? null,
+    mediaType: row.media_type ?? null,
   }));
 }
 
@@ -198,13 +200,16 @@ export async function appendMessage(
   conversationId: string,
   role: ChatRole,
   content: string,
-  provider?: string
+  provider?: string,
+  media?: { url: string; type: MediaType }
 ): Promise<void> {
   const { error: insertError } = await supabaseAdmin.from("chatbot_messages").insert({
     conversation_id: conversationId,
     role,
     content,
     provider: provider ?? null,
+    media_url: media?.url ?? null,
+    media_type: media?.type ?? null,
   });
 
   if (insertError) {

@@ -7,7 +7,7 @@ import { FaTruck, FaChevronDown, FaChevronUp, FaExternalLinkAlt } from "react-ic
 // Friendly labels for the status timeline.
 const LABELS: Record<string, string> = {
   processing: "Order Confirmed",
-  procurement: "Sourcing Parts",
+  procurement: "Preparing Your Order",
   assembly: "Building Your Rig",
   ready_to_ship: "Packed — Ready to Ship",
   dispatched: "Dispatched",
@@ -88,7 +88,11 @@ export default function OrderTimeline({ orderId, awb }: { orderId: string; awb?:
                     }`}
                   />
                   <div className="text-sm font-bold text-white">{pretty(e.status)}</div>
-                  {e.note && <div className="text-[11px] text-brand-silver">{e.note}</div>}
+                  {/* Only surface carrier (Blue Dart) scan notes to customers — internal
+                      admin notes (e.g. distributor sourcing) stay hidden. */}
+                  {e.note && e.source === "bluedart" && (
+                    <div className="text-[11px] text-brand-silver">{e.note}</div>
+                  )}
                   <div className="text-[10px] text-white/30">
                     {new Date(e.created_at).toLocaleString("en-IN")}
                   </div>

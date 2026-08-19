@@ -1,7 +1,8 @@
-import { getGeminiConfig, getTogetherConfig } from "../config";
+import { getGeminiConfig, getTogetherConfig, getOllamaConfig } from "../config";
 import type { ChatMessage } from "../types";
 import { createGeminiProvider } from "./providers/gemini";
 import { createTogetherProvider } from "./providers/together";
+import { createOllamaProvider } from "./providers/ollama";
 import { LLMProviderError, type LLMProvider, type LLMResult } from "./types";
 
 interface ProviderFactory {
@@ -10,11 +11,21 @@ interface ProviderFactory {
 }
 
 /**
- * Priority order: Gemini first (primary), Together as fallback.
- * Adding a new provider later = one new config getter in config.ts, one new
- * provider file implementing LLMProvider, and one line here.
+ * Priority order: local Ollama first WHEN configured (OLLAMA_BASE_URL set in
+ * .env.local — see config.ts's getOllamaConfig), same "local override" intent
+ * as website-stream.ts already uses. Otherwise Gemini (primary), then
+ * Together (fallback). Adding a new provider later = one new config getter
+ * in config.ts, one new provider file implementing LLMProvider, and one line
+ * here.
  */
 const PROVIDER_FACTORIES: ProviderFactory[] = [
+  {
+    name: "ollama",
+    build: () => {
+      const config = getOllamaConfig();
+      return config ? createOllamaProvider(config) : null;
+    },
+  },
   {
     name: "gemini",
     build: () => {

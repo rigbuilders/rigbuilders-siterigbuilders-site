@@ -4,6 +4,11 @@ export interface NormalizedMessage {
   text: string;
   timestamp: number;
   attachments?: { type: string; url: string }[];
+  // Platform-native message id, when the adapter has one — currently only
+  // set by the WhatsApp adapter, so it can mark the inbound message as read
+  // (blue ticks) via the Graph API. Optional because not every channel's
+  // webhook payload exposes (or needs) this.
+  messageId?: string;
 }
 
 export type ChatRole = "user" | "assistant" | "system";
@@ -31,6 +36,8 @@ export interface Conversation {
   updatedAt: string;
 }
 
+export type MediaType = "image" | "document";
+
 export interface StoredMessage {
   id: string;
   conversationId: string;
@@ -38,6 +45,8 @@ export interface StoredMessage {
   content: string;
   provider: string | null;
   createdAt: string;
+  mediaUrl?: string | null;
+  mediaType?: MediaType | null;
 }
 
 /**
@@ -52,4 +61,12 @@ export interface ChannelAdapter {
     reply: string,
     meta?: Record<string, unknown>
   ): Promise<void>;
+  // Optional: not every channel has a read-receipt concept worth wiring up.
+  // Currently only implemented by the WhatsApp adapter (blue ticks).
+  markAsRead?(messageId: string): Promise<void>;
+  // Optional: send an image/document by public URL ("link" style — Meta's
+  // servers fetch it themselves, no separate media-upload-to-Meta step
+  // needed). Currently implemented by all three Meta adapters, not the
+  // website channel (which has no Graph API to call).
+  sendMedia?(externalUserId: string, mediaUrl: string, mediaType: MediaType, caption?: string): Promise<void>;
 }

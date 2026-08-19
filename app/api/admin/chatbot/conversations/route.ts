@@ -17,6 +17,10 @@ interface ConversationListRow {
 /**
  * GET /api/admin/chatbot/conversations — inbox list for the admin portal.
  * Returns each conversation with its user info and last message, newest first.
+ * Optional ?channel=whatsapp|messenger|instagram|website filters server-side
+ * (not just client-side) so the per-channel dashboards don't risk missing
+ * older conversations on a quiet channel getting crowded out of the top 200
+ * by a busier one.
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireAdmin(req);
@@ -24,7 +28,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: auth.error }, { status: auth.status ?? 401 });
   }
 
-  const { data, error } = await supabaseAdmin
+  const channel = req.nextUrl.searchParams.get("channel");
+
+  let query = supabaseAdmin
     .from("chatbot_conversations")
     .select(
       `id, channel, status, updated_at, created_at,
@@ -33,6 +39,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     )
     .order("updated_at", { ascending: false })
     .limit(200);
+
+  if (channel) query = query.eq("channel", channel);
+
+  const { data, error } = await query;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

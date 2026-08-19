@@ -1,6 +1,64 @@
 import type { OllamaConfig } from "../../config";
 import type { ChatMessage } from "../../types";
-import { LLMProviderError } from "../types";
+import { LLMProviderError, type LLMProvider } from "../types";
+
+/**
+ * Non-streaming counterpart to streamOllamaReply below, matching the
+ * LLMProvider interface (see gemini.ts/together.ts) so llm/router.ts —
+ * currently used by the WhatsApp/Instagram/Messenger orchestrator, which
+ * sends one finished Cloud API message rather than a live token stream —
+ * can call Ollama the same way it calls Gemini/Together. Same
+ * localhost-only caveat as streamOllamaReply: this only works when the
+ * Next.js process making the call is running on the same machine as
+ * `ollama serve`. A production Vercel deployment can never reach it.
+ */
+export function createOllamaProvider(config: OllamaConfig): LLMProvider {
+  return {
+    name: "ollama",
+
+    async generate(systemPrompt: string, history: ChatMessage[], userMessage: string): Promise<string> {
+      const messages = [
+        { role: "system", content: systemPrompt },
+        ...history
+          .filter((m) => m.role === "user" || m.role === "assistant")
+          .map((m) => ({ role: m.role, content: m.content })),
+        { role: "user", content: userMessage },
+      ];
+
+      let response: Response;
+      try {
+        response = await fetch(`${config.baseUrl.replace(/\/$/, "")}/api/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model: config.model, messages, stream: false, think: false }),
+        });
+      } catch (err) {
+        throw new LLMProviderError(
+          "ollama",
+          true,
+          `Network error calling local Ollama at ${config.baseUrl} — is \`ollama serve\` running? (${(err as Error).message})`
+        );
+      }
+
+      if (!response.ok) {
+        const errorBody = await response.text().catch(() => "");
+        throw new LLMProviderError("ollama", true, `Ollama error (${response.status}): ${errorBody}`);
+      }
+
+      const data = (await response.json()) as { message?: { content?: string }; error?: string };
+      if (data.error) {
+        throw new LLMProviderError("ollama", true, data.error);
+      }
+
+      const text = data.message?.content;
+      if (!text) {
+        throw new LLMProviderError("ollama", true, "Ollama returned no usable text in its response.");
+      }
+
+      return text.trim();
+    },
+  };
+}
 
 /**
  * TEMPORARY, local-testing-only provider — see the comment on

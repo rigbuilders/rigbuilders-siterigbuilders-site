@@ -11,6 +11,7 @@ import { streamTogetherReply } from "./llm/providers/together";
 import { buildProductContext, findRelevantProducts, toProductCards, type ProductCard } from "./product-knowledge";
 import { detectBuildIntent, buildQuoteContext, type BuildQuote } from "./build-recommender";
 import { SYSTEM_PROMPT } from "./system-prompt";
+import { stripFormatting, createSanitizingTransform } from "./text-sanitizer";
 
 const HANDED_OFF_NOTICE =
   "Thanks for the message — a member of the Rig Builders team will reply to you right here shortly.";
@@ -147,19 +148,25 @@ export async function handleWebsiteMessage(
         `question. Do not propose specific parts, brands, or prices until you have both pieces of information.`;
     }
 
+    // Sanitized here (not just on the live stream below) so the copy that
+    // lands in conversation history — and gets fed back to the model as
+    // context on the customer's next message — never reinforces markdown/emoji
+    // it was told not to use. See text-sanitizer.ts for why this backstop
+    // exists at all.
     const persist = (provider: string) => async (fullText: string) => {
-      const finalText =
-        fullText || "Sorry, I couldn't put a reply together — a team member will follow up shortly.";
+      const finalText = fullText
+        ? stripFormatting(fullText)
+        : "Sorry, I couldn't put a reply together — a team member will follow up shortly.";
       await appendMessage(conversation.id, "assistant", finalText, provider);
     };
 
     try {
       if (ollamaConfig) {
         const stream = await streamOllamaReply(ollamaConfig, systemPrompt, history, text, persist("ollama"));
-        return withProductsHeader(cards, buildQuote, stream);
+        return withProductsHeader(cards, buildQuote, stream.pipeThrough(createSanitizingTransform()));
       }
       const stream = await streamTogetherReply(togetherConfig!, systemPrompt, history, text, persist("together"));
-      return withProductsHeader(cards, buildQuote, stream);
+      return withProductsHeader(cards, buildQuote, stream.pipeThrough(createSanitizingTransform()));
     } catch (err) {
       const fallback = ollamaConfig
         ? "Sorry, I couldn't reach the local test model. Make sure `ollama serve` is running, then try again."

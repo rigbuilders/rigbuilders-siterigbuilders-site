@@ -1,5 +1,5 @@
 import { getInstagramConfig } from "../config";
-import type { ChannelAdapter, NormalizedMessage } from "../types";
+import type { ChannelAdapter, MediaType, NormalizedMessage } from "../types";
 import { graphApiUrl, postToGraphApi } from "./meta-graph-client";
 
 /**
@@ -63,6 +63,32 @@ export const instagramAdapter: ChannelAdapter = {
     await postToGraphApi(url, {
       recipient: { id: externalUserId },
       message: { text: reply },
+    });
+  },
+
+  /**
+   * Sends an image by public URL. Note: Instagram DMs via the Graph API only
+   * reliably support image/video attachments, not arbitrary documents — if
+   * mediaType is "document" this still attempts type "file" for parity with
+   * the other adapters, but Meta may reject it depending on the account;
+   * that's an Instagram platform limitation, not a bug here.
+   */
+  async sendMedia(externalUserId: string, mediaUrl: string, mediaType: MediaType): Promise<void> {
+    const config = getInstagramConfig();
+    if (!config) {
+      throw new Error("Instagram is not configured: set META_VERIFY_TOKEN and INSTAGRAM_ACCESS_TOKEN.");
+    }
+
+    const path = config.businessId ? `${config.businessId}/messages` : "me/messages";
+    const url = `${graphApiUrl(path)}?access_token=${encodeURIComponent(config.accessToken)}`;
+    await postToGraphApi(url, {
+      recipient: { id: externalUserId },
+      message: {
+        attachment: {
+          type: mediaType === "image" ? "image" : "file",
+          payload: { url: mediaUrl, is_reusable: true },
+        },
+      },
     });
   },
 };

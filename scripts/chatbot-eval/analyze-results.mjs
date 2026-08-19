@@ -41,9 +41,22 @@ const SKIP_LINKS = Boolean(args["skip-links"]);
 const REPORT_JSON = path.join(ROOT, "scripts/chatbot-eval/report.json");
 const REPORT_MD = path.join(ROOT, "scripts/chatbot-eval/report.md");
 
-const lines = readFileSync(IN_PATH, "utf8").split("\n").filter((l) => l.trim());
-const results = lines.map((l) => JSON.parse(l));
-console.log(`Loaded ${results.length} results from ${IN_PATH}`);
+// A run that was interrupted (Ctrl+C, crash, killed terminal) can leave one
+// truncated/partial trailing line in the JSONL file — appendFileSync isn't
+// atomic against a hard interruption mid-write. Skip anything that doesn't
+// parse instead of failing the whole analysis over one bad line; every
+// earlier line is still a complete, independent result.
+const rawLines = readFileSync(IN_PATH, "utf8").split("\n").filter((l) => l.trim());
+const results = [];
+let skipped = 0;
+for (const line of rawLines) {
+  try {
+    results.push(JSON.parse(line));
+  } catch {
+    skipped += 1;
+  }
+}
+console.log(`Loaded ${results.length} results from ${IN_PATH}${skipped > 0 ? ` (skipped ${skipped} unparseable/truncated line(s))` : ""}`);
 
 // Fresh catalog snapshot for ground-truth cross-checks.
 const supabase = getAnonClient();

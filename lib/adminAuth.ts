@@ -15,7 +15,9 @@ const supabaseAdmin = createClient(
 );
 
 // Comma-separated list in ADMIN_EMAILS, falling back to the known super-admin.
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "rigbuilders123@gmail.com")
+// Exported so other server-only code (e.g. chatbot handoff alerts) can reuse
+// the same admin list instead of hardcoding it a second time.
+export const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "rigbuilders123@gmail.com")
   .split(",")
   .map((e) => e.trim().toLowerCase())
   .filter(Boolean);

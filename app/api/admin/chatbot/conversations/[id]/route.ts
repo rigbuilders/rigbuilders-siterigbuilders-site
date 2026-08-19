@@ -38,7 +38,7 @@ export async function GET(
 
   const { data: messages, error: msgError } = await supabaseAdmin
     .from("chatbot_messages")
-    .select("id, role, content, provider, created_at")
+    .select("id, role, content, provider, created_at, media_url, media_type")
     .eq("conversation_id", id)
     .order("created_at", { ascending: true });
 
