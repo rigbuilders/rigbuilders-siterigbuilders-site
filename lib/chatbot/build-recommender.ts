@@ -238,7 +238,7 @@ async function buildQuote(useCase: UseCase, budget: number): Promise<BuildQuote>
     } else if (category === "os") {
       osPick = picked;
     } else {
-      (selections as Record<string, Product | null>)[category] = picked;
+      (selections as unknown as Record<string, Product | null>)[category] = picked;
     }
   }
 

@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/adminAuth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
@@ -73,7 +74,7 @@ export async function POST(
 
   const mediaType = guessMediaType(file.type || "application/octet-stream");
   const ext = file.name.includes(".") ? file.name.slice(file.name.lastIndexOf(".")) : "";
-  const path = `${conversation.channel}/${id}/${Date.now()}-${crypto.randomUUID()}${ext}`;
+  const path = `${conversation.channel}/${id}/${Date.now()}-${randomUUID()}${ext}`;
 
   const { error: uploadError } = await supabaseAdmin.storage
     .from("chatbot-media")
@@ -105,8 +106,12 @@ export async function POST(
 
   const adapter = ADAPTERS[conversation.channel];
   const externalUserId = conversation.chatbot_users?.channel_identities?.[conversation.channel];
+  // Pulled into its own const (rather than checking adapter?.sendMedia, then
+  // calling adapter.sendMedia later) so the narrowing from the guard below
+  // is unambiguous — same fix as the realtime callback's ref.current issue.
+  const sendMedia = adapter?.sendMedia;
 
-  if (!adapter?.sendMedia || !externalUserId) {
+  if (!sendMedia || !externalUserId) {
     return NextResponse.json(
       { error: `Cannot send media: unknown channel or missing external user id (${conversation.channel})` },
       { status: 400 }
@@ -114,7 +119,7 @@ export async function POST(
   }
 
   try {
-    await adapter.sendMedia(externalUserId, mediaUrl, mediaType, caption);
+    await sendMedia(externalUserId, mediaUrl, mediaType, caption);
     await appendMessage(id, "assistant", content, "human", { url: mediaUrl, type: mediaType });
     await updateConversationStatus(id, "handed_off");
     return NextResponse.json({ status: "ok", mediaUrl });

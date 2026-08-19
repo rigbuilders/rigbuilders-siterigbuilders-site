@@ -229,8 +229,12 @@ export default function ChannelChatDashboard({ channel, theme }: { channel: stri
         (payload: any) => {
           loadConversations();
           const conversationId = payload?.new?.conversation_id;
-          if (conversationId && conversationId === selectedIdRef.current) {
-            loadThread(selectedIdRef.current);
+          const currentId = selectedIdRef.current;
+          // Narrowing through a local const, not selectedIdRef.current directly
+          // — TS can't carry the truthy-narrowing of a ref's .current property
+          // through to a later reference of that same expression.
+          if (conversationId && currentId && conversationId === currentId) {
+            loadThread(currentId);
           }
         }
       )
