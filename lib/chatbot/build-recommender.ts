@@ -248,7 +248,7 @@ async function buildQuote(useCase: UseCase, budget: number): Promise<BuildQuote>
   const partsList: [string, Product | null][] = [
     ...PICK_ORDER.filter((c) => c !== "os").map((c): [string, Product | null] => [
       c,
-      (selections as Record<string, Product | null>)[c],
+      (selections as unknown as Record<string, Product | null>)[c],
     ]),
     ["os", osPick],
   ];
