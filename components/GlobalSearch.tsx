@@ -35,11 +35,13 @@ export default function GlobalSearch({
       if (cleanQuery.length > 1) {
         setLoading(true);
         
-        // 2. The Query: Use 'ilike' (Case Insensitive) and cleaned query
+        // 2. The Query: Use 'ilike' (Case Insensitive) and cleaned query.
+        //    Match only on seo_name + breadcrumb_name (public search fields) —
+        //    never the internal `nickname` column.
         const { data, error } = await supabase
           .from('products')
           .select('id, name, price, category, image_url, brand')
-          .or(`name.ilike.%${cleanQuery}%,brand.ilike.%${cleanQuery}%,category.ilike.%${cleanQuery}%`)
+          .or(`seo_name.ilike.%${cleanQuery}%,breadcrumb_name.ilike.%${cleanQuery}%`)
           .limit(6);
         
         if (error) {

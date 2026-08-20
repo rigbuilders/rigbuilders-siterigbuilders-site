@@ -38,7 +38,7 @@ async function processInbound(adapter: ChannelAdapter, rawPayload: unknown): Pro
     // null means: excluded number, or a human already has this conversation
     // handed off — stay silent, the message is already saved for the admin inbox.
     if (reply) {
-      await adapter.sendReply(message.externalUserId, reply);
+      await adapter.sendReply(message.externalUserId, reply.text, reply.meta);
     }
   } catch (err) {
     console.error(

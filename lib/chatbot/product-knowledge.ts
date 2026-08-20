@@ -436,3 +436,25 @@ export async function getProductKnowledge(userMessage: string, limit = 3): Promi
   const products = await findRelevantProducts(userMessage, limit);
   return buildProductContext(products);
 }
+
+/**
+ * Figures out which single product (if any) a generated reply is actually
+ * about, so a "View Details" button can point at the right page — this is
+ * NOT the same as "which products matched the customer's question." The
+ * customer might ask for something out of stock and the bot recommends a
+ * different part instead (e.g. asked for an RTX 3060, got quoted an RTX
+ * 5060), so the button target has to come from what the reply text itself
+ * settled on, not from the original candidate search. Deliberately
+ * conservative: only returns a product when exactly one candidate's name
+ * shows up in the reply — if the reply mentions several products (a
+ * category listing) or none by name, there's no single obvious link target,
+ * so callers should just send plain text instead of guessing.
+ */
+export function findMentionedProduct(replyText: string, candidates: ProductRow[]): ProductRow | null {
+  const lowerReply = replyText.toLowerCase();
+  const matches = candidates.filter((p) => {
+    const name = (p.breadcrumb_name?.trim() || p.name).toLowerCase();
+    return name.length > 0 && lowerReply.includes(name);
+  });
+  return matches.length === 1 ? matches[0] : null;
+}

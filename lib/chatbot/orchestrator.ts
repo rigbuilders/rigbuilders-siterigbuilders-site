@@ -6,27 +6,34 @@ import {
   updateConversationStatus,
 } from "./conversation-store";
 import { isExcluded } from "./exclusions";
-import { getProductKnowledge } from "./product-knowledge";
+import { findRelevantProducts, buildProductContext, findMentionedProduct } from "./product-knowledge";
 import { SYSTEM_PROMPT } from "./system-prompt";
 import { generateReply } from "./llm/router";
 import { stripFormatting } from "./text-sanitizer";
 import { isHandoffRequest, HANDOFF_ACK_MESSAGE } from "./handoff";
 import { notifyAdminOfHandoff, notifyWatchedNumberMessage } from "./admin-alerts";
 import { getWatched } from "./watchlist";
-import type { NormalizedMessage } from "./types";
+import type { NormalizedMessage, ReplyMeta } from "./types";
+
+const SITE_URL = "https://www.rigbuilders.in";
+
+export interface HandledReply {
+  text: string;
+  meta?: ReplyMeta;
+}
 
 /**
  * Channel-agnostic core loop. Every adapter (WhatsApp, Instagram, Messenger,
  * and eventually the website widget) funnels into this single function with
  * nothing but a NormalizedMessage — it never sees a raw platform payload.
  *
- * Returns the reply text to send back, or `null` if the bot should stay
- * silent — either because this number is on the exclusions list, or because
- * a human has taken over this specific conversation (status: handed_off).
- * In both cases the inbound message is still recorded, so it shows up in the
- * admin inbox for a human to answer.
+ * Returns the reply to send back, or `null` if the bot should stay silent —
+ * either because this number is on the exclusions list, or because a human
+ * has taken over this specific conversation (status: handed_off). In both
+ * cases the inbound message is still recorded, so it shows up in the admin
+ * inbox for a human to answer.
  */
-export async function handleMessage(msg: NormalizedMessage): Promise<string | null> {
+export async function handleMessage(msg: NormalizedMessage): Promise<HandledReply | null> {
   const user = await findOrCreateUser(msg.channel, msg.externalUserId);
   const conversation = await findOrCreateActiveConversation(user.id, msg.channel);
 
@@ -69,14 +76,19 @@ export async function handleMessage(msg: NormalizedMessage): Promise<string | nu
       externalUserId: msg.externalUserId,
       message: msg.text,
     });
-    return HANDOFF_ACK_MESSAGE;
+    return { text: HANDOFF_ACK_MESSAGE };
   }
 
   const history = await getRecentHistory(conversation.id);
 
   // Look up matching products and fold them into the system prompt for this
   // one call only — keeps the base prompt small and the data always fresh.
-  const productContext = await getProductKnowledge(msg.text);
+  // Kept as structured rows (not just the formatted string) so the reply can
+  // be checked afterward for which specific product it ended up discussing —
+  // see findMentionedProduct's own comment for why that's a separate step
+  // from "which products matched the question."
+  const candidateProducts = await findRelevantProducts(msg.text);
+  const productContext = buildProductContext(candidateProducts);
   const systemPrompt = productContext ? `${SYSTEM_PROMPT}\n\n${productContext}` : SYSTEM_PROMPT;
 
   try {
@@ -89,7 +101,28 @@ export async function handleMessage(msg: NormalizedMessage): Promise<string | nu
     // asterisks to the customer without this.
     const text = stripFormatting(rawText);
     await appendMessage(conversation.id, "assistant", text, provider);
-    return text;
+
+    const mentioned = findMentionedProduct(text, candidateProducts);
+    const meta: ReplyMeta | undefined = mentioned
+      ? {
+          product: {
+            id: mentioned.id,
+            name: mentioned.breadcrumb_name?.trim() || mentioned.name,
+            price: mentioned.price,
+            description: mentioned.description
+              ? mentioned.description.length > 150
+                ? `${mentioned.description.slice(0, 147)}...`
+                : mentioned.description
+              : null,
+            imageUrl: mentioned.image_url,
+            productUrl: `${SITE_URL}/product/${mentioned.id}`,
+            addToCartUrl: `${SITE_URL}/product-action?id=${mentioned.id}&action=cart`,
+            buyNowUrl: `${SITE_URL}/product-action?id=${mentioned.id}&action=buy`,
+          },
+        }
+      : undefined;
+
+    return { text, meta };
   } catch (err) {
     // Both providers failed. Graceful degradation instead of going silent
     // (full retry/backoff + human-flagging is Phase 4; this is the seam for it).
@@ -97,6 +130,6 @@ export async function handleMessage(msg: NormalizedMessage): Promise<string | nu
       "Sorry, I'm having trouble getting you an answer right now. A member of the Rig Builders team will follow up with you shortly.";
     await appendMessage(conversation.id, "assistant", fallback, "none");
     console.error(`[chatbot:orchestrator] LLM router failed entirely: ${(err as Error).message}`);
-    return fallback;
+    return { text: fallback };
   }
 }

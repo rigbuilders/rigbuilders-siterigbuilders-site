@@ -50,6 +50,38 @@ export interface StoredMessage {
 }
 
 /**
+ * Full product-card data for a reply that's about one specific product —
+ * image, short description, price, and three destination URLs (all pointing
+ * at /product-action, which adds the item to the customer's cart before
+ * continuing on to /checkout or /cart, since the cart is client-side/
+ * localStorage-only and can't be pre-populated any other way from outside
+ * an active browser session). Each adapter renders this as richly as its
+ * platform allows — see the comment on each sendReply implementation.
+ */
+export interface ProductCardMeta {
+  id: string;
+  name: string;
+  price: number;
+  description: string | null;
+  imageUrl: string | null;
+  productUrl: string;
+  addToCartUrl: string;
+  buyNowUrl: string;
+}
+
+/**
+ * Optional extras attached to a reply. `product`, when present, is the rich
+ * "customer asked about this item" card. `ctaUrl`/`ctaLabel` remain as a
+ * plain single-button fallback for cases (like the handoff acknowledgement)
+ * that aren't about a specific product.
+ */
+export interface ReplyMeta {
+  ctaUrl?: string;
+  ctaLabel?: string;
+  product?: ProductCardMeta;
+}
+
+/**
  * The only layer that knows a platform's message format. The orchestrator
  * never sees a raw Meta payload — only what comes out of parseIncoming.
  */
@@ -59,7 +91,7 @@ export interface ChannelAdapter {
   sendReply(
     externalUserId: string,
     reply: string,
-    meta?: Record<string, unknown>
+    meta?: ReplyMeta
   ): Promise<void>;
   // Optional: not every channel has a read-receipt concept worth wiring up.
   // Currently only implemented by the WhatsApp adapter (blue ticks).

@@ -1,5 +1,5 @@
 import { getWhatsAppConfig } from "../config";
-import type { ChannelAdapter, MediaType, NormalizedMessage } from "../types";
+import type { ChannelAdapter, MediaType, NormalizedMessage, ReplyMeta } from "../types";
 import { graphApiUrl, postToGraphApi } from "./meta-graph-client";
 
 /**
@@ -69,7 +69,7 @@ export const whatsappAdapter: ChannelAdapter = {
     };
   },
 
-  async sendReply(externalUserId: string, reply: string): Promise<void> {
+  async sendReply(externalUserId: string, reply: string, meta?: ReplyMeta): Promise<void> {
     const config = getWhatsAppConfig();
     if (!config) {
       throw new Error(
@@ -78,6 +78,90 @@ export const whatsappAdapter: ChannelAdapter = {
     }
 
     const url = graphApiUrl(`${config.phoneId}/messages`);
+
+    // Rich product card. WhatsApp's Cloud API has no single dynamic message
+    // type that carries an image header *and* multiple URL-opening buttons —
+    // cta_url interactive messages support exactly one button; reply-button
+    // messages allow up to three but they're postback-only (fire a webhook
+    // event back to us), not web_url links. That combination (image + up to
+    // 3 real links, like the Tumbledry-style card) is only available via a
+    // pre-approved Message Template reviewed by Meta ahead of time, not a
+    // freely composed message — not viable for a dynamically-generated reply.
+    // So this sends two messages instead: the product image (name + price as
+    // caption), then the actual reply text as a cta_url message with "Buy
+    // Now" as the tappable button and the other two destinations appended as
+    // plain links — WhatsApp auto-links any http(s) URL typed in a message
+    // body, so those stay tappable even without being real buttons.
+    if (meta?.product) {
+      const { product } = meta;
+
+      if (product.imageUrl) {
+        await postToGraphApi(
+          url,
+          {
+            messaging_product: "whatsapp",
+            to: externalUserId,
+            type: "image",
+            image: {
+              link: product.imageUrl,
+              caption: `${product.name}\n₹${product.price.toLocaleString("en-IN")}`,
+            },
+          },
+          { Authorization: `Bearer ${config.accessToken}` }
+        );
+      }
+
+      const links = `Add to Cart: ${product.addToCartUrl}\nView Details: ${product.productUrl}`;
+      const maxReplyLen = 1000 - links.length - 2;
+      const replyPart = reply.length > maxReplyLen ? `${reply.slice(0, maxReplyLen - 3)}...` : reply;
+      const body = `${replyPart}\n\n${links}`;
+
+      await postToGraphApi(
+        url,
+        {
+          messaging_product: "whatsapp",
+          to: externalUserId,
+          type: "interactive",
+          interactive: {
+            type: "cta_url",
+            body: { text: body },
+            action: {
+              name: "cta_url",
+              parameters: { display_text: "Buy Now", url: product.buyNowUrl },
+            },
+          },
+        },
+        { Authorization: `Bearer ${config.accessToken}` }
+      );
+      return;
+    }
+
+    // A "View Details" button — sent as a cta_url interactive message
+    // instead of plain text. Interactive message bodies cap at 1024
+    // characters (vs. 4096 for plain text), so truncate defensively rather
+    // than let the whole send fail over a long reply.
+    if (meta?.ctaUrl) {
+      const body = reply.length > 1000 ? `${reply.slice(0, 997)}...` : reply;
+      await postToGraphApi(
+        url,
+        {
+          messaging_product: "whatsapp",
+          to: externalUserId,
+          type: "interactive",
+          interactive: {
+            type: "cta_url",
+            body: { text: body },
+            action: {
+              name: "cta_url",
+              parameters: { display_text: meta.ctaLabel ?? "View Details", url: meta.ctaUrl },
+            },
+          },
+        },
+        { Authorization: `Bearer ${config.accessToken}` }
+      );
+      return;
+    }
+
     await postToGraphApi(
       url,
       {

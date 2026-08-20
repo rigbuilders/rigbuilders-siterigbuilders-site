@@ -1,5 +1,5 @@
 import { getMessengerConfig } from "../config";
-import type { ChannelAdapter, MediaType, NormalizedMessage } from "../types";
+import type { ChannelAdapter, MediaType, NormalizedMessage, ReplyMeta } from "../types";
 import { graphApiUrl, postToGraphApi } from "./meta-graph-client";
 
 // Messenger's attachment "type" values are image/audio/video/file — not our
@@ -55,7 +55,7 @@ export const messengerAdapter: ChannelAdapter = {
     };
   },
 
-  async sendReply(externalUserId: string, reply: string): Promise<void> {
+  async sendReply(externalUserId: string, reply: string, meta?: ReplyMeta): Promise<void> {
     const config = getMessengerConfig();
     if (!config) {
       throw new Error(
@@ -64,6 +64,74 @@ export const messengerAdapter: ChannelAdapter = {
     }
 
     const url = `${graphApiUrl("me/messages")}?access_token=${encodeURIComponent(config.accessToken)}`;
+
+    // Rich product card via the Send API's generic template — unlike
+    // WhatsApp, Messenger's generic template natively supports an image,
+    // title, subtitle, AND up to three web_url buttons all in one message,
+    // which maps directly onto image + name/price + Buy Now/Add to
+    // Cart/View Details. Title caps at 80 chars, subtitle at 80 chars,
+    // button titles at 20 chars — truncated defensively.
+    if (meta?.product) {
+      const { product } = meta;
+      const title = product.name.length > 80 ? `${product.name.slice(0, 77)}...` : product.name;
+      const subtitle = `₹${product.price.toLocaleString("en-IN")}`;
+
+      await postToGraphApi(url, {
+        recipient: { id: externalUserId },
+        messaging_type: "RESPONSE",
+        message: {
+          attachment: {
+            type: "template",
+            payload: {
+              template_type: "generic",
+              elements: [
+                {
+                  title,
+                  subtitle,
+                  ...(product.imageUrl ? { image_url: product.imageUrl } : {}),
+                  buttons: [
+                    { type: "web_url", url: product.buyNowUrl, title: "Buy Now" },
+                    { type: "web_url", url: product.addToCartUrl, title: "Add to Cart" },
+                    { type: "web_url", url: product.productUrl, title: "View Details" },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      // Follow up with the actual conversational reply text so the customer
+      // still gets the LLM's answer, not just a bare card.
+      await postToGraphApi(url, {
+        recipient: { id: externalUserId },
+        messaging_type: "RESPONSE",
+        message: { text: reply },
+      });
+      return;
+    }
+
+    // A "View Details" button via the Send API's button template. Button
+    // template text caps at 640 characters — truncate defensively.
+    if (meta?.ctaUrl) {
+      const text = reply.length > 620 ? `${reply.slice(0, 617)}...` : reply;
+      await postToGraphApi(url, {
+        recipient: { id: externalUserId },
+        messaging_type: "RESPONSE",
+        message: {
+          attachment: {
+            type: "template",
+            payload: {
+              template_type: "button",
+              text,
+              buttons: [{ type: "web_url", url: meta.ctaUrl, title: meta.ctaLabel ?? "View Details" }],
+            },
+          },
+        },
+      });
+      return;
+    }
+
     await postToGraphApi(url, {
       recipient: { id: externalUserId },
       messaging_type: "RESPONSE",
