@@ -25,6 +25,14 @@ interface WhatsAppWebhookPayload {
           text?: { body: string };
           image?: { caption?: string };
           document?: { caption?: string; filename?: string };
+          // Present when type is "unsupported" — Meta's Cloud API doesn't
+          // deliver content for certain WhatsApp-native message types at
+          // all (view-once/ephemeral photos & videos, reactions, polls,
+          // deleted messages). This isn't something our webhook can work
+          // around: the actual content is never sent to any business
+          // integration, by design, for privacy reasons — same limitation
+          // every WhatsApp Cloud API integration hits, not a gap in our code.
+          errors?: { code: number; title: string; message?: string; error_data?: { details?: string } }[];
         }[];
       };
     }[];
@@ -56,6 +64,13 @@ export const whatsappAdapter: ChannelAdapter = {
       text = message.image?.caption ? `[Image] ${message.image.caption}` : "[Customer sent an image]";
     } else if (message.type === "document") {
       text = `[Customer sent a file${message.document?.filename ? `: ${message.document.filename}` : ""}]`;
+    } else if (message.type === "unsupported") {
+      // Meta never sends content for these regardless of integration — most
+      // often a view-once/disappearing photo or video, a reaction, a poll,
+      // or a deleted message. code 131051 is the generic "unsupported
+      // message type" error Meta attaches; error_data.details is sometimes
+      // more specific but usually just repeats the same generic wording.
+      text = "[Customer sent a message type WhatsApp doesn't deliver to businesses — likely a view-once photo/video, a reaction, or a poll. Ask them to resend as a regular photo/video or plain text.]";
     } else {
       text = `[unsupported WhatsApp message type: ${message.type}]`;
     }
