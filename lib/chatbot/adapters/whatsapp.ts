@@ -109,21 +109,38 @@ export const whatsappAdapter: ChannelAdapter = {
     // body, so those stay tappable even without being real buttons.
     if (meta?.product) {
       const { product } = meta;
+      console.log(
+        `[chatbot:whatsapp-adapter] sending product card for "${product.name}" — imageUrl: ${
+          product.imageUrl ?? "(none)"
+        }`
+      );
 
       if (product.imageUrl) {
-        await postToGraphApi(
-          url,
-          {
-            messaging_product: "whatsapp",
-            to: externalUserId,
-            type: "image",
-            image: {
-              link: product.imageUrl,
-              caption: `${product.name}\n₹${product.price.toLocaleString("en-IN")}`,
+        try {
+          const imageResult = await postToGraphApi(
+            url,
+            {
+              messaging_product: "whatsapp",
+              to: externalUserId,
+              type: "image",
+              image: {
+                link: product.imageUrl,
+                caption: `${product.name}\n₹${product.price.toLocaleString("en-IN")}`,
+              },
             },
-          },
-          { Authorization: `Bearer ${config.accessToken}` }
-        );
+            { Authorization: `Bearer ${config.accessToken}` }
+          );
+          console.log(`[chatbot:whatsapp-adapter] image send accepted: ${JSON.stringify(imageResult)}`);
+        } catch (err) {
+          // Don't let a bad/unfetchable image URL take down the whole reply —
+          // still try to send the button message below. Logged loudly since
+          // this is exactly the kind of failure that otherwise vanishes
+          // silently (Meta can also 200 an image send and then fail delivery
+          // *asynchronously*, which wouldn't even throw here — this only
+          // catches synchronous/immediate rejections like a bad URL or
+          // unfetchable content).
+          console.error(`[chatbot:whatsapp-adapter] image send FAILED: ${(err as Error).message}`);
+        }
       }
 
       const links = `Add to Cart: ${product.addToCartUrl}\nView Details: ${product.productUrl}`;
@@ -131,7 +148,7 @@ export const whatsappAdapter: ChannelAdapter = {
       const replyPart = reply.length > maxReplyLen ? `${reply.slice(0, maxReplyLen - 3)}...` : reply;
       const body = `${replyPart}\n\n${links}`;
 
-      await postToGraphApi(
+      const ctaResult = await postToGraphApi(
         url,
         {
           messaging_product: "whatsapp",
@@ -148,6 +165,7 @@ export const whatsappAdapter: ChannelAdapter = {
         },
         { Authorization: `Bearer ${config.accessToken}` }
       );
+      console.log(`[chatbot:whatsapp-adapter] cta_url button send accepted: ${JSON.stringify(ctaResult)}`);
       return;
     }
 

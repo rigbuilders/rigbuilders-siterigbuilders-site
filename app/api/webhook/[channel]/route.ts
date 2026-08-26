@@ -96,6 +96,27 @@ export async function POST(
   }
 
   const rawPayload = await req.json().catch(() => null);
+
+  // WhatsApp sends delivery-status updates (sent/delivered/read/failed) as
+  // their own separate webhook calls with no `messages` array — parseIncoming
+  // returns null for these and processInbound just no-ops, which normally
+  // means "read receipt for something we sent, nothing to do." But it also
+  // means an *async* delivery failure (e.g. Meta accepted a media send with
+  // 200 then couldn't actually fetch the image URL) would otherwise vanish
+  // completely — logged here so a failed status is visible instead of silent.
+  if (channel === "whatsapp") {
+    const statuses = (rawPayload as any)?.entry?.[0]?.changes?.[0]?.value?.statuses;
+    if (Array.isArray(statuses)) {
+      for (const status of statuses) {
+        if (status?.status === "failed") {
+          console.error(`[webhook:whatsapp] delivery status FAILED: ${JSON.stringify(status)}`);
+        } else {
+          console.log(`[webhook:whatsapp] delivery status: ${status?.status} for message ${status?.id}`);
+        }
+      }
+    }
+  }
+
   await processInbound(adapter, rawPayload);
 
   return NextResponse.json({ status: "ok" }, { status: 200 });

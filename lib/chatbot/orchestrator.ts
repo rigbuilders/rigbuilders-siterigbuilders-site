@@ -17,6 +17,19 @@ import type { NormalizedMessage, ReplyMeta } from "./types";
 
 const SITE_URL = "https://www.rigbuilders.in";
 
+// products.image_url is stored as a site-relative path (e.g.
+// "/products/images/dark/xyz.jpg") — see the admin product form's "Main
+// Website Image Path" field. That resolves fine in a browser (relative to
+// the current page), but Meta's WhatsApp/Messenger/Instagram servers need a
+// real fetchable URL for image.link / image_url — handed the raw relative
+// path, they'd fail to fetch it, and for WhatsApp specifically that failure
+// can happen *asynchronously* after a 200 response, so it looks like nothing
+// went wrong on our end while the image just never arrives.
+function toAbsoluteUrl(path: string): string {
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${SITE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
+}
+
 export interface HandledReply {
   text: string;
   meta?: ReplyMeta;
@@ -103,6 +116,20 @@ export async function handleMessage(msg: NormalizedMessage): Promise<HandledRepl
     await appendMessage(conversation.id, "assistant", text, provider);
 
     const mentioned = findMentionedProduct(text, candidateProducts);
+    if (!mentioned) {
+      // Diagnostic for exactly this failure mode: candidateProducts came
+      // back non-empty (the reply clearly used real product data) but no
+      // single product's name was found in the reply text — could be zero
+      // matches (name genuinely didn't appear, or still doesn't normalize
+      // the same) or more than one (ambiguous, e.g. near-duplicate catalog
+      // rows). Logged instead of guessed, since that's the only way to tell
+      // the two apart without direct DB access.
+      console.error(
+        `[chatbot:orchestrator] no single product match for CTA — candidates: ${candidateProducts
+          .map((p) => p.breadcrumb_name?.trim() || p.name)
+          .join(" | ")} — reply: ${text}`
+      );
+    }
     const meta: ReplyMeta | undefined = mentioned
       ? {
           product: {
@@ -114,7 +141,7 @@ export async function handleMessage(msg: NormalizedMessage): Promise<HandledRepl
                 ? `${mentioned.description.slice(0, 147)}...`
                 : mentioned.description
               : null,
-            imageUrl: mentioned.image_url,
+            imageUrl: mentioned.image_url ? toAbsoluteUrl(mentioned.image_url) : null,
             productUrl: `${SITE_URL}/product/${mentioned.id}`,
             addToCartUrl: `${SITE_URL}/product-action?id=${mentioned.id}&action=cart`,
             buyNowUrl: `${SITE_URL}/product-action?id=${mentioned.id}&action=buy`,
