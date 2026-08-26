@@ -2,6 +2,7 @@ import Image from "next/image";
 import { FaSave, FaShoppingCart, FaInfoCircle } from "react-icons/fa";
 import { toast } from "sonner";
 import { generateSpecSheetPDF } from "@/utils/generatePdf";
+import { partLabel } from "../logic";
 
 export const ConfiguratorSummary = ({ selections, totals, user, onSave, onAddToCart, saving }: any) => {
     const { totalPrice, estimatedTDP, psuWattage, isPowerSufficient } = totals;
@@ -18,7 +19,7 @@ export const ConfiguratorSummary = ({ selections, totals, user, onSave, onAddToC
     ];
 
     return (
-        <div className="bg-[#151515] border border-white/5 rounded-2xl p-6 shadow-2xl flex flex-col h-[calc(100vh-8rem)] sticky top-28">
+        <div className="bg-[#151515] border border-white/5 rounded-2xl p-4 sm:p-6 shadow-2xl flex flex-col lg:max-h-[calc(100vh-8rem)]">
             
             {/* CABINET VIEWER */}
             <div className="relative w-full h-[250px] shrink-0 mb-6 flex items-center justify-center bg-[#111111] rounded-xl overflow-hidden border border-white/5">
@@ -49,12 +50,12 @@ export const ConfiguratorSummary = ({ selections, totals, user, onSave, onAddToC
             </div>
 
             {/* LIVE RECEIPT LIST (Scrollable) */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-4 space-y-4 mb-6">
+            <div className="lg:flex-1 lg:min-h-0 overflow-y-auto custom-scrollbar pr-2 sm:pr-4 space-y-4 mb-6 max-h-[45vh] lg:max-h-none">
                 {orderList.map((key) => {
                     const val = selections[key];
                     return (
                         <div key={key} className="flex justify-between items-start gap-4">
-                            <span className="text-xs text-white/40 capitalize shrink-0 w-24">{key}</span>
+                            <span className="text-xs text-white/40 shrink-0 w-24">{partLabel(key)}</span>
                             <span className={`text-xs text-right truncate ${val ? "text-white font-bold" : "text-white/10"}`}>
                                 {val ? (val.configurator_name || val.name) : "-"}
                             </span>

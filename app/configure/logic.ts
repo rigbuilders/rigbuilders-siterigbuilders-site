@@ -1,5 +1,28 @@
 import { Product, SelectionState } from "./types";
 
+// Friendly display names for the selection keys (used by the summary panels &
+// mobile bar). Keeps the left "receipt" wording consistent with the grid cards
+// instead of showing raw keys like "Cpu" / "Gpu" / "Psu".
+export const PART_LABELS: Record<string, string> = {
+    cpu: "Processor",
+    motherboard: "Motherboard",
+    gpu: "Graphics Card",
+    ram: "Memory (RAM)",
+    storage: "Storage",
+    cooler: "Cooling",
+    psu: "Power Supply",
+    cabinet: "Cabinet",
+    monitor: "Monitor",
+    keyboard: "Keyboard",
+    mouse: "Mouse",
+    combo: "Keyboard & Mouse",
+    osPrimary: "Primary OS",
+    osSecondary: "Secondary OS",
+};
+
+export const partLabel = (key: string) =>
+    PART_LABELS[key] || key.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
+
 export const filterInventory = (inventory: Product[], selections: SelectionState) => {
     const getCat = (cat: string) => inventory.filter(p => p.category === cat);
 

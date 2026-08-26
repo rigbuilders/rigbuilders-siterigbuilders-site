@@ -450,11 +450,21 @@ export async function getProductKnowledge(userMessage: string, limit = 3): Promi
  * category listing) or none by name, there's no single obvious link target,
  * so callers should just send plain text instead of guessing.
  */
+// Strips everything but letters/digits before comparing, so small phrasing
+// drift between the LLM's generated text and the exact stored product name
+// doesn't break the match — e.g. the model writing "7800X 3D" (with a
+// space) or "7800-X3D" against a stored name of "7800X3D" would otherwise
+// silently fail an exact substring check and fall back to plain text with
+// no product card, even though it's obviously the same product.
+function normalizeForMatch(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 export function findMentionedProduct(replyText: string, candidates: ProductRow[]): ProductRow | null {
-  const lowerReply = replyText.toLowerCase();
+  const normalizedReply = normalizeForMatch(replyText);
   const matches = candidates.filter((p) => {
-    const name = (p.breadcrumb_name?.trim() || p.name).toLowerCase();
-    return name.length > 0 && lowerReply.includes(name);
+    const name = normalizeForMatch(p.breadcrumb_name?.trim() || p.name);
+    return name.length > 0 && normalizedReply.includes(name);
   });
   return matches.length === 1 ? matches[0] : null;
 }

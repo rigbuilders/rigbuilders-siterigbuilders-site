@@ -3,10 +3,10 @@ import { CategoryCard } from "./ConfigUI";
 
 export const ConfiguratorGrid = ({ selections, setActiveModal }: any) => {
     return (
-        <div className="space-y-16">
+        <div className="space-y-10 sm:space-y-16">
             {/* SECTION 1: PC COMPONENTS */}
             <div>
-                <h2 className="font-orbitron text-2xl font-bold text-white uppercase tracking-widest mb-6">PC Components</h2>
+                <h2 className="font-orbitron text-xl sm:text-2xl font-bold text-white uppercase tracking-widest mb-6">PC Components</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <CategoryCard title="Processor" icon={FaMicrochip} selectedItem={selections.cpu} onClick={() => setActiveModal('cpu')} />
                     <CategoryCard title="Motherboard" icon={FaServer} selectedItem={selections.motherboard} onClick={() => setActiveModal('motherboard')} warning={!selections.cpu ? "Requires CPU" : undefined} />
@@ -21,7 +21,7 @@ export const ConfiguratorGrid = ({ selections, setActiveModal }: any) => {
 
             {/* SECTION 2: OPERATING SYSTEM */}
             <div>
-                <h2 className="font-orbitron text-2xl font-bold text-white uppercase tracking-widest mb-6">Operating System</h2>
+                <h2 className="font-orbitron text-xl sm:text-2xl font-bold text-white uppercase tracking-widest mb-6">Operating System</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <CategoryCard title="Primary OS" icon={FaWindows} selectedItem={selections.osPrimary} onClick={() => setActiveModal('osPrimary')} />
                 </div>
@@ -29,7 +29,7 @@ export const ConfiguratorGrid = ({ selections, setActiveModal }: any) => {
 
             {/* SECTION 3: ACCESSORIES */}
             <div>
-                <h2 className="font-orbitron text-2xl font-bold text-white uppercase tracking-widest mb-6">Accessories</h2>
+                <h2 className="font-orbitron text-xl sm:text-2xl font-bold text-white uppercase tracking-widest mb-6">Accessories</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <CategoryCard title="Monitor" icon={FaDesktop} selectedItem={selections.monitor} onClick={() => setActiveModal('monitor')} />
                     <CategoryCard title="Keyboard & Mouse" icon={FaKeyboard} selectedItem={selections.combo} onClick={() => setActiveModal('combo')} />

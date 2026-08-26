@@ -134,39 +134,44 @@ export default function ConfiguratorPage() {
       <div className="fixed top-0 left-0 w-full h-full bg-[url('/images/noise.png')] opacity-[0.03] pointer-events-none z-0" />
       <Navbar />
 
-      <div className="flex-grow pt-12 pb-12 px-4 md:px-8 2xl:px-[100px] relative z-10 overflow-x-hidden">
-        <Reveal>
-            <h1 className="font-orbitron text-4xl font-bold mb-12 text-white uppercase tracking-wide">
-                System <span className="text-[#FFE600]">Configurator</span>
-            </h1>
-        </Reveal>
+      {/* overflow-x-clip (not -hidden) prevents horizontal scroll WITHOUT
+          creating a scroll container — the latter would break the sticky
+          summary card below. */}
+      <div className="flex-grow pt-8 sm:pt-12 pb-12 px-4 md:px-8 2xl:px-[100px] relative z-10 overflow-x-clip">
+        <div className="max-w-[1800px] mx-auto relative">
+          <Reveal>
+              <h1 className="font-orbitron text-2xl sm:text-4xl font-bold mb-8 sm:mb-12 text-white uppercase tracking-wide">
+                  System <span className="text-[#FFE600]">Configurator</span>
+              </h1>
+          </Reveal>
 
-        <div className="max-w-[1800px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 items-start relative">
-            
-            {/* LEFT: LIVE RECEIPT (Sticky) */}
-            <div className="lg:col-span-4 lg:sticky lg:top-28 lg:self-start z-20 h-fit">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-start relative">
+
+            {/* LEFT: LIVE RECEIPT (Sticky on desktop; below the grid on mobile) */}
+            <div className="order-2 lg:order-1 lg:col-span-4 lg:sticky lg:top-28 lg:self-start z-20 h-fit">
                 <Reveal delay={0.2}>
-                    <ConfiguratorSummary 
-                        selections={selections} 
-                        totals={totals} 
-                        user={user} 
-                        onSave={handleSave} 
-                        onAddToCart={handleAddToCart} 
-                        saving={saving} 
+                    <ConfiguratorSummary
+                        selections={selections}
+                        totals={totals}
+                        user={user}
+                        onSave={handleSave}
+                        onAddToCart={handleAddToCart}
+                        saving={saving}
                     />
                 </Reveal>
             </div>
 
-            {/* RIGHT: COMPONENT GRID */}
-            <div className="lg:col-span-8 pb-24 z-10 relative">
+            {/* RIGHT: COMPONENT GRID (first on mobile) */}
+            <div className="order-1 lg:order-2 lg:col-span-8 pb-24 z-10 relative">
                 <Reveal delay={0.3}>
-                    <ConfiguratorGrid 
-                        selections={selections} 
-                        setActiveModal={setActiveModal} 
+                    <ConfiguratorGrid
+                        selections={selections}
+                        setActiveModal={setActiveModal}
                     />
                 </Reveal>
             </div>
-            
+
+          </div>
         </div>
       </div>
 

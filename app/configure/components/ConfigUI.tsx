@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import { FaCheck, FaInfoCircle, FaChevronDown, FaChevronUp, FaSave, FaShoppingCart } from "react-icons/fa";
 import { Product } from "../types";
+import { partLabel } from "../logic";
 import { generateSpecSheetPDF } from "@/utils/generatePdf";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
@@ -180,7 +181,7 @@ export const MobileBar = ({ show, totalPrice, totals, selections, onAddToCart }:
                     <div className="space-y-2 text-xs">
                         {Object.entries(selections).map(([key, val]: any) => val ? (
                             <div key={key} className="flex justify-between border-b border-white/5 pb-1">
-                                <span className="text-brand-silver capitalize">{key}</span>
+                                <span className="text-brand-silver">{partLabel(key)}</span>
                                 <span className="text-white font-bold truncate max-w-[150px]">
                                     {val.configurator_name || val.name}
                                 </span>
