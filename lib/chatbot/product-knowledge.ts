@@ -460,10 +460,26 @@ function normalizeForMatch(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+// breadcrumb_name/name in this catalog is often a full spec-dump title —
+// e.g. "AMD Ryzen 7 7800X 3D Desktop Processor 8 cores 16 Threads 104 MB
+// Cache 4.2 GHz Upto 5.6 GHz AM5 Socket (100-100000910WOF)" — not a short
+// display name. No natural conversational reply is ever going to repeat
+// that whole string verbatim, so matching against it in full always fails.
+// This takes just the first several words (and drops anything from an
+// opening parenthesis onward, which is almost always a SKU/part code) to
+// get something closer to what a reply would actually say, e.g. "AMD Ryzen
+// 7 7800X 3D Desktop Processor". Still conservative — findMentionedProduct
+// below only returns a hit when exactly one candidate's core name appears.
+function coreName(fullName: string): string {
+  const withoutParens = fullName.split("(")[0];
+  const words = withoutParens.trim().split(/\s+/).filter(Boolean);
+  return words.slice(0, 8).join(" ");
+}
+
 export function findMentionedProduct(replyText: string, candidates: ProductRow[]): ProductRow | null {
   const normalizedReply = normalizeForMatch(replyText);
   const matches = candidates.filter((p) => {
-    const name = normalizeForMatch(p.breadcrumb_name?.trim() || p.name);
+    const name = normalizeForMatch(coreName(p.breadcrumb_name?.trim() || p.name));
     return name.length > 0 && normalizedReply.includes(name);
   });
   return matches.length === 1 ? matches[0] : null;
