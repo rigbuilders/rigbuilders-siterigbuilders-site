@@ -464,23 +464,40 @@ function normalizeForMatch(s: string): string {
 // e.g. "AMD Ryzen 7 7800X 3D Desktop Processor 8 cores 16 Threads 104 MB
 // Cache 4.2 GHz Upto 5.6 GHz AM5 Socket (100-100000910WOF)" — not a short
 // display name. No natural conversational reply is ever going to repeat
-// that whole string verbatim, so matching against it in full always fails.
-// This takes just the first several words (and drops anything from an
-// opening parenthesis onward, which is almost always a SKU/part code) to
-// get something closer to what a reply would actually say, e.g. "AMD Ryzen
-// 7 7800X 3D Desktop Processor". Still conservative — findMentionedProduct
-// below only returns a hit when exactly one candidate's core name appears.
-function coreName(fullName: string): string {
-  const withoutParens = fullName.split("(")[0];
-  const words = withoutParens.trim().split(/\s+/).filter(Boolean);
-  return words.slice(0, 8).join(" ");
+// that whole string verbatim, and even truncating to "the first N words"
+// is fragile: titles don't consistently break at the same point (a plain
+// number like the "8" in "8 cores" can land inside the window and corrupt
+// the match, or the real name runs longer than the window and gets cut
+// short). Instead, this pulls out the one token that's actually unique to
+// the product — its model number (e.g. "7800X", "B550M", "9600X") — by
+// looking for a word that mixes letters and digits, which spec-count words
+// ("8", "16", "104") never do and generic component words ("Desktop",
+// "Processor", "Socket") never do either. Long alphanumeric SKU codes
+// ("100-100000910WOF") are excluded by a max length so they don't win out
+// over the real, shorter model number. Falls back to the first few words
+// only when a name has no such token at all.
+function identifyingToken(fullName: string): string | null {
+  const cleaned = fullName.split("(")[0].split(",")[0].split(" - ")[0];
+  const words = cleaned.trim().split(/\s+/).filter(Boolean);
+  const modelNumberLike = words.filter(
+    (w) => /[a-z]/i.test(w) && /\d/.test(w) && w.length >= 4 && w.length <= 10
+  );
+  if (modelNumberLike.length === 0) return null;
+  return modelNumberLike.reduce((longest, w) => (w.length > longest.length ? w : longest));
 }
 
 export function findMentionedProduct(replyText: string, candidates: ProductRow[]): ProductRow | null {
   const normalizedReply = normalizeForMatch(replyText);
   const matches = candidates.filter((p) => {
-    const name = normalizeForMatch(coreName(p.breadcrumb_name?.trim() || p.name));
-    return name.length > 0 && normalizedReply.includes(name);
+    const fullName = p.breadcrumb_name?.trim() || p.name;
+    const token = identifyingToken(fullName);
+    if (token) {
+      return normalizedReply.includes(normalizeForMatch(token));
+    }
+    const fallback = normalizeForMatch(
+      fullName.split("(")[0].split(",")[0].trim().split(/\s+/).slice(0, 5).join(" ")
+    );
+    return fallback.length > 0 && normalizedReply.includes(fallback);
   });
   return matches.length === 1 ? matches[0] : null;
 }
