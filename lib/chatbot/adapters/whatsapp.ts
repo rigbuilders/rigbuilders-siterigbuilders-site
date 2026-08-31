@@ -94,19 +94,18 @@ export const whatsappAdapter: ChannelAdapter = {
 
     const url = graphApiUrl(`${config.phoneId}/messages`);
 
-    // Rich product card. WhatsApp's Cloud API has no single dynamic message
-    // type that carries an image header *and* multiple URL-opening buttons —
-    // cta_url interactive messages support exactly one button; reply-button
-    // messages allow up to three but they're postback-only (fire a webhook
-    // event back to us), not web_url links. That combination (image + up to
-    // 3 real links, like the Tumbledry-style card) is only available via a
-    // pre-approved Message Template reviewed by Meta ahead of time, not a
-    // freely composed message — not viable for a dynamically-generated reply.
-    // So this sends two messages instead: the product image (name + price as
-    // caption), then the actual reply text as a cta_url message with "Buy
-    // Now" as the tappable button and the other two destinations appended as
-    // plain links — WhatsApp auto-links any http(s) URL typed in a message
-    // body, so those stay tappable even without being real buttons.
+    // Rich product card. Real multi-button cards (like the Tumbledry
+    // example) aren't possible on a freely-composed/dynamic message —
+    // WhatsApp caps those at exactly one URL button. Two real buttons (Buy
+    // Now + View Details) requires a pre-approved Message Template, which
+    // "buy_now_view_details" is — approved in WhatsApp Manager with an image
+    // header, a 3-variable body (product name / price / specs), and two
+    // dynamic "Visit website" buttons whose fixed base URLs already encode
+    // ?action=buy / the /product/ path, needing only the product id as the
+    // per-send suffix. Requires an image (the template's header component is
+    // type "image"), so products with no image fall back to the single-
+    // button live cta_url message below instead of sending a template with a
+    // missing required parameter.
     if (meta?.product) {
       const { product } = meta;
       console.log(
@@ -116,34 +115,54 @@ export const whatsappAdapter: ChannelAdapter = {
       );
 
       if (product.imageUrl) {
-        try {
-          const imageResult = await postToGraphApi(
-            url,
-            {
-              messaging_product: "whatsapp",
-              to: externalUserId,
-              type: "image",
-              image: {
-                link: product.imageUrl,
-                caption: `${product.name}\n₹${product.price.toLocaleString("en-IN")}`,
-              },
+        const specs = (product.description ?? "See product page for full specs.").replace(/\s+/g, " ").trim();
+        const templateResult = await postToGraphApi(
+          url,
+          {
+            messaging_product: "whatsapp",
+            to: externalUserId,
+            type: "template",
+            template: {
+              name: "buy_now_view_details",
+              language: { code: "en" },
+              components: [
+                {
+                  type: "header",
+                  parameters: [{ type: "image", image: { link: product.imageUrl } }],
+                },
+                {
+                  type: "body",
+                  parameters: [
+                    { type: "text", text: product.name },
+                    { type: "text", text: `₹${product.price.toLocaleString("en-IN")}` },
+                    { type: "text", text: specs },
+                  ],
+                },
+                {
+                  type: "button",
+                  sub_type: "url",
+                  index: "0",
+                  parameters: [{ type: "text", text: product.id }],
+                },
+                {
+                  type: "button",
+                  sub_type: "url",
+                  index: "1",
+                  parameters: [{ type: "text", text: product.id }],
+                },
+              ],
             },
-            { Authorization: `Bearer ${config.accessToken}` }
-          );
-          console.log(`[chatbot:whatsapp-adapter] image send accepted: ${JSON.stringify(imageResult)}`);
-        } catch (err) {
-          // Don't let a bad/unfetchable image URL take down the whole reply —
-          // still try to send the button message below. Logged loudly since
-          // this is exactly the kind of failure that otherwise vanishes
-          // silently (Meta can also 200 an image send and then fail delivery
-          // *asynchronously*, which wouldn't even throw here — this only
-          // catches synchronous/immediate rejections like a bad URL or
-          // unfetchable content).
-          console.error(`[chatbot:whatsapp-adapter] image send FAILED: ${(err as Error).message}`);
-        }
+          },
+          { Authorization: `Bearer ${config.accessToken}` }
+        );
+        console.log(`[chatbot:whatsapp-adapter] template send accepted: ${JSON.stringify(templateResult)}`);
+        return;
       }
 
-      const links = `Add to Cart: ${product.addToCartUrl}\nView Details: ${product.productUrl}`;
+      // No product image — the template's header requires one, so fall back
+      // to a single-button live message instead of sending a template with a
+      // missing required parameter (Meta would reject it outright).
+      const links = `View Details: ${product.productUrl}`;
       const maxReplyLen = 1000 - links.length - 2;
       const replyPart = reply.length > maxReplyLen ? `${reply.slice(0, maxReplyLen - 3)}...` : reply;
       const body = `${replyPart}\n\n${links}`;
@@ -165,7 +184,7 @@ export const whatsappAdapter: ChannelAdapter = {
         },
         { Authorization: `Bearer ${config.accessToken}` }
       );
-      console.log(`[chatbot:whatsapp-adapter] cta_url button send accepted: ${JSON.stringify(ctaResult)}`);
+      console.log(`[chatbot:whatsapp-adapter] fallback (no image) send accepted: ${JSON.stringify(ctaResult)}`);
       return;
     }
 
@@ -236,10 +255,17 @@ export const whatsappAdapter: ChannelAdapter = {
   },
 
   /**
-   * Marks the inbound message as read (blue ticks on the customer's side).
-   * Purely cosmetic — never worth failing the whole webhook over — so the
-   * caller (the webhook route) is expected to catch/log rather than let this
-   * block persisting the message or generating a reply.
+   * Marks the inbound message as read (blue ticks) AND shows WhatsApp's
+   * native "typing…" indicator, in the same call — Meta's Cloud API combines
+   * both into one request via the optional `typing_indicator` field on the
+   * mark-as-read payload. The typing bubble is exactly what a human agent
+   * typing a reply would show; it auto-dismisses the moment we send the
+   * actual reply (handleMessage() runs right after this in the webhook
+   * route), or after 25s on its own if something goes wrong — comfortably
+   * longer than the few-second LLM round-trip this is bridging.
+   * Cosmetic — never worth failing the whole webhook over — so the caller
+   * (the webhook route) is expected to catch/log rather than let this block
+   * persisting the message or generating a reply.
    */
   async markAsRead(messageId: string): Promise<void> {
     const config = getWhatsAppConfig();
@@ -252,6 +278,7 @@ export const whatsappAdapter: ChannelAdapter = {
         messaging_product: "whatsapp",
         status: "read",
         message_id: messageId,
+        typing_indicator: { type: "text" },
       },
       { Authorization: `Bearer ${config.accessToken}` }
     );
