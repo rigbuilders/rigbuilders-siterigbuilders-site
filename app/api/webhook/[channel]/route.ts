@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import type { ChannelAdapter } from "@/lib/chatbot/types";
 import { whatsappAdapter } from "@/lib/chatbot/adapters/whatsapp";
 import { messengerAdapter } from "@/lib/chatbot/adapters/messenger";
@@ -77,13 +78,19 @@ export async function GET(
 /**
  * POST /api/webhook/:channel — actual event notifications.
  *
- * Unlike the standalone Express version of this backend, we *await* the full
- * pipeline (LLM call + Supabase writes + Graph API reply) before responding.
- * On Vercel, a serverless function can be frozen the instant it returns a
- * response — a fire-and-forget call kicked off but not awaited is not
- * guaranteed to finish (that requires `after()`/`waitUntil`, which adds
- * complexity for no real benefit here since Gemini/Together typically
- * respond in a couple of seconds, well inside Meta's webhook timeout).
+ * Responds to Meta immediately, then runs the actual pipeline (LLM call +
+ * Supabase writes + Graph API reply) via `after()` once the response is
+ * already sent. This used to be reversed — awaiting the whole pipeline
+ * before responding — on the assumption that Gemini/Together typically
+ * reply in a couple of seconds, safely inside Meta's webhook timeout. That
+ * assumption broke once the pipeline grew a mark-as-read+typing-indicator
+ * call and a template-message Graph API call on top of the LLM call: the
+ * combined latency started exceeding Meta's timeout, so Meta considered the
+ * webhook delivery failed and *retried* it — re-running this whole handler
+ * for the exact same inbound message, which is what produced duplicate/
+ * triplicate replies to a single customer message. `after()` (stable since
+ * Next.js 15) keeps the serverless function alive long enough to finish the
+ * background work without holding up the HTTP response Meta is timing.
  */
 export async function POST(
   req: NextRequest,
@@ -117,7 +124,7 @@ export async function POST(
     }
   }
 
-  await processInbound(adapter, rawPayload);
+  after(() => processInbound(adapter, rawPayload));
 
   return NextResponse.json({ status: "ok" }, { status: 200 });
 }
