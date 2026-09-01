@@ -9,6 +9,17 @@ import { handleMessage } from "@/lib/chatbot/orchestrator";
 // Webhook payloads must never be cached or statically rendered.
 export const dynamic = "force-dynamic";
 
+// The actual pipeline (mark-as-read + typing indicator, the LLM call, DB
+// writes, then the WhatsApp/Messenger/Instagram send) now runs via after()
+// AFTER the HTTP response goes back to Meta — but that background work is
+// still bound by this function's own execution limit, which defaults to a
+// short value (10s on Vercel's Hobby plan) if not set explicitly. That
+// default is too short for this pipeline's combined latency and would get
+// the function killed mid-reply with no error surfaced anywhere. 60s is the
+// max allowed on Hobby and comfortably covers what we've measured (Gemini
+// calls have run 5-9s; raise this if a heavier LLM/provider ever needs more).
+export const maxDuration = 60;
+
 /**
  * One route handles all three Meta channels — /api/webhook/whatsapp,
  * /api/webhook/messenger, /api/webhook/instagram — dispatching to the
