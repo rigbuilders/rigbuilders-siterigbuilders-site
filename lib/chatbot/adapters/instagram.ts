@@ -67,14 +67,14 @@ export const instagramAdapter: ChannelAdapter = {
     const url = `${graphApiUrl(path)}?access_token=${encodeURIComponent(config.accessToken)}`;
 
     // Rich product card: attempt the same generic template Messenger uses
-    // (IG DMs ride the same underlying Send API), since a real card with
-    // image + 3 web_url buttons is a much better result than plain text if
-    // it works. Genuinely unverified whether Instagram's Graph API accepts
-    // generic templates the way Messenger's does — per the TODO above, IG's
-    // messaging endpoints have shifted more than Messenger's historically.
-    // Falls back to plain text with links appended if the template send
-    // throws, so a customer never gets silence over an unsupported message
-    // type.
+    // (IG DMs ride the same underlying Send API). Deliberately one button
+    // only — "View Details" — same product decision as WhatsApp/Messenger:
+    // one option, not three. Genuinely unverified whether Instagram's Graph
+    // API accepts generic templates the way Messenger's does — per the TODO
+    // above, IG's messaging endpoints have shifted more than Messenger's
+    // historically. Falls back to plain text with the link appended if the
+    // template send throws, so a customer never gets silence over an
+    // unsupported message type.
     if (meta?.product) {
       const { product } = meta;
       const title = product.name.length > 80 ? `${product.name.slice(0, 77)}...` : product.name;
@@ -93,11 +93,7 @@ export const instagramAdapter: ChannelAdapter = {
                     title,
                     subtitle,
                     ...(product.imageUrl ? { image_url: product.imageUrl } : {}),
-                    buttons: [
-                      { type: "web_url", url: product.buyNowUrl, title: "Buy Now" },
-                      { type: "web_url", url: product.addToCartUrl, title: "Add to Cart" },
-                      { type: "web_url", url: product.productUrl, title: "View Details" },
-                    ],
+                    buttons: [{ type: "web_url", url: product.productUrl, title: "View Details" }],
                   },
                 ],
               },
@@ -113,8 +109,7 @@ export const instagramAdapter: ChannelAdapter = {
         console.error(
           `[adapter:instagram] generic template send failed, falling back to plain text: ${(err as Error).message}`
         );
-        const fallbackText =
-          `${reply}\n\nBuy Now: ${product.buyNowUrl}\nAdd to Cart: ${product.addToCartUrl}\nView Details: ${product.productUrl}`;
+        const fallbackText = `${reply}\n\nView Details: ${product.productUrl}`;
         await postToGraphApi(url, {
           recipient: { id: externalUserId },
           message: { text: fallbackText },

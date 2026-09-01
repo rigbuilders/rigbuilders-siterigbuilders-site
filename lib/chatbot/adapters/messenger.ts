@@ -65,12 +65,13 @@ export const messengerAdapter: ChannelAdapter = {
 
     const url = `${graphApiUrl("me/messages")}?access_token=${encodeURIComponent(config.accessToken)}`;
 
-    // Rich product card via the Send API's generic template — unlike
-    // WhatsApp, Messenger's generic template natively supports an image,
-    // title, subtitle, AND up to three web_url buttons all in one message,
-    // which maps directly onto image + name/price + Buy Now/Add to
-    // Cart/View Details. Title caps at 80 chars, subtitle at 80 chars,
-    // button titles at 20 chars — truncated defensively.
+    // Rich product card via the Send API's generic template. Deliberately
+    // one button only — "View Details" — matching the same product decision
+    // as the WhatsApp adapter: give customers exactly one option rather than
+    // Buy Now/Add to Cart/View Details all at once. Messenger's generic
+    // template natively supports an image + title + subtitle + button all in
+    // one message. Title caps at 80 chars, subtitle at 80 chars — truncated
+    // defensively.
     if (meta?.product) {
       const { product } = meta;
       const title = product.name.length > 80 ? `${product.name.slice(0, 77)}...` : product.name;
@@ -89,11 +90,7 @@ export const messengerAdapter: ChannelAdapter = {
                   title,
                   subtitle,
                   ...(product.imageUrl ? { image_url: product.imageUrl } : {}),
-                  buttons: [
-                    { type: "web_url", url: product.buyNowUrl, title: "Buy Now" },
-                    { type: "web_url", url: product.addToCartUrl, title: "Add to Cart" },
-                    { type: "web_url", url: product.productUrl, title: "View Details" },
-                  ],
+                  buttons: [{ type: "web_url", url: product.productUrl, title: "View Details" }],
                 },
               ],
             },

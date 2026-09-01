@@ -94,18 +94,15 @@ export const whatsappAdapter: ChannelAdapter = {
 
     const url = graphApiUrl(`${config.phoneId}/messages`);
 
-    // Rich product card. Real multi-button cards (like the Tumbledry
-    // example) aren't possible on a freely-composed/dynamic message —
-    // WhatsApp caps those at exactly one URL button. Two real buttons (Buy
-    // Now + View Details) requires a pre-approved Message Template, which
-    // "buy_now_view_details" is — approved in WhatsApp Manager with an image
-    // header, a 3-variable body (product name / price / specs), and two
-    // dynamic "Visit website" buttons whose fixed base URLs already encode
-    // ?action=buy / the /product/ path, needing only the product id as the
-    // per-send suffix. Requires an image (the template's header component is
-    // type "image"), so products with no image fall back to the single-
-    // button live cta_url message below instead of sending a template with a
-    // missing required parameter.
+    // Rich product card, single free button by default: "View Details" only
+    // — no Buy Now, no Add to Cart link. Kept deliberately simple/free: the
+    // "buy_now_view_details" Message Template (2 real buttons) is built and
+    // approved if ever wanted back, but Marketing-category templates are
+    // billed per send by Meta, and the product decision here is to show
+    // customers exactly one option rather than juggle cost against choice.
+    // Plain cta_url session messages like this one are free as long as
+    // they're sent within 24h of the customer's own message (always true
+    // here, since this only ever fires as a direct reply).
     if (meta?.product) {
       const { product } = meta;
       console.log(
@@ -114,58 +111,7 @@ export const whatsappAdapter: ChannelAdapter = {
         }`
       );
 
-      if (product.imageUrl) {
-        const specs = (product.description ?? "See product page for full specs.").replace(/\s+/g, " ").trim();
-        const templateResult = await postToGraphApi(
-          url,
-          {
-            messaging_product: "whatsapp",
-            to: externalUserId,
-            type: "template",
-            template: {
-              name: "buy_now_view_details",
-              language: { code: "en" },
-              components: [
-                {
-                  type: "header",
-                  parameters: [{ type: "image", image: { link: product.imageUrl } }],
-                },
-                {
-                  type: "body",
-                  parameters: [
-                    { type: "text", text: product.name },
-                    { type: "text", text: `₹${product.price.toLocaleString("en-IN")}` },
-                    { type: "text", text: specs },
-                  ],
-                },
-                {
-                  type: "button",
-                  sub_type: "url",
-                  index: "0",
-                  parameters: [{ type: "text", text: product.id }],
-                },
-                {
-                  type: "button",
-                  sub_type: "url",
-                  index: "1",
-                  parameters: [{ type: "text", text: product.id }],
-                },
-              ],
-            },
-          },
-          { Authorization: `Bearer ${config.accessToken}` }
-        );
-        console.log(`[chatbot:whatsapp-adapter] template send accepted: ${JSON.stringify(templateResult)}`);
-        return;
-      }
-
-      // No product image — the template's header requires one, so fall back
-      // to a single-button live message instead of sending a template with a
-      // missing required parameter (Meta would reject it outright).
-      const links = `View Details: ${product.productUrl}`;
-      const maxReplyLen = 1000 - links.length - 2;
-      const replyPart = reply.length > maxReplyLen ? `${reply.slice(0, maxReplyLen - 3)}...` : reply;
-      const body = `${replyPart}\n\n${links}`;
+      const body = reply.length > 1000 ? `${reply.slice(0, 997)}...` : reply;
 
       const ctaResult = await postToGraphApi(
         url,
@@ -175,16 +121,17 @@ export const whatsappAdapter: ChannelAdapter = {
           type: "interactive",
           interactive: {
             type: "cta_url",
+            ...(product.imageUrl ? { header: { type: "image", image: { link: product.imageUrl } } } : {}),
             body: { text: body },
             action: {
               name: "cta_url",
-              parameters: { display_text: "Buy Now", url: product.buyNowUrl },
+              parameters: { display_text: "View Details", url: product.productUrl },
             },
           },
         },
         { Authorization: `Bearer ${config.accessToken}` }
       );
-      console.log(`[chatbot:whatsapp-adapter] fallback (no image) send accepted: ${JSON.stringify(ctaResult)}`);
+      console.log(`[chatbot:whatsapp-adapter] product card send accepted: ${JSON.stringify(ctaResult)}`);
       return;
     }
 
