@@ -45,7 +45,12 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', borderBottom: `2px solid ${NAVY}`, paddingBottom: 16, marginBottom: 20 },
   headerLeft: { width: '55%' },
   headerRight: { width: '45%', alignItems: 'flex-end' },
-  logo: { width: 120, marginBottom: 10 },
+  // Explicit width AND height define a fixed box; objectFit: "contain" then
+  // guarantees the full logo always fits inside it (letterboxed if needed)
+  // instead of being cropped, regardless of the source image's own
+  // proportions — objectFit has nothing to fit "into" without both
+  // dimensions set, so leaving height unset would make it a no-op.
+  logo: { width: 120, height: 44, marginBottom: 10, objectFit: "contain" },
   bizMeta: { fontSize: 8.5, color: '#444', lineHeight: 1.6 },
   bizStrong: { color: '#111' },
   docTitle: { fontSize: 22, fontWeight: 'bold', color: STEEL, marginBottom: 20 },

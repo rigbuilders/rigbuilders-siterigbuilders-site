@@ -100,16 +100,22 @@ export const instagramAdapter: ChannelAdapter = {
             },
           },
         });
+        const featuresBlock = product.features?.length
+          ? `\n\nKey Features:\n${product.features.map((f) => `• ${f}`).join("\n")}`
+          : "";
         await postToGraphApi(url, {
           recipient: { id: externalUserId },
-          message: { text: reply },
+          message: { text: `${reply}${featuresBlock}` },
         });
         return;
       } catch (err) {
         console.error(
           `[adapter:instagram] generic template send failed, falling back to plain text: ${(err as Error).message}`
         );
-        const fallbackText = `${reply}\n\nView Details: ${product.productUrl}`;
+        const featuresBlock = product.features?.length
+          ? `\n\nKey Features:\n${product.features.map((f) => `• ${f}`).join("\n")}`
+          : "";
+        const fallbackText = `${reply}${featuresBlock}\n\nView Details: ${product.productUrl}`;
         await postToGraphApi(url, {
           recipient: { id: externalUserId },
           message: { text: fallbackText },

@@ -13,6 +13,7 @@ import { stripFormatting } from "./text-sanitizer";
 import { isHandoffRequest, HANDOFF_ACK_MESSAGE } from "./handoff";
 import { notifyAdminOfHandoff, notifyWatchedNumberMessage } from "./admin-alerts";
 import { getWatched } from "./watchlist";
+import { tryHandleQuotationRequest } from "./quotation-flow";
 import type { NormalizedMessage, ReplyMeta } from "./types";
 
 const SITE_URL = "https://www.rigbuilders.in";
@@ -33,6 +34,11 @@ function toAbsoluteUrl(path: string): string {
 export interface HandledReply {
   text: string;
   meta?: ReplyMeta;
+  // Set when the reply is (or includes) a document to send — currently only
+  // the multi-product quotation flow (quotation-flow.ts) uses this, to
+  // deliver the generated PDF via the same sendMedia() path admin-sent
+  // media already uses.
+  media?: { url: string; type: "document"; caption?: string };
 }
 
 /**
@@ -92,6 +98,17 @@ export async function handleMessage(msg: NormalizedMessage): Promise<HandledRepl
     return { text: HANDOFF_ACK_MESSAGE };
   }
 
+  // Multi-product quotation request ("quote me a 7800X3D, an RTX 5060, and
+  // 32GB of RAM") — a different response shape entirely (a generated PDF,
+  // prices resolved straight from the database rather than an LLM's guess)
+  // from the normal conversational flow below, so it's checked and handled
+  // completely separately. Returns null when this message isn't a
+  // multi-product quote request, letting the normal flow run as usual.
+  const quotation = await tryHandleQuotationRequest(msg, conversation.id);
+  if (quotation) {
+    return quotation;
+  }
+
   const history = await getRecentHistory(conversation.id);
 
   // Look up matching products and fold them into the system prompt for this
@@ -141,6 +158,7 @@ export async function handleMessage(msg: NormalizedMessage): Promise<HandledRepl
                 ? `${mentioned.description.slice(0, 147)}...`
                 : mentioned.description
               : null,
+            features: mentioned.features?.length ? mentioned.features.slice(0, 3) : null,
             imageUrl: mentioned.image_url ? toAbsoluteUrl(mentioned.image_url) : null,
             productUrl: `${SITE_URL}/product/${mentioned.id}`,
             addToCartUrl: `${SITE_URL}/product-action?id=${mentioned.id}&action=cart`,

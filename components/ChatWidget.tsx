@@ -25,6 +25,39 @@ interface WidgetMessage {
   build?: ChatBuildQuoteData | null;
 }
 
+const URL_PATTERN = /(https?:\/\/[^\s]+)/g;
+
+// Message bubbles render plain text (whitespace-pre-wrap), not markdown — the
+// one exception is a bare URL, which the quotation-PDF flow appends straight
+// into the reply text (see website-stream.ts). Turning those into real
+// clickable links is the only formatting this component does on its own.
+function renderMessageContent(content: string) {
+  // content.split() with a capturing group interleaves the non-matching text
+  // with the matched URLs — odd indices are always the captured group here,
+  // so parity alone tells us which is which. (Deliberately not using
+  // URL_PATTERN.test() per-part in a loop: a `g`-flagged regex's .test()
+  // carries lastIndex state across calls and gives alternating false
+  // negatives when reused like that.)
+  const parts = content.split(URL_PATTERN);
+  if (parts.length === 1) return content;
+  return parts.map((part, i) =>
+    i % 2 === 1 ? (
+      // eslint-disable-next-line react/no-array-index-key
+      <a
+        key={i}
+        href={part}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline underline-offset-2 text-brand-purple hover:text-white break-all"
+      >
+        {part}
+      </a>
+    ) : (
+      part
+    )
+  );
+}
+
 function getVisitorId(): string {
   if (typeof window === "undefined") return "";
   let id = window.localStorage.getItem(VISITOR_ID_KEY);
@@ -443,7 +476,7 @@ export default function ChatWidget({ children }: { children: React.ReactNode }) 
                       : "bg-[#121212] border border-white/10 text-brand-text rounded-bl-sm"
                   }`}
                 >
-                  {m.content || (m.pending ? <TypingDots /> : "")}
+                  {m.content ? renderMessageContent(m.content) : m.pending ? <TypingDots /> : ""}
                 </div>
 
                 {m.products && m.products.length > 0 && (

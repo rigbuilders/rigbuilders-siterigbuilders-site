@@ -3,15 +3,21 @@ import {
   findOrCreateActiveConversation,
   findOrCreateUser,
   getRecentHistory,
+  updateConversationStatus,
 } from "./conversation-store";
-import { getOllamaConfig, getTogetherConfig } from "./config";
+import { getGeminiConfig, getTogetherConfig } from "./config";
 import { isExcluded } from "./exclusions";
-import { streamOllamaReply } from "./llm/providers/ollama";
+import { isHandoffRequest, HANDOFF_ACK_MESSAGE } from "./handoff";
+import { notifyAdminOfHandoff, notifyWatchedNumberMessage } from "./admin-alerts";
+import { getWatched } from "./watchlist";
+import { createGeminiProvider } from "./llm/providers/gemini";
 import { streamTogetherReply } from "./llm/providers/together";
 import { buildProductContext, findRelevantProducts, toProductCards, type ProductCard } from "./product-knowledge";
 import { detectBuildIntent, buildQuoteContext, type BuildQuote } from "./build-recommender";
+import { tryHandleQuotationRequest } from "./quotation-flow";
 import { SYSTEM_PROMPT } from "./system-prompt";
 import { stripFormatting, createSanitizingTransform } from "./text-sanitizer";
+import type { NormalizedMessage } from "./types";
 
 const HANDED_OFF_NOTICE =
   "Thanks for the message — a member of the Rig Builders team will reply to you right here shortly.";
@@ -58,8 +64,9 @@ function withProductsHeader(
 /**
  * Wraps a single static string as a one-chunk ReadableStream, so the API
  * route can always return a stream regardless of which path this function
- * takes (real Together stream, hand-off notice, or an error fallback) — the
- * widget's fetch-and-read client code stays identical either way.
+ * takes (real Together stream, a one-shot Gemini reply, hand-off notice, or
+ * an error fallback) — the widget's fetch-and-read client code stays
+ * identical either way.
  */
 function staticStream(text: string): ReadableStream<Uint8Array> {
   return new ReadableStream<Uint8Array>({
@@ -81,7 +88,11 @@ function staticStream(text: string): ReadableStream<Uint8Array> {
  *
  * Same underlying rules as every other channel though: message is always
  * persisted first, a handed_off conversation or an excluded visitor doesn't
- * get an LLM reply, and everything shows up in the same /admin/chatbot inbox.
+ * get an LLM reply, a watched visitor triggers an admin alert regardless of
+ * anything else, a customer-triggered handoff request pauses the bot the
+ * same way it does on WhatsApp/Messenger/Instagram, and a multi-product
+ * quotation request gets the same PDF flow. Everything shows up in the same
+ * /admin/chatbot inbox either way.
  *
  * Never throws — always resolves to a stream, so the API route can just pipe
  * it straight through.
@@ -96,6 +107,18 @@ export async function handleWebsiteMessage(
 
     await appendMessage(conversation.id, "user", text);
 
+    // Fires regardless of bot/exclusion/handoff status below — same as
+    // orchestrator.ts's equivalent check for the other channels.
+    const watched = await getWatched("website", visitorId);
+    if (watched) {
+      await notifyWatchedNumberMessage({
+        channel: "website",
+        externalUserId: visitorId,
+        label: watched.label,
+        message: text,
+      });
+    }
+
     if (conversation.status === "handed_off") {
       return withProductsHeader([], null, staticStream(HANDED_OFF_NOTICE));
     }
@@ -103,15 +126,38 @@ export async function handleWebsiteMessage(
       return withProductsHeader([], null, staticStream(HANDED_OFF_NOTICE));
     }
 
-    // ⚠️ TEMPORARY: prefer a local Ollama model over Together while Together
-    // billing is being sorted out. Purely env-var driven — set OLLAMA_BASE_URL
-    // in .env.local to test locally, delete it to go straight back to
-    // Together. No code changes needed either way; this whole block can stay
-    // in place permanently as a "local dev override" if that's ever useful.
-    const ollamaConfig = getOllamaConfig();
+    // Customer explicitly asked for a human — same trigger and wording as
+    // the WhatsApp/Messenger/Instagram path (handoff.ts), before spending an
+    // LLM call on it.
+    if (isHandoffRequest(text)) {
+      await updateConversationStatus(conversation.id, "handed_off");
+      await appendMessage(conversation.id, "assistant", HANDOFF_ACK_MESSAGE, "handoff");
+      await notifyAdminOfHandoff({ channel: "website", externalUserId: visitorId, message: text });
+      return withProductsHeader([], null, staticStream(HANDOFF_ACK_MESSAGE));
+    }
+
+    // Multi-product quotation request ("quote me a 7800X3D, an RTX 5060, and
+    // 32GB of RAM") — same detection/PDF-generation flow as WhatsApp
+    // (quotation-flow.ts), just delivered differently: the website channel
+    // has no document-attachment mechanism, so the PDF's public URL is
+    // appended to the visible reply text instead of sent as separate media.
+    // The DB-persisted copy of the reply (written inside tryHandleQuotationRequest
+    // itself) intentionally stays link-free, so future LLM calls don't see —
+    // and potentially repeat — a stale download URL.
+    const quotationMsg: NormalizedMessage = { channel: "website", externalUserId: visitorId, text, timestamp: Date.now() };
+    const quotation = await tryHandleQuotationRequest(quotationMsg, conversation.id);
+    if (quotation) {
+      const displayText = quotation.media ? `${quotation.text}\n\n${quotation.media.url}` : quotation.text;
+      return withProductsHeader([], null, staticStream(displayText));
+    }
+
+    // API providers only — Gemini (primary, same as WhatsApp) then Together
+    // (fallback). No Ollama on this channel, unlike the WhatsApp/Messenger/
+    // Instagram path's local-dev override in llm/router.ts.
+    const geminiConfig = getGeminiConfig();
     const togetherConfig = getTogetherConfig();
 
-    if (!ollamaConfig && !togetherConfig) {
+    if (!geminiConfig && !togetherConfig) {
       const fallback =
         "Sorry, live chat isn't configured right now. Please reach us on WhatsApp and we'll help you out.";
       await appendMessage(conversation.id, "assistant", fallback, "none");
@@ -160,17 +206,31 @@ export async function handleWebsiteMessage(
       await appendMessage(conversation.id, "assistant", finalText, provider);
     };
 
-    try {
-      if (ollamaConfig) {
-        const stream = await streamOllamaReply(ollamaConfig, systemPrompt, history, text, persist("ollama"));
-        return withProductsHeader(cards, buildQuote, stream.pipeThrough(createSanitizingTransform()));
+    // Gemini has no streaming provider wired up (see llm/providers/gemini.ts —
+    // a single generateContent call), so a Gemini reply arrives as one
+    // finished string and gets wrapped as a one-chunk stream rather than
+    // typed out token-by-token. Together's provider streams natively and is
+    // used as-is when it's the one answering.
+    if (geminiConfig) {
+      try {
+        const fullText = await createGeminiProvider(geminiConfig).generate(systemPrompt, history, text);
+        await persist("gemini")(fullText);
+        return withProductsHeader(cards, buildQuote, staticStream(stripFormatting(fullText)));
+      } catch (err) {
+        console.error(`[chatbot:website] gemini failed, falling back to together: ${(err as Error).message}`);
+        // Falls through to Together below.
       }
-      const stream = await streamTogetherReply(togetherConfig!, systemPrompt, history, text, persist("together"));
+    }
+
+    try {
+      if (!togetherConfig) {
+        throw new Error("Together not configured and Gemini failed or was unavailable.");
+      }
+      const stream = await streamTogetherReply(togetherConfig, systemPrompt, history, text, persist("together"));
       return withProductsHeader(cards, buildQuote, stream.pipeThrough(createSanitizingTransform()));
     } catch (err) {
-      const fallback = ollamaConfig
-        ? "Sorry, I couldn't reach the local test model. Make sure `ollama serve` is running, then try again."
-        : "Sorry, I'm having trouble getting you an answer right now. A member of the Rig Builders team will follow up with you shortly.";
+      const fallback =
+        "Sorry, I'm having trouble getting you an answer right now. A member of the Rig Builders team will follow up with you shortly.";
       await appendMessage(conversation.id, "assistant", fallback, "none");
       console.error(`[chatbot:website] stream failed: ${(err as Error).message}`);
       // Still show the cards/build we already found even if the LLM call itself failed.

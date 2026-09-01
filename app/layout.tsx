@@ -166,25 +166,17 @@ export default function RootLayout({
                 squeezes {children} into the remaining width rather than
                 floating on top; self-hides on /admin (see ChatWidget.tsx)
 
-                TEMPORARILY DISABLED — not production-ready yet. All of the
-                chatbot's backend/frontend code stays exactly as-is (nothing
-                deleted); this just pulls the widget off the live site.
-
-                IMPORTANT: the div below is a stand-in for ChatWidget's own
-                wrapper, NOT just a placeholder — it carries the same
+                ChatWidget's own wrapper carries the
                 [container-type]/[container-name:rb-page] that Navbar.tsx's
                 responsive layout (cq-* classes in globals.css) measures
-                itself against. Removing it entirely (instead of swapping it
-                back for <ChatWidget>) breaks Navbar's responsiveness — see
-                docs/CHATBOT_TOGGLE.md before changing anything here. */}
-            {/* <ChatWidget>{children}</ChatWidget> */}
-            <div className="min-h-screen [container-type:inline-size] [container-name:rb-page]">
-              {children}
-            </div>
+                itself against — see docs/CHATBOT_TOGGLE.md before touching
+                this again. */}
+            <ChatWidget>{children}</ChatWidget>
 
-            {/* HIDES DESKTOP FLOATING WIDGETS ON MOBILE
-                Re-enabled (see DesktopWidgets.tsx's WIDGETS_ENABLED flag)
-                while the chatbot widget above is disabled. */}
+            {/* Floating Build Now / Consult an Expert widgets share the same
+                bottom-right spot as the chat launcher above — kept mounted
+                but WIDGETS_ENABLED=false in DesktopWidgets.tsx turns them
+                off now that chat is back on. See docs/CHATBOT_TOGGLE.md. */}
             <div className="hidden md:block">
                 <DesktopWidgets />
             </div>

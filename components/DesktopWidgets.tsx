@@ -4,12 +4,11 @@ import { usePathname } from "next/navigation";
 import FloatingBuilderBtn from "@/components/FloatingBuilderBtn";
 import { Headset } from "lucide-react";
 
-// Re-enabled — the Rix AI chatbot (ChatWidget) is temporarily pulled off the
-// live site (see app/layout.tsx) since it's not production-ready yet, so
-// these go back to occupying the bottom-right spot in the meantime. Flip
-// back to false (and re-enable <ChatWidget> in layout.tsx) once the chatbot
-// is ready to ship.
-const WIDGETS_ENABLED = true;
+// Disabled — the Rix AI chatbot (ChatWidget) is back on the live site (see
+// app/layout.tsx) and occupies this same bottom-right spot. Flip back to
+// true (and disable <ChatWidget> in layout.tsx) if chat ever needs to come
+// back off. See docs/CHATBOT_TOGGLE.md.
+const WIDGETS_ENABLED = false;
 
 export default function DesktopWidgets() {
   const pathname = usePathname();

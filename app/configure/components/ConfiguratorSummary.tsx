@@ -19,10 +19,10 @@ export const ConfiguratorSummary = ({ selections, totals, user, onSave, onAddToC
     ];
 
     return (
-        <div className="bg-[#151515] border border-white/5 rounded-2xl p-4 sm:p-6 shadow-2xl flex flex-col lg:max-h-[calc(100vh-8rem)]">
+        <div className="bg-[#151515] border border-white/5 rounded-2xl p-4 sm:p-6 shadow-2xl flex flex-col lg:max-h-[calc(100vh-8rem)] overflow-hidden">
             
             {/* CABINET VIEWER */}
-            <div className="relative w-full h-[250px] shrink-0 mb-6 flex items-center justify-center bg-[#111111] rounded-xl overflow-hidden border border-white/5">
+            <div className="relative w-full h-[180px] sm:h-[220px] lg:h-[250px] lg:max-h-[30vh] shrink-0 mb-6 flex items-center justify-center bg-[#111111] rounded-xl overflow-hidden border border-white/5">
                 {selections.cabinet?.image ? (
                     <Image src={selections.cabinet.image} alt="Cabinet" fill className="object-contain p-4" />
                 ) : (
@@ -49,7 +49,9 @@ export const ConfiguratorSummary = ({ selections, totals, user, onSave, onAddToC
                 )}
             </div>
 
-            {/* LIVE RECEIPT LIST (Scrollable) */}
+            {/* LIVE RECEIPT LIST — the ONLY scrollable zone. Grows to fill the
+                space between the fixed top (cabinet + TDP) and the fixed footer,
+                and scrolls internally when the parts don't all fit. */}
             <div className="lg:flex-1 lg:min-h-0 overflow-y-auto custom-scrollbar pr-2 sm:pr-4 space-y-4 mb-6 max-h-[45vh] lg:max-h-none">
                 {orderList.map((key) => {
                     const val = selections[key];

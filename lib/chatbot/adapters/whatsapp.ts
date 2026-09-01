@@ -111,7 +111,11 @@ export const whatsappAdapter: ChannelAdapter = {
         }`
       );
 
-      const body = reply.length > 1000 ? `${reply.slice(0, 997)}...` : reply;
+      const featuresBlock = product.features?.length
+        ? `\n\nKey Features:\n${product.features.map((f) => `• ${f}`).join("\n")}`
+        : "";
+      const withFeatures = `${reply}${featuresBlock}`;
+      const body = withFeatures.length > 1000 ? `${withFeatures.slice(0, 997)}...` : withFeatures;
 
       const ctaResult = await postToGraphApi(
         url,

@@ -98,12 +98,16 @@ export const messengerAdapter: ChannelAdapter = {
         },
       });
 
-      // Follow up with the actual conversational reply text so the customer
-      // still gets the LLM's answer, not just a bare card.
+      // Follow up with the actual conversational reply text (plus the top
+      // features, if any) so the customer still gets the LLM's answer and a
+      // bit more detail, not just a bare card.
+      const featuresBlock = product.features?.length
+        ? `\n\nKey Features:\n${product.features.map((f) => `• ${f}`).join("\n")}`
+        : "";
       await postToGraphApi(url, {
         recipient: { id: externalUserId },
         messaging_type: "RESPONSE",
-        message: { text: reply },
+        message: { text: `${reply}${featuresBlock}` },
       });
       return;
     }

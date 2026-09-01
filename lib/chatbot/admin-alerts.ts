@@ -64,6 +64,31 @@ export async function notifyAdminOfHandoff(params: {
   );
 }
 
+/**
+ * A customer asked for a quotation covering multiple products, but at least
+ * one couldn't be confidently matched to an in-stock catalog item — the bot
+ * told them "we'll check availability and follow up" instead of guessing,
+ * and this is that follow-up trigger: it tells the admin exactly what was
+ * asked for and which part(s) need manual checking, so a human can actually
+ * send the real quotation once availability's confirmed.
+ */
+export async function notifyAdminOfQuotationRequest(params: {
+  channel: string;
+  externalUserId: string;
+  requestedTerms: string[];
+  missingTerms: string[];
+}): Promise<void> {
+  await sendAdminEmail(
+    `Quotation request needs checking — ${params.channel}`,
+    `<p><strong>${params.externalUserId}</strong> on <strong>${params.channel}</strong> asked for a quotation covering:</p>` +
+      `<ul>${params.requestedTerms.map((t) => `<li>${t}</li>`).join("")}</ul>` +
+      `<p>Couldn't confidently match or confirm stock for:</p>` +
+      `<ul>${params.missingTerms.map((t) => `<li><strong>${t}</strong></li>`).join("")}</ul>` +
+      `<p>The bot told them we're checking availability and will follow up — please verify stock and send the quotation manually.</p>` +
+      `<p><a href="${inboxLink(params.channel)}">Open the chatbot inbox</a></p>`
+  );
+}
+
 export async function notifyWatchedNumberMessage(params: {
   channel: string;
   externalUserId: string;

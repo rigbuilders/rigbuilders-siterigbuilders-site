@@ -63,6 +63,7 @@ export interface ProductCardMeta {
   name: string;
   price: number;
   description: string | null;
+  features: string[] | null;
   imageUrl: string | null;
   productUrl: string;
   addToCartUrl: string;

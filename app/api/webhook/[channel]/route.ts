@@ -51,6 +51,17 @@ async function processInbound(adapter: ChannelAdapter, rawPayload: unknown): Pro
     // handed off — stay silent, the message is already saved for the admin inbox.
     if (reply) {
       await adapter.sendReply(message.externalUserId, reply.text, reply.meta);
+      // Set only by the quotation flow right now (orchestrator.ts) — the
+      // generated PDF, sent the same way admin-sent media already is.
+      if (reply.media && adapter.sendMedia) {
+        try {
+          await adapter.sendMedia(message.externalUserId, reply.media.url, reply.media.type, reply.media.caption);
+        } catch (err) {
+          console.error(
+            `[webhook:${adapter.channelId}] sendMedia failed for ${message.externalUserId}: ${(err as Error).message}`
+          );
+        }
+      }
     }
   } catch (err) {
     console.error(

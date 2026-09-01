@@ -41,10 +41,11 @@ export function getTogetherConfig(): ProviderConfig | null {
 
 /**
  * TEMPORARY, local-testing-only provider: a locally-running Ollama server
- * (e.g. `ollama run qwen3.5:2b-q4_K_M`). Only used by the website chat widget
- * while Together billing is being sorted out — see website-stream.ts. To
- * revert, just delete/comment OLLAMA_BASE_URL from .env.local; no code
- * changes needed, the website channel falls straight back to Together.
+ * (e.g. `ollama run qwen3.5:2b-q4_K_M`). Only used by the WhatsApp/Messenger/
+ * Instagram path (llm/router.ts) as a local-dev override — the website chat
+ * widget deliberately never uses this (API providers only, see
+ * website-stream.ts). To use it for local testing, set OLLAMA_BASE_URL in
+ * .env.local; unset it to go straight back to Gemini/Together.
  */
 export interface OllamaConfig {
   baseUrl: string;
