@@ -1,74 +1,20 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  // 1. YOUR EXISTING IMAGE CONFIG
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**', // Allows all external images
-      },
-      {
-        protocol: 'https',
-        hostname: 'images.unsplash.com',  
-      },
-      {
-        protocol: 'https',
-        hostname: 'cdn.pixabay.com',
-      },
-    ],
-  },
-
-  // 2. PHASE 2: REDIRECTS (The "Traffic Rescuers")
-  async redirects() {
-    return [
-      // --- COMMON WORDPRESS REDIRECTS ---
-      
-      // Case A: Old Category Pages
-      {
-        source: '/product-category/:slug*', 
-        destination: '/products', 
-        permanent: true, 
-      },
-
-      // Case B: Old "Shop" Landing Page
-      {
-        source: '/shop',
-        destination: '/products',
-        permanent: true,
-      },
-
-      // Case C: Old Tag Pages
-      {
-        source: '/product-tag/:slug*',
-        destination: '/products',
-        permanent: true,
-      },
-
-      // Case D: The "Ghost" WP Admin
-      {
-        source: '/wp-admin',
-        destination: '/',
-        permanent: false,
-      },
-    ];
-  },
-
-  // 3. NEW: SECURITY HEADERS (For Advergent Marketers Portfolio Iframing)
-  async headers() {
-    return [
-      {
-        // Apply this security rule to every single page on Rig Builders
-        source: '/(.*)',
-        headers: [
-          {
-            key: 'Content-Security-Policy',
-            // Unlocks the vault ONLY for your agency and your local dev environment
-            value: "frame-ancestors 'self' http://localhost:3000 https://advergentmarketers.com;",
-          },
-        ],
-      },
-    ];
-  },
-};
-
-export default nextConfig;
+// DELETE THIS FILE. It's a leftover duplicate of next.config.ts — Next.js
+// only supports one config file, and having both here at once is invalid.
+// This was very likely the cause of production and localhost behaving
+// differently (e.g. the chat widget showing locally but not on the live
+// site) even with the branch fully up to date: whichever config file lost
+// the ambiguity had all of its settings silently ignored, or Vercel's build
+// failed outright and kept serving the last deployment that succeeded.
+//
+// Everything that used to live in this file — images.remotePatterns, the
+// WordPress redirects, and the agency-iframe CSP allowance — has already
+// been merged into next.config.ts. Nothing is lost by deleting this file.
+//
+// This file intentionally throws instead of exporting a config, so that if
+// Next.js DOES still load this one instead of next.config.ts, the build
+// fails loudly with this message instead of silently serving a broken/
+// incomplete config.
+throw new Error(
+  "next.config.mjs is a stale duplicate of next.config.ts and must be deleted (not just emptied) — " +
+    "having both files is what caused production/localhost to drift. Run: rm next.config.mjs"
+);
