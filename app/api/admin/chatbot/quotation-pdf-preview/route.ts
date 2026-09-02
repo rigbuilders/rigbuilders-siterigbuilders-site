@@ -32,11 +32,15 @@ export async function GET(): Promise<NextResponse> {
       { customerName: "Sample Customer" }
     );
 
-    // NextResponse's body type (BodyInit) doesn't accept a Node Buffer
-    // directly under this Next.js/TS version — wrapping in a Blob is the
-    // safest fix (a plain Uint8Array view can misbehave if the Buffer came
-    // from a pooled allocation with a larger underlying ArrayBuffer).
-    return new NextResponse(new Blob([pdf], { type: "application/pdf" }), {
+    // Node's Buffer<ArrayBufferLike> (ArrayBufferLike includes
+    // SharedArrayBuffer) doesn't structurally satisfy BlobPart/BodyInit's
+    // stricter Buffer<ArrayBuffer> requirement under this Next.js/TS
+    // version — a Blob wrapper doesn't dodge it either, since Blob's own
+    // constructor has the same requirement. At runtime a Buffer is a
+    // perfectly valid fetch Response/NextResponse body (it IS a Uint8Array);
+    // this is purely a type-checking gap, not a real runtime mismatch, so
+    // casting through `unknown` is the standard workaround.
+    return new NextResponse(pdf as unknown as BodyInit, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
