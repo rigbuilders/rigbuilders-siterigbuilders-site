@@ -76,6 +76,11 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "cdn.pixabay.com" },
     ],
+    // Next.js 16 requires every `quality` value passed to next/image to be
+    // explicitly allowlisted. 75 is next/image's own default (used by every
+    // <Image> in the app that doesn't set quality itself); 50 is the one
+    // explicit override, in components/HowWeCommission.tsx.
+    qualities: [50, 75],
   },
 
   // Old WordPress-era URLs redirected to their modern equivalents.

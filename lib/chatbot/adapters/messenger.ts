@@ -1,6 +1,7 @@
 import { getMessengerConfig } from "../config";
 import type { ChannelAdapter, MediaType, NormalizedMessage, ReplyMeta } from "../types";
 import { graphApiUrl, postToGraphApi } from "./meta-graph-client";
+import { rehostInboundMedia } from "../inbound-media";
 
 // Messenger's attachment "type" values are image/audio/video/file — not our
 // MediaType names directly, so this maps our two ("image"/"document") onto
@@ -23,7 +24,14 @@ interface MessengerWebhookPayload {
     messaging?: {
       sender?: { id: string };
       timestamp?: number;
-      message?: { mid: string; text?: string; is_echo?: boolean };
+      message?: {
+        mid: string;
+        text?: string;
+        is_echo?: boolean;
+        // Unlike WhatsApp, Messenger hands back a directly-fetchable URL —
+        // no separate id->url lookup step needed, just a straight download.
+        attachments?: { type?: string; payload?: { url?: string } }[];
+      };
       postback?: unknown;
     }[];
   }[];
@@ -38,20 +46,36 @@ function extractFirstMessagingEvent(rawPayload: unknown) {
 export const messengerAdapter: ChannelAdapter = {
   channelId: "messenger",
 
-  parseIncoming(rawPayload: unknown): NormalizedMessage | null {
+  async parseIncoming(rawPayload: unknown): Promise<NormalizedMessage | null> {
     const event = extractFirstMessagingEvent(rawPayload);
     if (!event?.sender?.id) return null;
 
-    // Skip echoes of our own outbound messages, postbacks, read receipts, etc.
-    if (!event.message || event.message.is_echo || !event.message.text) {
+    // Skip echoes of our own outbound messages, postbacks, read receipts,
+    // etc. — but NOT an image-only message with no text, which used to be
+    // (incorrectly) dropped here entirely: this "no text -> return null"
+    // check ran before attachments were ever looked at, so a customer
+    // sending just a photo silently vanished instead of even getting a
+    // placeholder.
+    const imageAttachment = event.message?.attachments?.find((a) => a.type === "image" && a.payload?.url);
+    if (!event.message || event.message.is_echo || (!event.message.text && !imageAttachment)) {
       return null;
+    }
+
+    let attachments: { type: string; url: string }[] | undefined;
+    let text = event.message.text ?? "";
+
+    if (imageAttachment?.payload?.url) {
+      const media = await rehostInboundMedia(imageAttachment.payload.url, "messenger");
+      if (media) attachments = [{ type: media.type, url: media.url }];
+      if (!text) text = "[Customer sent an image]";
     }
 
     return {
       channel: "messenger",
       externalUserId: event.sender.id,
-      text: event.message.text,
+      text,
       timestamp: event.timestamp ?? Date.now(),
+      ...(attachments ? { attachments } : {}),
     };
   },
 

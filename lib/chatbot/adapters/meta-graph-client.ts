@@ -12,6 +12,22 @@ export function graphApiUrl(path: string): string {
   return `${GRAPH_API_BASE}/${path}`;
 }
 
+/**
+ * GET against the Graph API — currently only used by the WhatsApp adapter's
+ * inbound-media lookup (GET /{media-id} to resolve a media id into its
+ * short-lived download URL before the actual file can be fetched).
+ */
+export async function getFromGraphApi(url: string, headers: Record<string, string> = {}): Promise<unknown> {
+  const response = await fetch(url, { headers });
+
+  if (!response.ok) {
+    const errorBody = await response.text().catch(() => "");
+    throw new Error(`Graph API error (${response.status}) calling ${url}: ${errorBody}`);
+  }
+
+  return response.json();
+}
+
 export async function postToGraphApi(
   url: string,
   body: unknown,

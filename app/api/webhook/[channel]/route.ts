@@ -33,7 +33,7 @@ const ADAPTERS: Record<string, ChannelAdapter> = {
 };
 
 async function processInbound(adapter: ChannelAdapter, rawPayload: unknown): Promise<void> {
-  const message = adapter.parseIncoming(rawPayload);
+  const message = await adapter.parseIncoming(rawPayload);
   if (!message) return; // status update, echo, unsupported type, etc. — nothing to reply to
 
   if (adapter.markAsRead && message.messageId) {

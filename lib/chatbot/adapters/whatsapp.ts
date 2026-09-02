@@ -1,6 +1,7 @@
 import { getWhatsAppConfig } from "../config";
 import type { ChannelAdapter, MediaType, NormalizedMessage, ReplyMeta } from "../types";
-import { graphApiUrl, postToGraphApi } from "./meta-graph-client";
+import { getFromGraphApi, graphApiUrl, postToGraphApi } from "./meta-graph-client";
+import { rehostInboundMedia } from "../inbound-media";
 
 /**
  * WhatsApp Cloud API webhook payload shape (only the parts we use):
@@ -23,7 +24,10 @@ interface WhatsAppWebhookPayload {
           timestamp: string;
           type: string;
           text?: { body: string };
-          image?: { caption?: string };
+          // `id` is a WhatsApp media id, not a URL — actual content requires
+          // a separate authenticated lookup (see downloadWhatsAppImage
+          // below), unlike Messenger/Instagram which hand back a direct URL.
+          image?: { caption?: string; id?: string };
           document?: { caption?: string; filename?: string };
           // Present when type is "unsupported" — Meta's Cloud API doesn't
           // deliver content for certain WhatsApp-native message types at
@@ -45,23 +49,54 @@ function extractFirstMessage(rawPayload: unknown) {
   return payload.entry?.[0]?.changes?.[0]?.value?.messages?.[0] ?? null;
 }
 
+/**
+ * WhatsApp only ever gives a media *id* for inbound files, not a URL —
+ * getting the actual bytes is a two-step dance: GET /{media-id} resolves it
+ * to a short-lived (minutes) download URL, which then itself requires the
+ * SAME Bearer token to fetch. Re-hosts into the public chatbot-media bucket
+ * (see inbound-media.ts) so it doesn't matter that WhatsApp's URL will have
+ * expired by the time an admin opens the conversation later.
+ *
+ * Never throws — parseIncoming must still return the text-based message even
+ * if this fails, so a customer's message is never dropped over an image
+ * re-hosting hiccup.
+ */
+async function downloadWhatsAppImage(mediaId: string, accessToken: string) {
+  try {
+    const lookup = (await getFromGraphApi(graphApiUrl(mediaId), {
+      Authorization: `Bearer ${accessToken}`,
+    })) as { url?: string };
+    if (!lookup.url) return null;
+    return await rehostInboundMedia(lookup.url, "whatsapp", { authHeader: `Bearer ${accessToken}` });
+  } catch (err) {
+    console.error(`[adapter:whatsapp] inbound media lookup failed: ${(err as Error).message}`);
+    return null;
+  }
+}
+
 export const whatsappAdapter: ChannelAdapter = {
   channelId: "whatsapp",
 
-  parseIncoming(rawPayload: unknown): NormalizedMessage | null {
+  async parseIncoming(rawPayload: unknown): Promise<NormalizedMessage | null> {
     const message = extractFirstMessage(rawPayload);
     if (!message) return null;
 
-    // Inbound image/document downloading isn't wired up yet (Meta only gives
-    // a media id for inbound files, which needs a second authenticated fetch
-    // for a short-lived URL, then re-hosting before it expires — a genuinely
-    // separate feature from outbound sending). For now these just show a
-    // readable placeholder in the admin thread instead of a raw type string.
+    // Document downloading isn't wired up yet (same two-step id->url->bytes
+    // dance as images below, just not built for this type yet) — still just
+    // a readable placeholder in the admin thread for now.
     let text: string;
+    let attachments: { type: string; url: string }[] | undefined;
+
     if (message.type === "text" && message.text?.body) {
       text = message.text.body;
     } else if (message.type === "image") {
       text = message.image?.caption ? `[Image] ${message.image.caption}` : "[Customer sent an image]";
+
+      const config = getWhatsAppConfig();
+      if (message.image?.id && config) {
+        const media = await downloadWhatsAppImage(message.image.id, config.accessToken);
+        if (media) attachments = [{ type: media.type, url: media.url }];
+      }
     } else if (message.type === "document") {
       text = `[Customer sent a file${message.document?.filename ? `: ${message.document.filename}` : ""}]`;
     } else if (message.type === "unsupported") {
@@ -81,6 +116,7 @@ export const whatsappAdapter: ChannelAdapter = {
       text,
       timestamp: Number(message.timestamp) * 1000, // WhatsApp sends seconds, not ms
       messageId: message.id,
+      ...(attachments ? { attachments } : {}),
     };
   },
 

@@ -1,6 +1,7 @@
 import { getInstagramConfig } from "../config";
 import type { ChannelAdapter, MediaType, NormalizedMessage, ReplyMeta } from "../types";
 import { graphApiUrl, postToGraphApi } from "./meta-graph-client";
+import { rehostInboundMedia } from "../inbound-media";
 
 /**
  * Instagram messaging webhook payload shape (only the parts we use):
@@ -20,7 +21,14 @@ interface InstagramWebhookPayload {
     messaging?: {
       sender?: { id: string };
       timestamp?: number;
-      message?: { mid: string; text?: string; is_echo?: boolean };
+      message?: {
+        mid: string;
+        text?: string;
+        is_echo?: boolean;
+        // Same shape as Messenger's — both ride the same underlying
+        // Messenger Platform webhook, direct URL, no id->url lookup needed.
+        attachments?: { type?: string; payload?: { url?: string } }[];
+      };
     }[];
   }[];
 }
@@ -34,19 +42,33 @@ function extractFirstMessagingEvent(rawPayload: unknown) {
 export const instagramAdapter: ChannelAdapter = {
   channelId: "instagram",
 
-  parseIncoming(rawPayload: unknown): NormalizedMessage | null {
+  async parseIncoming(rawPayload: unknown): Promise<NormalizedMessage | null> {
     const event = extractFirstMessagingEvent(rawPayload);
     if (!event?.sender?.id) return null;
 
-    if (!event.message || event.message.is_echo || !event.message.text) {
+    // Same fix as the Messenger adapter: don't drop an image-only DM just
+    // because there's no text — that used to make a customer's photo
+    // vanish entirely instead of even showing a placeholder.
+    const imageAttachment = event.message?.attachments?.find((a) => a.type === "image" && a.payload?.url);
+    if (!event.message || event.message.is_echo || (!event.message.text && !imageAttachment)) {
       return null;
+    }
+
+    let attachments: { type: string; url: string }[] | undefined;
+    let text = event.message.text ?? "";
+
+    if (imageAttachment?.payload?.url) {
+      const media = await rehostInboundMedia(imageAttachment.payload.url, "instagram");
+      if (media) attachments = [{ type: media.type, url: media.url }];
+      if (!text) text = "[Customer sent an image]";
     }
 
     return {
       channel: "instagram",
       externalUserId: event.sender.id,
-      text: event.message.text,
+      text,
       timestamp: event.timestamp ?? Date.now(),
+      ...(attachments ? { attachments } : {}),
     };
   },
 

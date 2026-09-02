@@ -14,7 +14,7 @@ import { isHandoffRequest, HANDOFF_ACK_MESSAGE } from "./handoff";
 import { notifyAdminOfHandoff, notifyWatchedNumberMessage } from "./admin-alerts";
 import { getWatched } from "./watchlist";
 import { tryHandleQuotationRequest } from "./quotation-flow";
-import type { NormalizedMessage, ReplyMeta } from "./types";
+import type { MediaType, NormalizedMessage, ReplyMeta } from "./types";
 
 const SITE_URL = "https://www.rigbuilders.in";
 
@@ -57,8 +57,16 @@ export async function handleMessage(msg: NormalizedMessage): Promise<HandledRepl
   const conversation = await findOrCreateActiveConversation(user.id, msg.channel);
 
   // Persist the inbound message before deciding anything else, so it's
-  // never lost and always visible in the admin inbox.
-  await appendMessage(conversation.id, "user", msg.text);
+  // never lost and always visible in the admin inbox. When the adapter
+  // re-hosted an inbound image (see inbound-media.ts), attach it the same
+  // way admin-sent/quotation media already is — ChannelChatDashboard.tsx
+  // renders media_url as an <img> regardless of which role sent it.
+  const firstAttachment = msg.attachments?.[0];
+  const inboundMedia =
+    firstAttachment && (firstAttachment.type === "image" || firstAttachment.type === "document")
+      ? { url: firstAttachment.url, type: firstAttachment.type as MediaType }
+      : undefined;
+  await appendMessage(conversation.id, "user", msg.text, undefined, inboundMedia);
 
   // Fires regardless of bot/exclusion/handoff status below — if a watched
   // number messages at all, the admin wants to know, independent of whether

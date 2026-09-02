@@ -88,7 +88,11 @@ export interface ReplyMeta {
  */
 export interface ChannelAdapter {
   channelId: string;
-  parseIncoming(rawPayload: unknown): NormalizedMessage | null;
+  // Async because WhatsApp/Messenger/Instagram may need to download and
+  // re-host an inbound image before returning (see inbound-media.ts) —
+  // resolving a media id into an actual fetchable file is a network round
+  // trip on all three platforms, not a pure parse.
+  parseIncoming(rawPayload: unknown): Promise<NormalizedMessage | null>;
   sendReply(
     externalUserId: string,
     reply: string,
