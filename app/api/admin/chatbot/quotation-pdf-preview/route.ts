@@ -32,7 +32,11 @@ export async function GET(): Promise<NextResponse> {
       { customerName: "Sample Customer" }
     );
 
-    return new NextResponse(pdf, {
+    // NextResponse's body type (BodyInit) doesn't accept a Node Buffer
+    // directly under this Next.js/TS version — wrapping in a Blob is the
+    // safest fix (a plain Uint8Array view can misbehave if the Buffer came
+    // from a pooled allocation with a larger underlying ArrayBuffer).
+    return new NextResponse(new Blob([pdf], { type: "application/pdf" }), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
