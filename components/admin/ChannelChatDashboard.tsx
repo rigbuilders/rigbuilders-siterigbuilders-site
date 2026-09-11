@@ -1,7 +1,7 @@
 "use client";
 
 import Navbar from "@/components/Navbar";
-import { useEffect, useState, useCallback, useRef, type ReactNode } from "react";
+import { useEffect, useState, useCallback, useRef, type ReactNode, type ClipboardEvent as ReactClipboardEvent } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import {
@@ -16,6 +16,7 @@ import {
   FaBell,
   FaPaperclip,
   FaArrowLeft,
+  FaDownload,
 } from "react-icons/fa";
 
 const ADMIN_EMAIL = "rigbuilders123@gmail.com";
@@ -80,6 +81,128 @@ function formatTimestamp(iso: string): string {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+/**
+ * Forces a real download instead of navigating to/previewing the file — a
+ * plain `<a href download>` doesn't reliably force-download a cross-origin
+ * URL (most browsers ignore the `download` attribute across origins, and
+ * chatbot-media is served straight from Supabase Storage's own domain, not
+ * ours). Fetching the bytes ourselves and handing the browser a local blob:
+ * URL sidesteps that entirely. Falls back to just opening the file in a new
+ * tab if the fetch fails (e.g. a CORS hiccup) — the browser's own "save
+ * image/link as" still works fine from there.
+ */
+async function downloadMedia(url: string) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`fetch failed (${res.status})`);
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const filename = url.split("/").pop()?.split("?")[0] || "download";
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(blobUrl);
+  } catch {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+}
+
+/**
+ * Converts a chunk of rich-text HTML (as delivered by the browser's own
+ * clipboard on paste) into plain text carrying WhatsApp's own inline
+ * formatting syntax — *bold*, _italic_, ~strikethrough~, and ```monospace```
+ * — plus "• " bullets for lists and real line breaks for
+ * paragraphs/divs/<br>. WhatsApp is the only channel here that actually
+ * renders any of that syntax as real formatting; Messenger/Instagram/website
+ * would just show the literal asterisks/underscores to the customer, so the
+ * caller only asks for markdown when `channel === "whatsapp"` — otherwise
+ * this strips formatting down to plain text while still preserving line
+ * breaks and bullets, which every channel handles fine.
+ */
+function htmlToChannelText(html: string, useMarkdown: boolean): string {
+  const container = document.createElement("div");
+  container.innerHTML = html;
+
+  function walk(node: ChildNode): string {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return node.textContent ?? "";
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return "";
+
+    const el = node as HTMLElement;
+    const tag = el.tagName.toLowerCase();
+    const inner = Array.from(el.childNodes).map(walk).join("");
+    const hasContent = inner.trim().length > 0;
+
+    if (!useMarkdown) {
+      // Plain-text channels: keep structure (line breaks, bullets), drop
+      // the emphasis markers entirely since they'd just show up literally.
+      switch (tag) {
+        case "br":
+          return "\n";
+        case "li":
+          return `• ${inner}\n`;
+        case "p":
+        case "div":
+        case "ul":
+        case "ol":
+        case "h1":
+        case "h2":
+        case "h3":
+        case "h4":
+        case "h5":
+        case "h6":
+          return `${inner}\n`;
+        default:
+          return inner;
+      }
+    }
+
+    switch (tag) {
+      case "b":
+      case "strong":
+        return hasContent ? `*${inner}*` : inner;
+      case "i":
+      case "em":
+        return hasContent ? `_${inner}_` : inner;
+      case "s":
+      case "strike":
+      case "del":
+        return hasContent ? `~${inner}~` : inner;
+      case "code":
+        return hasContent ? `\`\`\`${inner}\`\`\`` : inner;
+      case "pre":
+        return `\`\`\`${inner}\`\`\`\n`;
+      case "br":
+        return "\n";
+      case "li":
+        return `• ${inner}\n`;
+      case "p":
+      case "div":
+      case "ul":
+      case "ol":
+      case "h1":
+      case "h2":
+      case "h3":
+      case "h4":
+      case "h5":
+      case "h6":
+        return `${inner}\n`;
+      default:
+        return inner;
+    }
+  }
+
+  const raw = Array.from(container.childNodes).map(walk).join("");
+  return raw
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n") // collapse runs of blank lines from nested block tags
+    .trim();
+}
+
 async function authedFetch(path: string, options: RequestInit = {}) {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token;
@@ -137,6 +260,7 @@ export default function ChannelChatDashboard({ channel, theme }: { channel: stri
   const [mediaCaption, setMediaCaption] = useState("");
   const [showMediaPicker, setShowMediaPicker] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const replyRef = useRef<HTMLTextAreaElement | null>(null);
 
   const selectedIdRef = useRef<string | null>(null);
 
@@ -209,6 +333,16 @@ export default function ChannelChatDashboard({ channel, theme }: { channel: stri
     selectedIdRef.current = selectedId;
   }, [selectedId]);
 
+  // Auto-grow the reply textarea with its content (capped) instead of a
+  // fixed multi-row box that's either too tall when empty or too short once
+  // Shift+Enter is actually used.
+  useEffect(() => {
+    const el = replyRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
+  }, [replyText]);
+
   // See security/chatbot_watchlist_and_realtime.sql — without that migration
   // this silently receives nothing and the page just falls back to
   // manual-refresh behavior.
@@ -263,6 +397,38 @@ export default function ChannelChatDashboard({ channel, theme }: { channel: stri
     } finally {
       setSending(false);
     }
+  };
+
+  // Reads whatever rich-text HTML the OS clipboard is carrying (Word,
+  // Google Docs, another WhatsApp chat, etc.) and converts it to the
+  // channel's own equivalent formatting instead of the browser's default
+  // paste, which would either drop all formatting or paste raw HTML text —
+  // see htmlToChannelText's own comment for why WhatsApp gets real markdown
+  // and the other channels get plain text with structure preserved.
+  const handleReplyPaste = (e: ReactClipboardEvent<HTMLTextAreaElement>) => {
+    const html = e.clipboardData.getData("text/html");
+    if (!html) return; // nothing but plain text on the clipboard — default paste is already correct
+
+    e.preventDefault();
+    const converted = htmlToChannelText(html, channel === "whatsapp");
+    if (!converted) return;
+
+    const target = e.currentTarget;
+    const start = target.selectionStart ?? replyText.length;
+    const end = target.selectionEnd ?? replyText.length;
+    const next = replyText.slice(0, start) + converted + replyText.slice(end);
+    setReplyText(next);
+
+    // Cursor lands right after the pasted text, same as a normal paste —
+    // has to wait a tick since setReplyText hasn't re-rendered the
+    // textarea's value yet.
+    requestAnimationFrame(() => {
+      const el = replyRef.current;
+      if (!el) return;
+      const pos = start + converted.length;
+      el.selectionStart = el.selectionEnd = pos;
+      el.focus();
+    });
   };
 
   const sendMedia = async () => {
@@ -562,18 +728,36 @@ export default function ChannelChatDashboard({ channel, theme }: { channel: stri
                           {m.role === "user" ? "Customer" : m.provider === "human" ? "You (manual)" : `Bot (${m.provider || "?"})`}
                         </div>
                         {m.media_url && m.media_type === "image" && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={m.media_url} alt="" className="rounded mb-2 max-w-full max-h-[300px]" />
+                          <div className="relative group mb-2 inline-block">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={m.media_url} alt="" className="rounded max-w-full max-h-[300px] block" />
+                            <button
+                              onClick={() => downloadMedia(m.media_url!)}
+                              title="Download image"
+                              className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-black/60 hover:bg-black/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <FaDownload className="w-3 h-3 text-white" />
+                            </button>
+                          </div>
                         )}
                         {m.media_url && m.media_type === "document" && (
-                          <a
-                            href={m.media_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-center gap-2 mb-2 underline text-xs"
-                          >
-                            <FaPaperclip /> Attached file
-                          </a>
+                          <div className="flex items-center gap-3 mb-2 text-xs">
+                            <a
+                              href={m.media_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex items-center gap-2 underline"
+                            >
+                              <FaPaperclip /> Attached file
+                            </a>
+                            <button
+                              onClick={() => downloadMedia(m.media_url!)}
+                              title="Download file"
+                              className="flex items-center gap-1 text-brand-silver hover:text-white"
+                            >
+                              <FaDownload className="w-3 h-3" /> Download
+                            </button>
+                          </div>
                         )}
                         {m.content}
                       </div>
@@ -618,33 +802,44 @@ export default function ChannelChatDashboard({ channel, theme }: { channel: stri
                   </div>
                 )}
 
-                <div className="p-4 border-t border-white/10 flex gap-3">
+                <div className="p-4 border-t border-white/10 flex items-end gap-3">
                   {channel !== "website" && (
                     <button
                       onClick={() => setShowMediaPicker((s) => !s)}
-                      className="bg-white/5 hover:bg-white/10 px-3 rounded border border-white/10 shrink-0"
+                      className="bg-white/5 hover:bg-white/10 px-3 py-2 rounded border border-white/10 shrink-0 self-end"
                       title="Attach image or file"
                     >
                       <FaPaperclip />
                     </button>
                   )}
-                  <input
+                  <textarea
+                    ref={replyRef}
                     value={replyText}
                     onChange={(e) => setReplyText(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && sendReply()}
-                    placeholder="Type a manual reply..."
-                    className="flex-1 bg-[#121212] border border-white/10 rounded px-3 py-2 text-sm"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        sendReply();
+                      }
+                      // Shift+Enter: default behavior inserts a newline, nothing to do here.
+                    }}
+                    onPaste={handleReplyPaste}
+                    placeholder="Type a manual reply... (Shift+Enter for a new line)"
+                    rows={1}
+                    className="flex-1 bg-[#121212] border border-white/10 rounded px-3 py-2 text-sm resize-none overflow-y-auto leading-normal"
                   />
                   <button
                     onClick={sendReply}
                     disabled={sending || !replyText.trim()}
-                    className={`${theme.buttonBg} disabled:opacity-40 px-4 py-2 rounded flex items-center gap-2 text-xs uppercase font-bold`}
+                    className={`${theme.buttonBg} disabled:opacity-40 px-4 py-2 rounded flex items-center gap-2 text-xs uppercase font-bold self-end`}
                   >
                     <FaPaperPlane /> Send
                   </button>
                 </div>
                 <p className="px-4 pb-3 text-[11px] text-brand-silver">
-                  Sending a manual reply automatically pauses the bot for this conversation.
+                  Sending a manual reply automatically pauses the bot for this conversation. Shift+Enter for a new
+                  line, Enter to send.
+                  {channel === "whatsapp" && " Pasted bold/italic/strikethrough/lists carry over as WhatsApp formatting."}
                 </p>
               </>
             )}
