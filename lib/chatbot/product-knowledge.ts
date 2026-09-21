@@ -331,12 +331,20 @@ export async function findRelevantProducts(userMessage: string, limit = 8): Prom
     if (error) {
       console.error(`[chatbot:product-knowledge] category lookup failed: ${error.message}`);
     } else if (data && data.length > 0) {
+      console.log(
+        `[chatbot:product-knowledge] "${userMessage}" -> category="${category}" brand="${brand ?? "(none)"}" -> ${data.length} row(s)`
+      );
       return data as ProductRow[];
+    } else {
+      console.log(
+        `[chatbot:product-knowledge] "${userMessage}" -> category="${category}" brand="${brand ?? "(none)"}" -> 0 rows, falling through to fuzzy search`
+      );
     }
     // No category match (or brand filter too narrow) — fall through to fuzzy search.
   }
 
   const keywords = extractKeywords(userMessage);
+  console.log(`[chatbot:product-knowledge] "${userMessage}" -> category=(none) -> fuzzy keywords: [${keywords.join(", ")}]`);
   if (keywords.length === 0) return [];
 
   const orFilter = keywords
@@ -357,9 +365,10 @@ export async function findRelevantProducts(userMessage: string, limit = 8): Prom
     .limit(20);
 
   if (error) {
-    console.error(`[chatbot:product-knowledge] lookup failed: ${error.message}`);
+    console.error(`[chatbot:product-knowledge] fuzzy lookup failed: ${error.message}`);
     return [];
   }
+  console.log(`[chatbot:product-knowledge] fuzzy search matched ${data?.length ?? 0} published row(s) before scoring`);
   if (!data || data.length === 0) return [];
 
   // Rank with breadcrumb_name (the short, clean product identity, e.g. "Ryzen 7
