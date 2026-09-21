@@ -67,12 +67,38 @@
 :root {
   --background: #121212;
   --foreground: #ededed;
-  
-  /* RIG BUILDERS PALETTE */
+
+  /* RIG BUILDERS PALETTE (legacy — kept so existing pages don't break) */
   --rb-bg-dark: #121212;
   --rb-bg-card: #1A1A1A;
   --rb-purple: #4E2C8B;
   --rb-blue: #265DAB;
+
+  /* ============================================================
+     RIG BUILDERS — CANONICAL BRAND TOKENS
+     Monochrome base + one accent (molten orange). Premium via
+     restraint: orange stays on ~5–10% of any screen.
+     Mirrors tailwind.config.js `rb` colors so the same values are
+     available to raw CSS, inline styles and the homepage.
+     ============================================================ */
+  --rb-black:        #0A0A0A;   /* deepest / hero */
+  --rb-surface:      #101112;   /* page background */
+  --rb-elevated:     #17181A;   /* cards / panels */
+  --rb-raised:       #1F2123;   /* hover / elevated */
+  --rb-line:         #2A2D2F;   /* hairline borders */
+  --rb-silver:       #8A8F90;   /* muted text */
+  --rb-mist:         #C7CBCC;   /* secondary text */
+  --rb-white:        #F4F5F5;   /* primary text */
+
+  --rb-orange:       #FF5A1F;   /* ★ accent */
+  --rb-orange-deep:  #E24410;   /* hover / pressed */
+  --rb-orange-ink:   #160603;   /* text on orange */
+  --rb-orange-light: #D8420E;   /* accent on light bg */
+  --rb-orange-rgb:   255, 90, 31; /* for rgba() glows */
+
+  --rb-success:      #22C55E;   /* in stock / compatible */
+  --rb-danger:       #E5484D;   /* out of stock / incompatible */
+  --rb-warn:         #EAB308;   /* low stock / caution */
 }
 
 body::before {
@@ -167,5 +193,89 @@ body {
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #4E2C8B;
+  background: var(--rb-orange-deep);
+}
+
+/* ============================================================
+   RIG BUILDERS — CANONICAL PREMIUM UTILITIES (monochrome + orange)
+   Use these on the new homepage / rebranded surfaces. The older
+   purple .rb-hero-glow / .rb-card / .rb-btn-primary above are kept
+   only for back-compat with existing pages.
+   ============================================================ */
+
+/* Ambient hero glow — a single warm ember, low and off-centre.
+   Deliberately subtle: premium restraint, not a spotlight. */
+.rb-ember-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(680px circle at 78% 12%, rgba(var(--rb-orange-rgb), 0.14), transparent 55%),
+    radial-gradient(900px circle at 20% 90%, rgba(255, 255, 255, 0.035), transparent 60%);
+}
+
+/* Primary CTA — solid orange fill, dark ink, restrained glow on hover. */
+.rb-cta {
+  background: var(--rb-orange);
+  color: var(--rb-orange-ink);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  border-radius: 10px;
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
+              box-shadow 0.25s ease, background 0.25s ease;
+}
+.rb-cta:hover {
+  background: var(--rb-orange-deep);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px -8px rgba(var(--rb-orange-rgb), 0.45);
+}
+
+/* Secondary / ghost button — hairline that warms up on hover. */
+.rb-ghost {
+  background: transparent;
+  color: var(--rb-white);
+  border: 1px solid var(--rb-line);
+  border-radius: 10px;
+  transition: border-color 0.25s ease, color 0.25s ease, transform 0.25s ease;
+}
+.rb-ghost:hover {
+  border-color: var(--rb-orange);
+  color: var(--rb-orange);
+  transform: translateY(-2px);
+}
+
+/* Premium surface card — elevated mono panel, hairline that catches
+   a hint of ember on hover (no coloured borders at rest). */
+.rb-surface-card {
+  position: relative;
+  background: var(--rb-elevated);
+  border: 1px solid var(--rb-line);
+  border-radius: 14px;
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1),
+              border-color 0.35s ease, box-shadow 0.35s ease, background 0.35s ease;
+}
+.rb-surface-card:hover {
+  background: var(--rb-raised);
+  border-color: rgba(var(--rb-orange-rgb), 0.45);
+  transform: translateY(-4px);
+  box-shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.8);
+}
+
+/* Accent text glow — for a single hero keyword, used ONCE per view. */
+.rb-text-ember {
+  color: var(--rb-orange);
+  text-shadow: 0 0 26px rgba(var(--rb-orange-rgb), 0.4);
+}
+
+/* Thin hairline divider in brand grey. */
+.rb-hairline { border-color: var(--rb-line); }
+
+/* Kicker / eyebrow label — the small uppercase line above a headline. */
+.rb-kicker {
+  font-size: 0.72rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--rb-silver);
+  font-weight: 700;
 }

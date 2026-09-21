@@ -19,31 +19,36 @@ module.exports = {
         },
 
         // ==========================================================
-        // RIG BUILDERS — canonical brand palette (black / white / aqua)
-        // Positioning: reliability, trust, engineered performance, PREMIUM.
-        // Premium = restraint: mostly ink + space, aqua used surgically.
-        //   • aqua        → electric HIGHLIGHT: glows, hairlines, active
-        //                   states, small CTA text/icons. Use sparingly.
-        //   • aqua-deep   → FILLS: buttons, bars, larger blocks (tames the neon)
-        //   • aqua-ink    → text/icon color ON an aqua fill
-        //   • teal        → on-LIGHT surfaces only (invoices, email, print)
-        //   • success/danger → STATUS ONLY (in-stock / compatible vs not).
-        //                      Never decorative.
+        // RIG BUILDERS — canonical brand palette
+        // MONOCHROME (black + white + grey ramp)  +  ONE accent: MOLTEN ORANGE.
+        // Positioning: premium, engineered, performance. Trust is carried by
+        // design discipline (space, type, proof) — NOT by the accent.
+        // Premium = restraint: the orange lives on ~5–10% of any screen
+        // (CTAs, active states, key numbers, the logo dot) — never as a wash.
+        //   • orange       → THE accent. Small, deliberate, high-impact.
+        //   • orange-deep  → hover / pressed / fills that need to sit calmer
+        //   • orange-ink   → text/icon color ON an orange fill
+        //   • orange-light → deeper orange for LIGHT surfaces (invoice/email/print)
+        //   • success / danger → STATUS ONLY (in-stock/compatible vs not).
+        //     danger is a TRUE red, kept clearly redder than the warm brand
+        //     orange so the two never blur on compatibility screens.
         // ==========================================================
         rb: {
           black:    "#0A0A0A",   // deepest — hero / full-bleed sections
-          surface:  "#101214",   // page background
-          elevated: "#16191C",   // cards / panels
-          line:     "#242A2E",   // hairline borders (solid equiv of white/8%)
+          surface:  "#101112",   // page background
+          elevated: "#17181A",   // cards / panels
+          raised:   "#1F2123",   // hover / elevated card
+          line:     "#2A2D2F",   // hairline borders
+          silver:   "#8A8F90",   // muted / tertiary text
+          mist:     "#C7CBCC",   // secondary text
           white:    "#F4F5F5",   // primary text on dark
-          silver:   "#9AA3A3",   // muted / secondary text
-          aqua:     "#14F1D9",   // ★ electric accent (highlight)
-          "aqua-deep": "#0FBFAE",// accent fills (buttons, bars)
-          "aqua-ink":  "#04120F",// text on aqua fills
-          teal:     "#0D9488",   // accent for LIGHT backgrounds
+          orange:      "#FF5A1F",// ★ THE accent (molten orange)
+          "orange-deep": "#E24410", // hover / pressed / calmer fills
+          "orange-ink":  "#160603", // text/icon on an orange fill
+          "orange-light":"#D8420E", // accent on LIGHT backgrounds
           success:  "#22C55E",   // in stock / compatible
-          danger:   "#F04438",   // out of stock / incompatible
-          warn:     "#F5A524",   // low stock / caution (optional)
+          danger:   "#E5484D",   // out of stock / incompatible (true red)
+          warn:     "#EAB308",   // low stock / caution (yellow — off the orange)
         },
       },
       fontFamily: {

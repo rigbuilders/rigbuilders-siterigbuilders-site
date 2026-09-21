@@ -113,9 +113,16 @@ export default function PushNotificationSetup() {
       }
 
       const registration = await navigator.serviceWorker.register(SW_URL, { scope: SW_SCOPE });
+      // Same lib.dom generic-strictness gap as the PDF route fix elsewhere in
+      // this codebase: a freshly-constructed Uint8Array's backing buffer
+      // types as ArrayBufferLike (which includes SharedArrayBuffer) rather
+      // than the narrower ArrayBuffer that PushSubscriptionOptionsInit's
+      // applicationServerKey (via BufferSource) requires under this
+      // Next.js/TS version. It's a real Uint8Array over a real ArrayBuffer
+      // at runtime — this is a type-checking gap, not a real mismatch.
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as unknown as BufferSource,
       });
 
       await authedFetch("/api/admin/push/subscribe", subscription.toJSON(), "POST");
