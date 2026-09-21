@@ -28,6 +28,18 @@ function inboxLink(channel: string): string {
 }
 
 /**
+ * Same channel->URL-segment mapping as inboxLink above, but as a relative
+ * path — used by push-notify.ts for a push notification's click-through
+ * target, where an absolute https://www.rigbuilders.in/... URL would be
+ * wrong (it needs to match whatever's already open in the installed PWA,
+ * not force a full-page navigation to the absolute URL).
+ */
+export function inboxPath(channel: string): string {
+  const route = CHANNEL_TO_ROUTE[channel];
+  return route ? `/admin/chatbot/${route}` : "/admin/chatbot";
+}
+
+/**
  * Never throws — a failed notification should never take down the reply
  * pipeline; worst case the admin just finds the conversation in
  * /admin/chatbot without having been emailed about it.

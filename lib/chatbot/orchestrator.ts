@@ -12,6 +12,7 @@ import { generateReply } from "./llm/router";
 import { stripFormatting } from "./text-sanitizer";
 import { isHandoffRequest, HANDOFF_ACK_MESSAGE } from "./handoff";
 import { notifyAdminOfHandoff, notifyWatchedNumberMessage } from "./admin-alerts";
+import { notifyAdminOfNewMessage } from "./push-notify";
 import { getWatched } from "./watchlist";
 import { tryHandleQuotationRequest } from "./quotation-flow";
 import type { MediaType, NormalizedMessage, ReplyMeta } from "./types";
@@ -67,6 +68,21 @@ export async function handleMessage(msg: NormalizedMessage): Promise<HandledRepl
       ? { url: firstAttachment.url, type: firstAttachment.type as MediaType }
       : undefined;
   await appendMessage(conversation.id, "user", msg.text, undefined, inboundMedia);
+
+  // Push a notification to any admin phone/laptop that's enabled them — same
+  // "fires no matter what happens next" placement as the watchlist check
+  // below, since the point is just "let the admin know a customer wrote in,"
+  // independent of whether the bot ends up replying, staying silent, or the
+  // conversation is already handed off. Never throws, never awaited-and-
+  // blocking beyond its own completion (still awaited so a slow push send
+  // doesn't race the function returning, but a failure inside it can't
+  // surface here — see push-notify.ts).
+  await notifyAdminOfNewMessage({
+    channel: msg.channel,
+    externalUserId: msg.externalUserId,
+    text: msg.text,
+    conversationId: conversation.id,
+  });
 
   // Fires regardless of bot/exclusion/handoff status below — if a watched
   // number messages at all, the admin wants to know, independent of whether

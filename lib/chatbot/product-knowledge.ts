@@ -402,6 +402,9 @@ export function buildProductContext(products: ProductRow[]): string {
   return (
     "Relevant product data from the Rig Builders catalog (this is live, accurate data — use " +
     "it for exact prices/specs/stock, and never state numbers beyond what's listed here). " +
+    "This was looked up fresh for the customer's message THIS TURN, even if earlier in this " +
+    "same conversation you said you didn't have live inventory access — that's no longer true " +
+    "for what's listed below, so use it directly instead of repeating an earlier disclaimer. " +
     "You don't need to enumerate every single one in full detail — a short summary covering " +
     "what's relevant to the question is enough:\n\n" +
     products.map(formatProduct).join("\n\n")

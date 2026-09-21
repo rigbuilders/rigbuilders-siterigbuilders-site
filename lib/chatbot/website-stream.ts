@@ -9,6 +9,7 @@ import { getGeminiConfig, getTogetherConfig } from "./config";
 import { isExcluded } from "./exclusions";
 import { isHandoffRequest, HANDOFF_ACK_MESSAGE } from "./handoff";
 import { notifyAdminOfHandoff, notifyWatchedNumberMessage } from "./admin-alerts";
+import { notifyAdminOfNewMessage } from "./push-notify";
 import { getWatched } from "./watchlist";
 import { createGeminiProvider } from "./llm/providers/gemini";
 import { streamTogetherReply } from "./llm/providers/together";
@@ -106,6 +107,15 @@ export async function handleWebsiteMessage(
     const conversation = await findOrCreateActiveConversation(user.id, "website");
 
     await appendMessage(conversation.id, "user", text);
+
+    // Same placement/reasoning as orchestrator.ts's equivalent call — fires
+    // no matter what happens next in this function.
+    await notifyAdminOfNewMessage({
+      channel: "website",
+      externalUserId: visitorId,
+      text,
+      conversationId: conversation.id,
+    });
 
     // Fires regardless of bot/exclusion/handoff status below — same as
     // orchestrator.ts's equivalent check for the other channels.
