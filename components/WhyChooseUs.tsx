@@ -6,12 +6,12 @@ import { FaCheckCircle, FaCogs, FaShippingFast } from "react-icons/fa";
 
 const features = [
   {
-    icon: <FaCheckCircle className="text-brand-purple text-xl" />,
+    icon: <FaCheckCircle className="text-rb-orange text-xl" />,
     title: "Proof-Built, Not Just Assembled",
     desc: "Every Rig Builders system is stress-tested, thermally validated, and documented. You don’t take our word for performance — you see the results."
   },
   {
-    icon: <FaCogs className="text-brand-blue text-xl" />,
+    icon: <FaCogs className="text-rb-orange-deep text-xl" />,
     title: "Engineered Craftsmanship",
     desc: "From component harmony to symmetrical cable routing and airflow design, each rig is built like a machine should be — precise, clean, and intentional."
   },
@@ -24,7 +24,7 @@ const features = [
 
 export default function WhyChooseUs() {
   return (
-    <section className="relative min-h-[800px] flex items-center bg-[#121212] overflow-hidden">
+    <section className="relative min-h-[800px] flex items-center bg-rb-surface overflow-hidden">
       
       {/* 1. RIGHT SIDE: FULL HEIGHT IMAGE (Absolute Positioned) */}
       {/* FIX: Added 'opacity-30 lg:opacity-100' to handle mobile transparency requirement */}
@@ -38,7 +38,7 @@ export default function WhyChooseUs() {
         />
         
         {/* The "Merge" Gradient: Fades from solid background (Left) to transparent (Right) */}
-        <div className="absolute inset-0 bg-gradient-to-r from-[#121212] via-[#121212]/80 to-transparent lg:via-[#121212]/40" />
+        <div className="absolute inset-0 bg-gradient-to-r from-rb-surface via-rb-surface/80 to-transparent lg:via-rb-surface/40" />
       </div>
 
       {/* 2. LEFT SIDE: CONTENT (Aligned to 1440px Grid) */}
@@ -48,7 +48,7 @@ export default function WhyChooseUs() {
           <Reveal>
             <h2 className="font-orbitron text-4xl md:text-5xl text-white mb-10 leading-tight">
               Why Choose <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#4E2C8B] to-[#265DAB] font-black text-5xl md:text-7xl">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-rb-orange to-rb-orange-deep font-black text-5xl md:text-7xl">
                 RIG BUILDERS?
               </span>
             </h2>
@@ -58,16 +58,16 @@ export default function WhyChooseUs() {
                 <StaggerItem key={index}>
                   <div className="flex gap-6 group">
                     {/* Icon Box */}
-                    <div className="shrink-0 w-12 h-12 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center group-hover:border-brand-purple/50 transition-colors duration-300 shadow-lg backdrop-blur-sm">
+                    <div className="shrink-0 w-12 h-12 rounded-lg bg-white/5 border border-rb-line flex items-center justify-center group-hover:border-rb-orange/50 transition-colors duration-300 shadow-lg backdrop-blur-sm">
                       {item.icon}
                     </div>
                     
                     {/* Text */}
                     <div className="relative">
-                      <h3 className="font-orbitron text-xl font-bold text-white mb-2 group-hover:text-brand-purple transition-colors">
+                      <h3 className="font-orbitron text-xl font-bold text-white mb-2 group-hover:text-rb-orange transition-colors">
                         {item.title}
                       </h3>
-                      <p className="font-saira text-brand-silver text-base leading-relaxed max-w-md">
+                      <p className="font-saira text-rb-silver text-base leading-relaxed max-w-md">
                         {item.desc}
                       </p>
                     </div>

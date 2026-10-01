@@ -15,7 +15,7 @@ export default function GlobalModal() {
       case "success": return <FaCheckCircle className="text-green-500 text-3xl drop-shadow-[0_0_10px_rgba(34,197,94,0.5)]" />;
       case "error": return <FaTimesCircle className="text-red-500 text-3xl drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]" />;
       case "warning": return <FaExclamationTriangle className="text-yellow-500 text-3xl drop-shadow-[0_0_10px_rgba(234,179,8,0.5)]" />;
-      default: return <FaInfoCircle className="text-brand-purple text-3xl drop-shadow-[0_0_10px_rgba(78,44,139,0.5)]" />;
+      default: return <FaInfoCircle className="text-rb-orange text-3xl drop-shadow-[0_0_10px_rgba(78,44,139,0.5)]" />;
     }
   };
 
@@ -24,7 +24,7 @@ export default function GlobalModal() {
         case "success": return "border-green-500/50";
         case "error": return "border-red-500/50";
         case "warning": return "border-yellow-500/50";
-        default: return "border-brand-purple/50";
+        default: return "border-rb-orange/50";
     }
   };
 
@@ -64,7 +64,7 @@ export default function GlobalModal() {
                 <h2 className="font-orbitron font-bold text-2xl text-white mb-2 uppercase tracking-wide">
                     {title}
                 </h2>
-                <p className="font-saira text-brand-silver text-sm leading-relaxed mb-8">
+                <p className="font-saira text-rb-silver text-sm leading-relaxed mb-8">
                     {message}
                 </p>
 
@@ -74,13 +74,13 @@ export default function GlobalModal() {
                         <>
                             <button 
                                 onClick={closeModal}
-                                className="flex-1 py-3 border border-white/10 text-brand-silver font-orbitron text-xs font-bold uppercase tracking-wider hover:bg-white/5 transition-colors"
+                                className="flex-1 py-3 border border-white/10 text-rb-silver font-orbitron text-xs font-bold uppercase tracking-wider hover:bg-white/5 transition-colors"
                             >
                                 Cancel
                             </button>
                             <button 
                                 onClick={() => { onConfirm(); closeModal(); }}
-                                className="flex-1 py-3 bg-white text-black font-orbitron text-xs font-bold uppercase tracking-wider hover:bg-brand-purple hover:text-white transition-all shadow-lg"
+                                className="flex-1 py-3 bg-white text-black font-orbitron text-xs font-bold uppercase tracking-wider hover:bg-rb-orange hover:text-white transition-all shadow-lg"
                             >
                                 Confirm
                             </button>
@@ -88,7 +88,7 @@ export default function GlobalModal() {
                     ) : (
                         <button 
                             onClick={closeModal}
-                            className="w-full py-3 bg-white text-black font-orbitron text-xs font-bold uppercase tracking-wider hover:bg-brand-purple hover:text-white transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-brand-purple/40"
+                            className="w-full py-3 bg-white text-black font-orbitron text-xs font-bold uppercase tracking-wider hover:bg-rb-orange hover:text-white transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-rb-orange/40"
                         >
                             ACKNOWLEDGE
                         </button>

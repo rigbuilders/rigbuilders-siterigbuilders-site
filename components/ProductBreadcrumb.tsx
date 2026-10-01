@@ -66,16 +66,16 @@ export default function ProductBreadcrumb({
   };
 
   return (
-    <div className="pt-[20px] pb-4 rb-shell relative z-10 border-b border-white/5 bg-[#121212]">
+    <div className="pt-6 pb-2 rb-shell relative z-10">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <div className="flex flex-wrap items-center gap-2 text-sm text-brand-silver font-medium">
+      <div className="flex flex-wrap items-center gap-2 text-sm text-rb-silver font-medium">
         {crumbs.map((c, i) => (
           <div key={`${c.label}-${i}`} className="flex items-center gap-2">
             {i > 0 && <FaChevronRight size={10} className="opacity-50" />}
             {c.href ? (
               <Link
                 href={c.href}
-                className="hover:text-brand-purple transition-colors flex items-center gap-1 capitalize"
+                className="hover:text-rb-orange transition-colors flex items-center gap-1 capitalize"
               >
                 {i === 0 && <FaHome />}
                 {c.label}

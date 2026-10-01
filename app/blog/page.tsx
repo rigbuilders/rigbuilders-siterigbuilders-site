@@ -28,7 +28,7 @@ export default async function BlogFeedPage() {
     <main className="min-h-screen bg-[#121212] text-white font-saira relative">
       {/* Background FX */}
       <div className="fixed top-0 left-0 w-full h-full bg-[url('/images/noise.png')] opacity-[0.03] pointer-events-none z-0" />
-      <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-brand-purple/10 blur-[150px] pointer-events-none z-0" />
+      <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-rb-orange/10 blur-[150px] pointer-events-none z-0" />
 
       <Navbar />
 
@@ -36,13 +36,13 @@ export default async function BlogFeedPage() {
       {/* HERO HEADER */}
       <section className="relative pt-20 pb-20 px-6 text-center border-b border-white/5 z-10">
         <Reveal>
-            <span className="text-brand-purple font-bold tracking-[0.3em] uppercase text-xs mb-4 block">
+            <span className="text-rb-orange font-bold tracking-[0.3em] uppercase text-xs mb-4 block">
                 Engineering Logs
             </span>
             <h1 className="font-orbitron font-black text-6xl md:text-8xl mb-6 text-white uppercase tracking-tighter">
               RIG <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#4E2C8B] to-[#924dbf]">INSIGHTS</span>
             </h1>
-            <p className="text-brand-silver max-w-2xl mx-auto text-lg font-light leading-relaxed">
+            <p className="text-rb-silver max-w-2xl mx-auto text-lg font-light leading-relaxed">
               Deep dives into hardware architecture, thermal performance, and the craftsmanship behind the build.
             </p>
         </Reveal>
@@ -51,7 +51,7 @@ export default async function BlogFeedPage() {
       {/* POSTS GRID */}
       <section className="max-w-[1600px] mx-auto px-6 py-20 relative z-10">
         {posts.length === 0 ? (
-            <div className="text-center py-20 text-brand-silver border border-dashed border-white/10">
+            <div className="text-center py-20 text-rb-silver border border-dashed border-white/10">
               <p className="font-orbitron">BLOGS COMING SOON</p>
             </div>
         ) : (
@@ -59,7 +59,7 @@ export default async function BlogFeedPage() {
               {posts.map((post) => (
                 <StaggerItem key={post.id} className="h-full">
                   <Link href={`/blog/${post.slug}`} className="group block h-full">
-                    <article className="bg-[#0a0a0a] border border-white/10 hover:border-brand-purple/50 transition-all duration-500 h-full flex flex-col relative overflow-hidden">
+                    <article className="bg-[#0a0a0a] border border-white/10 hover:border-rb-orange/50 transition-all duration-500 h-full flex flex-col relative overflow-hidden">
                       
                       {/* Image Container - Huge & Sharp */}
                       <div className="relative h-[400px] w-full overflow-hidden border-b border-white/5">
@@ -80,7 +80,7 @@ export default async function BlogFeedPage() {
                         
                         {/* Floating Date Badge */}
                         <div className="absolute top-0 right-0 bg-[#121212] border-l border-b border-white/10 px-4 py-2">
-                            <span className="font-orbitron text-xs font-bold text-brand-silver">
+                            <span className="font-orbitron text-xs font-bold text-rb-silver">
                                 {new Date(post.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                             </span>
                         </div>
@@ -90,23 +90,23 @@ export default async function BlogFeedPage() {
                       <div className="p-8 flex-1 flex flex-col relative">
                         <div className="mb-4">
                            {post.tags && (
-                             <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-purple">
+                             <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-rb-orange">
                                {post.tags.split(',')[0]}
                              </span>
                            )}
                         </div>
                         
-                        <h2 className="font-orbitron font-bold text-3xl mb-4 leading-tight text-white group-hover:text-brand-purple transition-colors">
+                        <h2 className="font-orbitron font-bold text-3xl mb-4 leading-tight text-white group-hover:text-rb-orange transition-colors">
                           {post.title}
                         </h2>
                         
-                        <p className="text-brand-silver/70 text-sm leading-loose line-clamp-3 mb-8 flex-1 font-light">
+                        <p className="text-rb-silver/70 text-sm leading-loose line-clamp-3 mb-8 flex-1 font-light">
                           {post.excerpt}
                         </p>
                         
                         <div className="mt-auto flex items-center gap-3 text-white text-xs font-bold uppercase tracking-widest group-hover:gap-5 transition-all duration-300">
                            <span>Read Transmission</span>
-                           <FaArrowRight className="text-brand-purple" />
+                           <FaArrowRight className="text-rb-orange" />
                         </div>
                       </div>
                     </article>

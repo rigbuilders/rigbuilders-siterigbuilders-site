@@ -125,7 +125,7 @@ export default function AdminOrders() {
                                 </div>
                             </div>
                             <div className="mt-4 md:mt-0 text-right">
-                                <p className="font-orbitron text-2xl font-bold text-white">₹{(order.total_amount || 0).toLocaleString("en-IN")}</p>
+                                <p className="font-saira text-2xl font-bold text-white">₹{(order.total_amount || 0).toLocaleString("en-IN")}</p>
                                 <p className="text-xs text-brand-silver">{new Date(order.created_at).toLocaleString()}</p>
                             </div>
                         </div>

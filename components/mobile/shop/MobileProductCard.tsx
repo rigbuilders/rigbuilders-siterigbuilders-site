@@ -50,7 +50,7 @@ export default function MobileProductCard({ product }: { product: any }) {
             
             {/* Price Footer */}
             <div className="mt-4 pt-3 border-t border-white/10 flex justify-between items-center">
-                <span className="font-orbitron font-bold text-[#B084FF] text-sm tracking-wider">
+                <span className="font-saira font-bold text-[#B084FF] text-sm tracking-wider">
                     ₹{Number(product.price).toLocaleString("en-IN")}
                 </span>
             </div>

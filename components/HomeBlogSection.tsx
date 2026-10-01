@@ -17,9 +17,9 @@ export default async function HomeBlogSection() {
   if (posts.length === 0) return null;
 
   return (
-    <section className="w-full bg-[#121212] border-t border-white/5 py-24 relative overflow-hidden">
+    <section className="w-full bg-rb-surface border-t border-rb-line py-24 relative overflow-hidden">
       {/* Background FX */}
-      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-brand-purple/5 blur-[120px] pointer-events-none" />
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-rb-orange/[0.06] blur-[120px] pointer-events-none" />
 
       <div className="max-w-[1440px] mx-auto px-6 lg:px-[30px]">
         
@@ -27,17 +27,17 @@ export default async function HomeBlogSection() {
         <Reveal>
           <div className="flex flex-col md:flex-row justify-between items-end mb-12 border-b border-white/10 pb-6">
             <div>
-              <span className="text-brand-purple font-bold tracking-[0.2em] text-xs uppercase block mb-3">
+              <span className="rb-kicker text-rb-orange block mb-3">
                 System Updates
               </span>
               <h2 className="font-orbitron text-3xl md:text-5xl font-black text-white uppercase">
-                BLOGS <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-purple to-white">SECTION</span>
+                BLOGS <span className="text-transparent bg-clip-text bg-gradient-to-r from-rb-orange to-white">SECTION</span>
               </h2>
             </div>
-            
-            <Link href="/blog" className="hidden md:flex items-center gap-3 text-brand-silver hover:text-white transition-colors text-xs font-bold uppercase tracking-widest group">
+
+            <Link href="/blog" className="hidden md:flex items-center gap-3 text-rb-silver hover:text-white transition-colors text-xs font-bold uppercase tracking-widest group">
               View All Blogs
-              <FaArrowRight className="group-hover:translate-x-1 transition-transform text-brand-purple" />
+              <FaArrowRight className="group-hover:translate-x-1 transition-transform text-rb-orange" />
             </Link>
           </div>
         </Reveal>
@@ -47,7 +47,7 @@ export default async function HomeBlogSection() {
           {posts.map((post, index) => (
             <Reveal key={post.id} delay={index * 0.1}>
               <Link href={`/blog/${post.slug}`} className="group block h-full">
-                <article className="bg-[#0b0b0b] border border-white/5 h-full flex flex-col transition-all duration-500 hover:border-brand-purple/50 hover:-translate-y-2 relative overflow-hidden">
+                <article className="rb-sheen bg-rb-black border border-rb-line h-full flex flex-col transition-all duration-500 hover:border-rb-orange/50 hover:-translate-y-2 relative overflow-hidden">
                   
                   {/* Image Container */}
                   <div className="relative h-60 w-full overflow-hidden bg-[#151515]">
@@ -64,12 +64,12 @@ export default async function HomeBlogSection() {
                     )}
                     
                     {/* Gradient Overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#121212] via-transparent to-transparent opacity-80" />
-                    
+                    <div className="absolute inset-0 bg-gradient-to-t from-rb-black via-transparent to-transparent opacity-80" />
+
                     {/* Date Badge */}
-                    <div className="absolute top-0 right-0 bg-[#121212] border-l border-b border-white/10 px-3 py-2 flex items-center gap-2">
-                      <FaCalendarAlt className="text-brand-purple text-[10px]" />
-                      <span className="font-mono text-[10px] text-brand-silver">
+                    <div className="absolute top-0 right-0 bg-rb-black border-l border-b border-rb-line px-3 py-2 flex items-center gap-2">
+                      <FaCalendarAlt className="text-rb-orange text-[10px]" />
+                      <span className="font-mono text-[10px] text-rb-silver">
                         {new Date(post.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                       </span>
                     </div>
@@ -78,19 +78,19 @@ export default async function HomeBlogSection() {
                   {/* Content */}
                   <div className="p-6 flex-1 flex flex-col relative">
                     {/* Decorative Line */}
-                    <div className="w-8 h-[2px] bg-brand-purple mb-4 group-hover:w-full transition-all duration-500" />
+                    <div className="w-8 h-[2px] rb-bar-anim rounded-full mb-4 group-hover:w-full transition-all duration-500" />
 
-                    <h3 className="font-orbitron font-bold text-xl text-white mb-3 leading-tight group-hover:text-brand-purple transition-colors">
+                    <h3 className="font-orbitron font-bold text-xl text-white mb-3 leading-tight group-hover:text-rb-orange transition-colors">
                       {post.title}
                     </h3>
-                    
-                    <p className="text-brand-silver text-sm font-light leading-relaxed line-clamp-3 mb-6 flex-1">
+
+                    <p className="text-rb-silver text-sm font-light leading-relaxed line-clamp-3 mb-6 flex-1">
                       {post.excerpt}
                     </p>
                     
                     <div className="mt-auto border-t border-white/5 pt-4 flex justify-between items-center text-[10px] uppercase tracking-widest font-bold text-white/50 group-hover:text-white transition-colors">
                       <span>Read Article</span>
-                      <span className="text-brand-purple opacity-0 group-hover:opacity-100 transition-opacity">►</span>
+                      <span className="text-rb-orange opacity-0 group-hover:opacity-100 transition-opacity">►</span>
                     </div>
                   </div>
                 </article>

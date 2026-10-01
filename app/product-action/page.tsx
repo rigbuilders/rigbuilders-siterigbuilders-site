@@ -74,15 +74,15 @@ function ProductActionInner() {
           <p className="text-white text-sm">{error}</p>
           <button
             onClick={() => router.push("/")}
-            className="text-brand-purple text-sm underline underline-offset-2"
+            className="text-rb-orange text-sm underline underline-offset-2"
           >
             Go to homepage
           </button>
         </>
       ) : (
         <>
-          <div className="w-8 h-8 border-2 border-white/20 border-t-brand-purple rounded-full animate-spin" />
-          <p className="text-brand-silver text-sm">Adding to your cart...</p>
+          <div className="w-8 h-8 border-2 border-white/20 border-t-rb-orange rounded-full animate-spin" />
+          <p className="text-rb-silver text-sm">Adding to your cart...</p>
         </>
       )}
     </div>
@@ -94,7 +94,7 @@ export default function ProductActionPage() {
     <Suspense
       fallback={
         <div className="min-h-[60vh] flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-white/20 border-t-brand-purple rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-white/20 border-t-rb-orange rounded-full animate-spin" />
         </div>
       }
     >

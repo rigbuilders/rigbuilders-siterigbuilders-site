@@ -35,7 +35,7 @@ export default function ProductGridCard({ product, tier }: any) {
             </div>
             
             <div className="mt-4 pt-3 border-t border-[#4E2C8B]/30 flex justify-between items-center">
-                <span className="font-orbitron font-bold text-[#B084FF] text-sm tracking-wider">₹{Number(product.price).toLocaleString("en-IN")}</span>
+                <span className="font-saira font-bold text-[#B084FF] text-sm tracking-wider">₹{Number(product.price).toLocaleString("en-IN")}</span>
             </div>
         </Link>
     )

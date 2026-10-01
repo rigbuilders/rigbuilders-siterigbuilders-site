@@ -29,13 +29,27 @@ interface WhatsAppWebhookPayload {
           // below), unlike Messenger/Instagram which hand back a direct URL.
           image?: { caption?: string; id?: string };
           document?: { caption?: string; filename?: string };
+          video?: { caption?: string; id?: string };
+          audio?: { id?: string; voice?: boolean };
+          sticker?: { id?: string };
+          location?: { latitude?: number; longitude?: number; name?: string; address?: string };
+          contacts?: { name?: { formatted_name?: string } }[];
+          reaction?: { message_id?: string; emoji?: string };
+          button?: { text?: string; payload?: string };
+          interactive?: {
+            type?: string;
+            button_reply?: { id?: string; title?: string };
+            list_reply?: { id?: string; title?: string };
+          };
           // Present when type is "unsupported" — Meta's Cloud API doesn't
           // deliver content for certain WhatsApp-native message types at
-          // all (view-once/ephemeral photos & videos, reactions, polls,
-          // deleted messages). This isn't something our webhook can work
-          // around: the actual content is never sent to any business
-          // integration, by design, for privacy reasons — same limitation
-          // every WhatsApp Cloud API integration hits, not a gap in our code.
+          // all (view-once/ephemeral photos & videos, polls, deleted
+          // messages). This isn't something our webhook can work around: the
+          // actual content is never sent to any business integration, by
+          // design, for privacy reasons — same limitation every WhatsApp
+          // Cloud API integration hits, not a gap in our code. Meta
+          // sometimes includes a more specific title/message/details here
+          // though, so always surface those instead of a single generic string.
           errors?: { code: number; title: string; message?: string; error_data?: { details?: string } }[];
         }[];
       };
@@ -99,14 +113,47 @@ export const whatsappAdapter: ChannelAdapter = {
       }
     } else if (message.type === "document") {
       text = `[Customer sent a file${message.document?.filename ? `: ${message.document.filename}` : ""}]`;
+    } else if (message.type === "video") {
+      text = message.video?.caption ? `[Video] ${message.video.caption}` : "[Customer sent a video]";
+    } else if (message.type === "audio") {
+      text = message.audio?.voice ? "[Customer sent a voice message]" : "[Customer sent an audio file]";
+    } else if (message.type === "sticker") {
+      text = "[Customer sent a sticker]";
+    } else if (message.type === "location") {
+      const loc = message.location;
+      text = loc
+        ? `[Customer shared a location${loc.name ? `: ${loc.name}` : ""}${
+            loc.address ? ` (${loc.address})` : ""
+          }${loc.latitude && loc.longitude ? ` — ${loc.latitude}, ${loc.longitude}` : ""}]`
+        : "[Customer shared a location]";
+    } else if (message.type === "contacts") {
+      const names = message.contacts?.map((c) => c.name?.formatted_name).filter(Boolean).join(", ");
+      text = names ? `[Customer shared a contact: ${names}]` : "[Customer shared a contact card]";
+    } else if (message.type === "reaction") {
+      text = message.reaction?.emoji
+        ? `[Customer reacted ${message.reaction.emoji} to a message]`
+        : "[Customer removed a reaction]";
+    } else if (message.type === "button") {
+      text = message.button?.text ? `[Customer tapped: ${message.button.text}]` : "[Customer tapped a button]";
+    } else if (message.type === "interactive") {
+      const choice = message.interactive?.button_reply?.title ?? message.interactive?.list_reply?.title;
+      text = choice ? `[Customer selected: ${choice}]` : "[Customer made an interactive selection]";
     } else if (message.type === "unsupported") {
       // Meta never sends content for these regardless of integration — most
-      // often a view-once/disappearing photo or video, a reaction, a poll,
-      // or a deleted message. code 131051 is the generic "unsupported
-      // message type" error Meta attaches; error_data.details is sometimes
-      // more specific but usually just repeats the same generic wording.
-      text = "[Customer sent a message type WhatsApp doesn't deliver to businesses — likely a view-once photo/video, a reaction, or a poll. Ask them to resend as a regular photo/video or plain text.]";
+      // often a poll or a deleted message. code 131051 is the generic
+      // "unsupported message type" error Meta attaches to this; the detail
+      // fields below sometimes narrow it down further, so always surface
+      // whatever Meta actually gave us instead of one fixed guess, and log
+      // the full raw message so it's inspectable even when Meta's own
+      // wording is unhelpful.
+      const err = message.errors?.[0];
+      const detail = err?.error_data?.details || err?.message || err?.title;
+      console.error(`[adapter:whatsapp] unsupported message type from ${message.from}: ${JSON.stringify(message)}`);
+      text = detail
+        ? `[Customer sent a message type WhatsApp doesn't deliver to businesses. Meta's detail: "${detail}". Ask them to resend as a regular photo/video or plain text.]`
+        : "[Customer sent a message type WhatsApp doesn't deliver to businesses — likely a poll or a deleted message. Ask them to resend as a regular photo/video or plain text.]";
     } else {
+      console.error(`[adapter:whatsapp] unrecognized message type from ${message.from}: ${JSON.stringify(message)}`);
       text = `[unsupported WhatsApp message type: ${message.type}]`;
     }
 

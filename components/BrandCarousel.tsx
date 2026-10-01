@@ -28,18 +28,18 @@ export default function BrandCarousel() {
   const duplicatedBrands = [...brands, ...brands];
 
   return (
-    <section className="w-full bg-[#121212] border-t border-white/5 py-10 overflow-hidden relative">
-      
+    <section className="w-full bg-rb-black border-t border-rb-line py-10 overflow-hidden relative">
+
       {/* 1. Header / Label */}
       <div className="text-center mb-8">
-        <p className="font-saira text-brand-silver/100 text-m font-bold tracking-[0.3em] uppercase">
+        <p className="font-saira text-rb-silver text-m font-bold tracking-[0.3em] uppercase">
           BRANDS WE TRUST
         </p>
       </div>
 
       {/* 2. Gradient Masks (The "Cinematic Fade" Effect) */}
-      <div className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-[#121212] to-transparent z-10 pointer-events-none" />
-      <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-[#121212] to-transparent z-10 pointer-events-none" />
+      <div className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-rb-black to-transparent z-10 pointer-events-none" />
+      <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-rb-black to-transparent z-10 pointer-events-none" />
 
       {/* 3. The Infinite Track */}
       <div className="flex">
@@ -55,8 +55,8 @@ export default function BrandCarousel() {
           }}
         >
           {duplicatedBrands.map((brand, index) => (
-            <div 
-              key={`${brand}-${index}`} 
+            <div
+              key={`${brand}-${index}`}
               className="relative w-32 h-16 md:w-40 md:h-20 flex-shrink-0 group flex items-center justify-center grayscale hover:grayscale-0 transition-all duration-500 opacity-40 hover:opacity-100"
             >
               <Image

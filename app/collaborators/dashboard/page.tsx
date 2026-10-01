@@ -38,22 +38,22 @@ export default function CollaboratorDashboard() {
       <div className="pt-32 px-6 max-w-4xl mx-auto">
         
         <div className="text-center mb-12">
-            <h1 className="font-orbitron text-4xl font-bold text-white mb-2">CREATOR <span className="text-brand-purple">DASHBOARD</span></h1>
-            <p className="text-brand-silver uppercase tracking-widest text-sm">Track your exclusive coupon performance</p>
+            <h1 className="font-orbitron text-4xl font-bold text-white mb-2">CREATOR <span className="text-rb-orange">DASHBOARD</span></h1>
+            <p className="text-rb-silver uppercase tracking-widest text-sm">Track your exclusive coupon performance</p>
         </div>
 
         {loading ? (
-            <div className="text-center text-brand-purple animate-pulse">Loading data...</div>
+            <div className="text-center text-rb-orange animate-pulse">Loading data...</div>
         ) : coupons.length === 0 ? (
             <div className="bg-[#1A1A1A] p-8 rounded-xl border border-white/10 text-center">
                 <FaTicketAlt className="text-4xl text-white/20 mx-auto mb-4" />
                 <h3 className="text-xl font-bold">No Active Campaigns</h3>
-                <p className="text-brand-silver mt-2">You don't have any active discount codes assigned to your account yet.</p>
+                <p className="text-rb-silver mt-2">You don't have any active discount codes assigned to your account yet.</p>
             </div>
         ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {coupons.map(coupon => (
-                    <div key={coupon.id} className="bg-[#1A1A1A] p-6 rounded-xl border border-white/10 hover:border-brand-purple/50 transition-all group relative overflow-hidden">
+                    <div key={coupon.id} className="bg-[#1A1A1A] p-6 rounded-xl border border-white/10 hover:border-rb-orange/50 transition-all group relative overflow-hidden">
                         <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                             <FaChartLine size={80} />
                         </div>
@@ -64,18 +64,18 @@ export default function CollaboratorDashboard() {
                             </span>
 
                             <h2 className="font-orbitron text-4xl font-bold text-white mb-1">{coupon.code}</h2>
-                            <p className="text-brand-purple font-bold text-sm mb-6">
+                            <p className="text-rb-orange font-bold text-sm mb-6">
                                 {coupon.discount_type === 'percent' ? `${coupon.value}% Discount` : `₹${coupon.value} Flat Discount`}
                             </p>
 
                             <div className="flex items-center gap-4 border-t border-white/5 pt-4">
                                 <div>
-                                    <p className="text-[10px] text-brand-silver uppercase font-bold">Total Uses</p>
+                                    <p className="text-[10px] text-rb-silver uppercase font-bold">Total Uses</p>
                                     <p className="text-2xl font-bold text-white">{coupon.usage_count}</p>
                                 </div>
                                 <div className="h-8 w-[1px] bg-white/10"></div>
                                 <div>
-                                    <p className="text-[10px] text-brand-silver uppercase font-bold">Status</p>
+                                    <p className="text-[10px] text-rb-silver uppercase font-bold">Status</p>
                                     <p className="text-sm font-bold text-white">{coupon.active ? "Live Now" : "Paused"}</p>
                                 </div>
                             </div>

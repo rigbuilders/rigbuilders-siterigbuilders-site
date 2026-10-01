@@ -48,7 +48,7 @@ function OrderSuccessContent() {
                 <h1 className="text-5xl md:text-6xl font-orbitron font-bold text-white mb-6 uppercase tracking-wide">
                     ORDER <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-600">CONFIRMED</span>
                 </h1>
-                <p className="text-brand-silver text-lg max-w-xl mx-auto font-light mb-8">
+                <p className="text-rb-silver text-lg max-w-xl mx-auto font-light mb-8">
                     Your equipment has been secured and is entering the assembly queue.
                     A confirmation email with full details has been sent to your   E-mail address.
                 </p>
@@ -64,11 +64,11 @@ function OrderSuccessContent() {
                 <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-4">
                     <div>
                         <h3 className="text-xl font-orbitron font-bold text-white mb-2 tracking-widest">
-                            COMPLETE THE <span className="text-brand-purple">SETUP</span>
+                            COMPLETE THE <span className="text-rb-orange">SETUP</span>
                         </h3>
-                        <p className="text-brand-silver text-sm">Recommended peripherals for your new build.</p>
+                        <p className="text-rb-silver text-sm">Recommended peripherals for your new build.</p>
                     </div>
-                    <Link href="/products" className="flex items-center gap-2 text-white hover:text-brand-purple transition-colors text-xs font-bold uppercase tracking-[0.2em] border border-white/20 px-6 py-3 rounded hover:border-brand-purple hover:bg-brand-purple/10">
+                    <Link href="/products" className="flex items-center gap-2 text-white hover:text-rb-orange transition-colors text-xs font-bold uppercase tracking-[0.2em] border border-white/20 px-6 py-3 rounded hover:border-rb-orange hover:bg-rb-orange/10">
                         View Full Inventory <FaArrowRight />
                     </Link>
                 </div>
@@ -77,7 +77,7 @@ function OrderSuccessContent() {
             <StaggerGrid className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
                 {recommendations.map((product) => (
                     <StaggerItem key={product.id}>
-                        <Link href={`/product/${product.id}`} className="group bg-[#1A1A1A] border border-white/5 rounded-xl overflow-hidden hover:border-brand-purple/50 transition-all block h-full">
+                        <Link href={`/product/${product.id}`} className="group bg-rb-surface border border-white/5 rounded-xl overflow-hidden hover:border-rb-orange/50 transition-all block h-full">
                             <div className="h-40 bg-gradient-to-b from-white/5 to-transparent p-4 flex items-center justify-center relative">
                                 {product.image_url ? (
                                     <img src={product.image_url} alt={product.name} className="h-full object-contain relative z-10 transform group-hover:scale-105 transition-transform duration-500" />
@@ -85,9 +85,9 @@ function OrderSuccessContent() {
                                     <span className="text-white/10 font-orbitron">NO IMG</span>
                                 )}
                             </div>
-                            <div className="p-4 bg-[#151515] border-t border-white/5">
-                                <h4 className="text-white text-xs font-bold truncate group-hover:text-brand-purple transition-colors mb-1">{product.name}</h4>
-                                <div className="text-brand-silver font-orbitron text-sm">₹{product.price.toLocaleString("en-IN")}</div>
+                            <div className="p-4 bg-rb-surface border-t border-white/5">
+                                <h4 className="text-white text-xs font-bold truncate group-hover:text-rb-orange transition-colors mb-1">{product.name}</h4>
+                                <div className="text-rb-silver font-saira text-sm">₹{Number(product.price || 0).toLocaleString("en-IN")}</div>
                             </div>
                         </Link>
                     </StaggerItem>
@@ -100,13 +100,13 @@ function OrderSuccessContent() {
 
 export default function OrderSuccessPage() {
   return (
-    <div className="bg-[#121212] min-h-screen text-white font-saira flex flex-col relative">
-      <div className="fixed top-0 left-0 w-full h-[600px] bg-brand-purple/5 blur-[150px] pointer-events-none z-0" />
+    <div className="bg-rb-black min-h-screen text-white font-saira flex flex-col relative">
+      <div className="fixed top-0 left-0 w-full h-[600px] bg-rb-orange/5 blur-[150px] pointer-events-none z-0" />
       <Navbar />
       <div className="overflow-hidden">
         <Suspense fallback={
           <div className="min-h-screen flex items-center justify-center text-white pt-20">
-              <div className="text-brand-purple font-orbitron animate-pulse">LOADING...</div>
+              <div className="text-rb-orange font-orbitron animate-pulse">LOADING...</div>
           </div>
         }>
           <OrderSuccessContent />

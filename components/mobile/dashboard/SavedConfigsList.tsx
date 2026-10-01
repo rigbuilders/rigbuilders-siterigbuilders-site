@@ -19,7 +19,7 @@ export default function SavedConfigsList({ configs, setConfigs }: any) {
               <div className="w-8 h-8 bg-white/5 rounded flex items-center justify-center text-[#B084FF]"><FaMicrochip size={14}/></div>
               <div>
                  <h3 className="font-orbitron font-bold text-white text-xs">Build 00{i + 1}</h3>
-                 <p className="font-orbitron font-bold text-[#B084FF] text-[10px]">₹{Number(c.total_price).toLocaleString()}</p>
+                 <p className="font-saira font-bold text-[#B084FF] text-[10px]">₹{Number(c.total_price).toLocaleString()}</p>
               </div>
            </div>
            <div className="flex gap-4 items-center">

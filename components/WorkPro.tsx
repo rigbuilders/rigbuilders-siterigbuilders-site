@@ -34,7 +34,7 @@ const tiers = [
 
 export default function WorkPro() {
   return (
-    <section className="relative py-24 bg-[#121212] overflow-hidden border-t border-white/5">
+    <section className="relative py-24 bg-rb-surface overflow-hidden border-t border-rb-line">
       
       {/* Background: Clean Corporate Abstract */}
       <div className="absolute inset-0 opacity-10 pointer-events-none">
@@ -46,24 +46,24 @@ export default function WorkPro() {
          />
       </div>
       
-      {/* Blue "Security" Tint */}
-      {/*<div className="absolute inset-0 bg-gradient-to-r from-[#121212] via-[#265DAB]/5 to-[#121212]" /> */}
+      {/* Ember "Security" Tint */}
+      {/*<div className="absolute inset-0 bg-gradient-to-r from-rb-surface via-[#E24410]/5 to-rb-surface" /> */}
 
       <div className="max-w-[1440px] mx-auto px-4 lg:px-[30px] relative z-10">
         
         <Reveal className="mb-16 flex flex-col md:flex-row justify-between items-end gap-6">
           <div>
-            <span className="font-saira text-[#265DAB] tracking-[0.2em] text-xs font-bold uppercase block mb-2">
+            <span className="font-saira text-rb-orange-deep tracking-[0.2em] text-xs font-bold uppercase block mb-2">
               Enterprise Solutions
             </span>
             <h2 className="font-orbitron text-4xl md:text-5xl font-bold text-white uppercase">
-              WORK<span className="text-[#265DAB]">PRO</span> SERIES
+              WORK<span className="text-rb-orange-deep">PRO</span> SERIES
             </h2>
-            <p className="text-brand-silver mt-4 max-w-xl text-lg">
+            <p className="text-rb-silver mt-4 max-w-xl text-lg">
               Security is our motto. Built for the corporate environment where stability, data integrity, and uptime are non-negotiable.
             </p>
           </div>
-          <Link href="/workpro" className="hidden md:flex items-center gap-2 text-[#265DAB] border-b border-[#265DAB]/50 pb-1 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest">
+          <Link href="/workpro" className="hidden md:flex items-center gap-2 text-rb-orange-deep border-b border-rb-orange-deep/50 pb-1 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest">
             View Enterprise Catalog
           </Link>
         </Reveal>
@@ -72,31 +72,31 @@ export default function WorkPro() {
           {tiers.map((item, i) => (
             <StaggerItem key={i} className="h-full">
                <Link href={item.link} className="group block h-full">
-                 <div className="rb-card p-8 h-full bg-[#0a0a0a] border border-white/5 hover:border-[#265DAB]/50 transition-all duration-300 flex flex-col">
-                    
+                 <div className="rb-card rb-sheen p-8 h-full bg-rb-black border border-rb-line hover:border-rb-orange-deep/50 transition-all duration-300 flex flex-col">
+
                     <div className="flex justify-between items-start mb-6">
-                       <div className="text-[#265DAB] text-3xl opacity-80 group-hover:scale-110 transition-transform duration-300">
+                       <div className="text-rb-orange-deep text-3xl opacity-80 group-hover:scale-110 transition-transform duration-300">
                           {item.icon}
                        </div>
-                       <span className="bg-[#265DAB]/10 text-[#265DAB] text-[10px] font-bold px-2 py-1 rounded border border-[#265DAB]/20 uppercase">
+                       <span className="bg-rb-orange-deep/10 text-rb-orange-deep text-[10px] font-bold px-2 py-1 rounded border border-rb-orange-deep/20 uppercase">
                           {item.badge}
                        </span>
                     </div>
 
-                    <h3 className="font-orbitron text-2xl font-bold text-white mb-1 group-hover:text-[#265DAB] transition-colors">
+                    <h3 className="font-orbitron text-2xl font-bold text-white mb-1 group-hover:text-rb-orange-deep transition-colors">
                         {item.title}
                     </h3>
-                    <span className="text-[10px] text-brand-silver uppercase tracking-widest font-bold block mb-4">
+                    <span className="text-[10px] text-rb-silver uppercase tracking-widest font-bold block mb-4">
                         {item.role}
                     </span>
-                    
-                    <p className="text-brand-silver/70 text-sm leading-relaxed mb-6 flex-grow">
+
+                    <p className="text-rb-silver/70 text-sm leading-relaxed mb-6 flex-grow">
                         {item.desc}
                     </p>
 
                     <div className="flex items-center gap-2 mt-auto opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-2 group-hover:translate-y-0">
-                        <div className="h-[1px] w-8 bg-[#265DAB]" />
-                        <span className="text-[10px] text-[#265DAB] font-bold uppercase">EXPLORE</span>
+                        <div className="h-[1px] w-8 bg-rb-orange-deep" />
+                        <span className="text-[10px] text-rb-orange-deep font-bold uppercase">EXPLORE</span>
                     </div>
                  </div>
                </Link>

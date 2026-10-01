@@ -123,7 +123,7 @@ export default function ChatBuildQuoteCard({ quote }: { quote: ChatBuildQuoteDat
             onClick={() => router.push(`/product/${item.id}`)}
             className="w-full flex items-center justify-between text-left group"
           >
-            <span className="text-[11px] text-brand-silver group-hover:text-white transition-colors truncate pr-2">
+            <span className="text-[11px] text-rb-silver group-hover:text-white transition-colors truncate pr-2">
               {item.label}: <span className="text-white/90">{item.name}</span>
             </span>
             <span className="text-[11px] font-bold text-white shrink-0">₹{item.price.toLocaleString("en-IN")}</span>
@@ -149,14 +149,14 @@ export default function ChatBuildQuoteCard({ quote }: { quote: ChatBuildQuoteDat
       )}
 
       <div className="flex items-center justify-between pt-2 border-t border-white/10">
-        <span className="text-xs text-brand-silver">Total</span>
+        <span className="text-xs text-rb-silver">Total</span>
         <span className="text-base font-bold text-white">₹{quote.totalPrice.toLocaleString("en-IN")}</span>
       </div>
 
       <div className="flex items-center gap-2 pt-1">
         <button
           onClick={handleAddToCart}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full bg-brand-purple hover:scale-[1.02] transition-transform text-[11px] font-bold text-white"
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full bg-rb-orange hover:scale-[1.02] transition-transform text-[11px] font-bold text-white"
         >
           <ShoppingCart className="w-3.5 h-3.5" />
           Add Build to Cart

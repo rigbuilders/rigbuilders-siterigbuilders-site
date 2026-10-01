@@ -170,15 +170,15 @@ export default function FinancePage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
             <div className="bg-[#1A1A1A] p-6 rounded-xl border border-white/5">
                 <div className="text-brand-silver text-xs font-bold uppercase mb-1">Total Revenue</div>
-                <div className="text-2xl font-orbitron font-bold text-white">₹{stats.revenue.toLocaleString("en-IN")}</div>
+                <div className="text-2xl font-saira font-bold text-white">₹{stats.revenue.toLocaleString("en-IN")}</div>
             </div>
             <div className="bg-[#1A1A1A] p-6 rounded-xl border border-white/5">
                 <div className="text-brand-silver text-xs font-bold uppercase mb-1">Total Expenses (COGS)</div>
-                <div className="text-2xl font-orbitron font-bold text-red-400">₹{stats.cost.toLocaleString("en-IN")}</div>
+                <div className="text-2xl font-saira font-bold text-red-400">₹{stats.cost.toLocaleString("en-IN")}</div>
             </div>
             <div className="bg-[#1A1A1A] p-6 rounded-xl border border-brand-purple/30 bg-brand-purple/5">
                 <div className="text-brand-purple text-xs font-bold uppercase mb-1">Net Profit</div>
-                <div className="text-2xl font-orbitron font-bold text-green-400">₹{stats.profit.toLocaleString("en-IN")}</div>
+                <div className="text-2xl font-saira font-bold text-green-400">₹{stats.profit.toLocaleString("en-IN")}</div>
             </div>
             <div className="bg-[#1A1A1A] p-6 rounded-xl border border-white/5">
                 <div className="text-brand-silver text-xs font-bold uppercase mb-1">Profit Margin</div>

@@ -65,7 +65,7 @@ export default function CategoryLanding({ category }: { category: string }) {
         >
           <div className="absolute inset-0">
              {/* Fallback color if image is missing */}
-             <div className="absolute inset-0 bg-[#121212]"></div> 
+             <div className="absolute inset-0 bg-rb-black"></div>
              <Image 
                 src={section.image} 
                 alt={`${section.brand} ${category.toUpperCase()}`}
@@ -85,7 +85,7 @@ export default function CategoryLanding({ category }: { category: string }) {
                     <h3 className={`font-orbitron font-bold text-lg md:text-xl mb-2 tracking-widest ${section.textColor}`}>
                         {section.title}
                     </h3>
-                    <p className="font-saira text-brand-silver text-sm md:text-base max-w-xs mx-auto mb-6 leading-relaxed">
+                    <p className="font-saira text-rb-silver text-sm md:text-base max-w-xs mx-auto mb-6 leading-relaxed">
                         {section.desc}
                     </p>
                     <span className="inline-block border border-white px-6 py-2 font-orbitron font-bold text-xs uppercase tracking-[0.2em] hover:bg-white hover:text-black transition-colors pointer-events-auto">

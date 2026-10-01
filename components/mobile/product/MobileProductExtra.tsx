@@ -39,7 +39,7 @@ export default function MobileProductExtra({ product, related, reviews, user, se
                         <Link href={`/m/product/${r.id}`} key={r.id} className="w-[140px] shrink-0 snap-start bg-[#1A1A1A] border border-white/5 p-3 rounded-xl active:scale-95 transition-transform">
                             <div className="h-20 flex items-center justify-center mb-2 bg-[#050505] rounded border border-white/5"><img src={r.image_url} className="max-h-full object-contain"/></div>
                             <h4 className="text-[10px] font-bold text-white truncate mb-1">{r.name}</h4>
-                            <p className="text-[9px] text-[#B084FF] font-bold font-orbitron tracking-wider">₹{r.price.toLocaleString()}</p>
+                            <p className="text-[9px] text-[#B084FF] font-bold font-saira tracking-wider">₹{r.price.toLocaleString()}</p>
                         </Link>
                     ))}
                 </div>

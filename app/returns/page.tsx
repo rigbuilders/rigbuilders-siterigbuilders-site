@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function ReturnsPolicyPage() {
   return (
-    <div className="min-h-screen bg-[#121212] text-white font-saira flex flex-col">
+    <div className="min-h-screen bg-rb-black text-white font-saira flex flex-col">
       <Navbar />
       
       {/* Page Content */}
@@ -19,16 +19,16 @@ export default function ReturnsPolicyPage() {
         
         <div className="mb-12 border-b border-white/10 pb-8">
             <h1 className="font-orbitron text-4xl font-bold uppercase tracking-widest text-white mb-2">
-                Returns & <span className="text-[#E6C700]">Shipping</span>
+                Returns & <span className="text-rb-warn">Shipping</span>
             </h1>
-            <p className="text-brand-silver">Official fulfillment and RMA guidelines for Rig Builders.</p>
+            <p className="text-rb-silver">Official fulfillment and RMA guidelines for Rig Builders.</p>
         </div>
         
-        <div className="space-y-8 text-brand-silver">
+        <div className="space-y-8 text-rb-silver">
           
           {/* 1. SHIPPING POLICY */}
-          <section className="bg-[#1A1A1A] p-8 rounded-xl border border-white/5 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-1 h-full bg-[#E6C700]"></div>
+          <section className="bg-rb-surface p-8 rounded-xl border border-white/5 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-1 h-full bg-rb-warn"></div>
             <h2 className="font-orbitron text-2xl font-bold text-white mb-4 uppercase">Shipping Policy</h2>
             <p className="leading-relaxed mb-4">
               We currently fulfill and ship orders exclusively within <strong>India</strong>. Our logistics team ensures your premium PC components and custom pre-built systems are securely packaged with industrial-grade protection before dispatch.
@@ -40,16 +40,16 @@ export default function ReturnsPolicyPage() {
           </section>
 
           {/* 2. RETURNS POLICY (DEFECTIVE ONLY) */}
-          <section className="bg-[#1A1A1A] p-8 rounded-xl border border-white/5 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-1 h-full bg-red-500"></div>
+          <section className="bg-rb-surface p-8 rounded-xl border border-white/5 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-1 h-full bg-rb-danger"></div>
             <h2 className="font-orbitron text-2xl font-bold text-white mb-4 uppercase">Returns Policy</h2>
             <p className="leading-relaxed mb-6">
               Due to the sensitive, high-value, and easily compromised nature of custom PC hardware, we maintain a strict returns protocol to ensure inventory integrity for all our customers.
             </p>
             
             {/* --- MANDATORY UNBOXING WARNING --- */}
-            <div className="bg-[#E6C700]/10 border border-[#E6C700]/30 p-6 rounded-lg mb-6 shadow-[0_0_15px_rgba(230,199,0,0.05)]">
-              <strong className="text-[#E6C700] block mb-2 uppercase font-orbitron text-lg tracking-wider flex items-center gap-2">
+            <div className="bg-rb-warn/10 border border-rb-warn/30 p-6 rounded-lg mb-6 shadow-[0_0_15px_rgba(230,199,0,0.05)]">
+              <strong className="text-rb-warn block mb-2 uppercase font-orbitron text-lg tracking-wider flex items-center gap-2">
                 ⚠️ Mandatory Unboxing Video
               </strong>
               <p className="text-sm text-white/90 leading-relaxed">
@@ -57,8 +57,8 @@ export default function ReturnsPolicyPage() {
               </p>
             </div>
             
-            <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-lg mb-4 text-white">
-              <strong className="text-red-400 block mb-1 uppercase font-orbitron text-sm">Condition for Returns:</strong>
+            <div className="bg-rb-danger/10 border border-rb-danger/20 p-4 rounded-lg mb-4 text-white">
+              <strong className="text-rb-danger block mb-1 uppercase font-orbitron text-sm">Condition for Returns:</strong>
               <p className="text-sm">We <strong>only accept returns for defective products</strong>. If you receive a component or system that is dead on arrival (DOA) or suffers from a manufacturing defect out of the box (verified by your unboxing video), you are eligible for an RMA (Return Merchandise Authorization).</p>
             </div>
             
@@ -69,8 +69,8 @@ export default function ReturnsPolicyPage() {
           </section>
 
           {/* 3. EXCHANGES */}
-          <section className="bg-[#1A1A1A] p-8 rounded-xl border border-white/5 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-1 h-full bg-brand-purple"></div>
+          <section className="bg-rb-surface p-8 rounded-xl border border-white/5 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-1 h-full bg-rb-orange"></div>
             <h2 className="font-orbitron text-2xl font-bold text-white mb-4 uppercase">Exchanges</h2>
             <p className="leading-relaxed mb-4">
               We gladly <strong>accept exchanges</strong> for eligible defective items. 
@@ -82,13 +82,13 @@ export default function ReturnsPolicyPage() {
           </section>
 
           {/* 4. RMA PROCESS */}
-          <section className="bg-[#1A1A1A] p-8 rounded-xl border border-white/5 relative overflow-hidden">
+          <section className="bg-rb-surface p-8 rounded-xl border border-white/5 relative overflow-hidden">
             <h2 className="font-orbitron text-2xl font-bold text-white mb-4 uppercase">Initiating a Request</h2>
             <p className="leading-relaxed mb-4">
               To request a return or exchange for a defective item, please contact our support team within 48 hours of delivery. 
             </p>
             <ol className="list-decimal pl-5 space-y-3 text-sm">
-              <li>Navigate to our <Link href="/support" className="text-[#E6C700] hover:underline font-bold">Support Portal</Link> or email our help desk.</li>
+              <li>Navigate to our <Link href="/support" className="text-rb-warn hover:underline font-bold">Support Portal</Link> or email our help desk.</li>
               <li>Provide your Order ID, a detailed description of the defect, and attach your <strong>mandatory unboxing video</strong> along with clear photographic evidence.</li>
               <li>Once your claim is approved, we will provide you with an RMA number and instructions for securely shipping the component back to our facility.</li>
             </ol>

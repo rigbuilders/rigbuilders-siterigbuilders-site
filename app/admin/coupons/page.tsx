@@ -335,7 +335,7 @@ export default function CouponManager() {
                           <div className="text-xs text-brand-silver">{o.email}</div>
                         </div>
                         <div className="text-right">
-                          <div className="font-orbitron font-bold text-white">₹{Number(o.total_amount || 0).toLocaleString("en-IN")}</div>
+                          <div className="font-saira font-bold text-white">₹{Number(o.total_amount || 0).toLocaleString("en-IN")}</div>
                           {o.discount > 0 && <div className="text-[10px] text-green-400">−₹{Number(o.discount).toLocaleString("en-IN")} off</div>}
                         </div>
                       </div>

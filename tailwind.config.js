@@ -34,11 +34,11 @@ module.exports = {
         //     orange so the two never blur on compatibility screens.
         // ==========================================================
         rb: {
-          black:    "#0A0A0A",   // deepest — hero / full-bleed sections
-          surface:  "#101112",   // page background
-          elevated: "#17181A",   // cards / panels
-          raised:   "#1F2123",   // hover / elevated card
-          line:     "#2A2D2F",   // hairline borders
+          black:    "#121212",   // deepest — MATTE black — hero / full-bleed
+          surface:  "#181818",   // page background
+          elevated: "#1E1E1E",   // cards / panels
+          raised:   "#262626",   // hover / elevated card
+          line:     "#2E2E2E",   // hairline borders
           silver:   "#8A8F90",   // muted / tertiary text
           mist:     "#C7CBCC",   // secondary text
           white:    "#F4F5F5",   // primary text on dark

@@ -1,6 +1,6 @@
 "use client";
 
-import Navbar from "@/components/Navbar";
+import NavbarNeo from "@/components/home/NavbarNeo";
 import Footer from "@/components/Footer";
 import Link from "next/link";
 import Image from "next/image";
@@ -16,224 +16,178 @@ export default function SignaturePage() {
   useEffect(() => {
     const fetchSignature = async () => {
       const { data } = await supabase
-        .from('products')
-        .select('*')
-        .eq('series', 'signature')
-        .order('price', { ascending: false });
-      
+        .from("products")
+        .select("*")
+        .eq("series", "signature")
+        .order("price", { ascending: false });
       if (data) setProducts(data);
       setLoading(false);
     };
     fetchSignature();
   }, []);
 
-  // Helper to safely get specs (checks multiple casing/keys)
   const getSpec = (specs: any, keys: string[]) => {
     if (!specs) return "TBD";
     for (const key of keys) {
-        if (specs[key]) return specs[key];
-        if (specs[key.toLowerCase()]) return specs[key.toLowerCase()];
+      if (specs[key]) return specs[key];
+      if (specs[key.toLowerCase()]) return specs[key.toLowerCase()];
     }
     return "TBD";
   };
 
   return (
-    <main className="min-h-screen bg-[#121212] text-white font-saira flex flex-col">
-      <Navbar />
-      
-      {/* --- HERO: THE MASTERPIECE (Unchanged) --- */}
-      <section className="pt-20 pb-20 px-6 border-b border-white/5 relative overflow-hidden bg-[#121212]">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[800px] bg-gradient-to-b from-brand-purple/20 via-transparent to-transparent blur-[120px] pointer-events-none" />
-        <div className="max-w-7xl mx-auto text-center relative z-10">
+    <main className="min-h-screen bg-rb-black text-white font-saira flex flex-col">
+      <NavbarNeo />
+
+      {/* HERO: THE MASTERPIECE */}
+      <section className="relative overflow-hidden bg-rb-black border-b border-rb-line py-20 lg:py-28">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[700px] pointer-events-none"
+             style={{ background: "radial-gradient(ellipse at top, rgba(255,90,31,0.16), transparent 60%)" }} />
+        <div className="rb-dots absolute inset-0 opacity-20 pointer-events-none" />
+
+        <div className="rb-shell text-center relative z-10">
           <Reveal>
-            <p className="font-saira text-brand-purple uppercase tracking-[0.4em] mb-6 text-xs md:text-sm font-bold">
-                The Flagship Experience
-            </p>
-            <h1 className="font-orbitron font-black text-5xl md:text-8xl text-white mb-8 tracking-tighter">
-              SIGNATURE <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-purple to-amber-400">EDITION</span>
+            <span className="rb-kicker">The flagship experience</span>
+            <h1 className="mt-4 font-orbitron font-black uppercase text-5xl md:text-8xl text-rb-white tracking-tight">
+              Signature <span className="rb-text-ember">Edition</span>
             </h1>
-            <p className="font-saira text-brand-silver text-lg md:text-xl max-w-3xl mx-auto leading-relaxed">
-              Commissioned Masterpieces. Hand-signed by the builder, custom cable themes, and thermal certification. 
-              These are not just computers; they are statement pieces.
+            <p className="mt-6 text-rb-silver text-lg md:text-xl max-w-3xl mx-auto leading-relaxed">
+              Commissioned masterpieces. Hand-signed by the builder, custom cable themes, and thermal certification.
+              These are not just computers — they are statement pieces.
             </p>
           </Reveal>
         </div>
       </section>
 
-      {/* --- SIGNATURE SHOWCASE (Natural Merge Layout) --- */}
-      <div className="flex flex-col">
+      {/* SIGNATURE SHOWCASE */}
+      <div className="flex flex-col flex-grow">
         {loading ? (
-             <div className="h-[50vh] flex flex-col items-center justify-center text-brand-purple animate-pulse">
-                <div className="text-xl font-orbitron mb-2 tracking-widest">LOADING ARCHIVES</div>
-             </div>
+          <div className="h-[50vh] flex flex-col items-center justify-center text-rb-orange animate-pulse">
+            <div className="text-xl font-orbitron mb-2 tracking-widest uppercase">Loading archives</div>
+          </div>
         ) : products.length === 0 ? (
-             <div className="py-24 text-center border-b border-white/5">
-                <p className="text-brand-silver">No Signature commissions available currently.</p>
-             </div>
+          <div className="py-24 text-center border-b border-rb-line">
+            <p className="text-rb-silver">No Signature commissions available currently.</p>
+          </div>
         ) : (
-            products.map((product, index) => {
-                const isEven = index % 2 === 0; // Zig-Zag Logic
-                
-                return (
-                    <section key={product.id} className="min-h-[90vh] flex items-center border-b border-white/5 relative overflow-hidden group">
-                        
-                        {/* Background Gradient for Section Depth */}
-                        <div className={`absolute top-0 w-[50%] h-full bg-gradient-to-r from-brand-purple/5 to-transparent blur-3xl pointer-events-none ${isEven ? 'right-0' : 'left-0'}`} />
+          products.map((product, index) => {
+            const isEven = index % 2 === 0;
+            return (
+              <section key={product.id} className="min-h-[90vh] flex items-center border-b border-rb-line relative overflow-hidden group">
+                <div className={`absolute top-0 w-1/2 h-full pointer-events-none ${isEven ? "right-0" : "left-0"}`}
+                     style={{ background: `radial-gradient(circle at ${isEven ? "80%" : "20%"} 50%, rgba(255,90,31,0.07), transparent 60%)` }} />
 
-                        <div className={`w-full max-w-[1800px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-0 items-center`}>
-                            
-                            {/* --- CONTENT SIDE --- */}
-                            <div className={`order-2 ${isEven ? 'lg:order-1' : 'lg:order-2'} px-6 md:px-12 lg:px-24 py-20 relative z-10`}>
-                                <Reveal>
-                                    <div className="relative">
-                                        {/* Decorative ID Number */}
-                                        <span className="text-[6rem] md:text-[10rem] font-bold font-orbitron text-white/[0.03] absolute -top-16 -left-8 select-none pointer-events-none">
-                                            0{index + 1}
-                                        </span>
+                <div className="w-full max-w-[1800px] mx-auto grid grid-cols-1 lg:grid-cols-2 items-center">
+                  {/* CONTENT SIDE */}
+                  <div className={`order-2 ${isEven ? "lg:order-1" : "lg:order-2"} px-6 md:px-12 lg:px-24 py-16 lg:py-20 relative z-10`}>
+                    <Reveal>
+                      <div className="relative">
+                        <span className="text-[6rem] md:text-[10rem] font-black font-orbitron text-white/[0.03] absolute -top-16 -left-8 select-none pointer-events-none">
+                          0{index + 1}
+                        </span>
 
-                                        <span className="text-brand-purple font-bold tracking-[0.2em] text-sm uppercase mb-4 block">
-                                            Signature Collection
-                                        </span>
-                                        
-                                        <h2 className="font-orbitron text-4xl md:text-6xl font-bold text-white mb-6 leading-tight">
-                                            {product.name}
-                                        </h2>
-                                        
-                                        <p className="text-brand-silver text-lg leading-relaxed mb-10 max-w-xl">
-                                            {product.description || "A pinnacle of engineering. Designed for those who demand the absolute limit of performance and aesthetics."}
-                                        </p>
+                        <span className="rb-kicker text-rb-orange">Signature Collection</span>
+                        <h2 className="mt-3 font-orbitron text-4xl md:text-6xl font-black uppercase text-rb-white mb-6 leading-tight">
+                          {product.name}
+                        </h2>
+                        <p className="text-rb-silver text-lg leading-relaxed mb-10 max-w-xl">
+                          {product.description || "A pinnacle of engineering. Designed for those who demand the absolute limit of performance and aesthetics."}
+                        </p>
 
-                                        {/* SPECS GRID (Dynamic Keys) */}
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 mb-12 border-t border-b border-white/5 py-10">
-                                            
-                                            {/* CPU */}
-                                            <div className="flex items-start gap-4">
-                                                <FaMicrochip className="text-brand-purple text-xl mt-1 shrink-0" />
-                                                <div>
-                                                    <span className="block text-[10px] uppercase text-brand-silver tracking-wider mb-1">Processor</span>
-                                                    <span className="text-white font-bold text-sm md:text-base leading-tight block">
-                                                        {getSpec(product.specs, ["Processor", "CPU", "recipe_cpu"])}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            {/* GPU */}
-                                            <div className="flex items-start gap-4">
-                                                <FaBolt className="text-brand-purple text-xl mt-1 shrink-0" />
-                                                <div>
-                                                    <span className="block text-[10px] uppercase text-brand-silver tracking-wider mb-1">Graphics</span>
-                                                    <span className="text-white font-bold text-sm md:text-base leading-tight block">
-                                                        {getSpec(product.specs, ["Graphics Card", "GPU", "Graphics", "recipe_gpu"])}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            {/* RAM */}
-                                            <div className="flex items-start gap-4">
-                                                <FaMemory className="text-brand-purple text-xl mt-1 shrink-0" />
-                                                <div>
-                                                    <span className="block text-[10px] uppercase text-brand-silver tracking-wider mb-1">Memory</span>
-                                                    <span className="text-white font-bold text-sm md:text-base leading-tight block">
-                                                        {getSpec(product.specs, ["Memory", "RAM", "recipe_ram"])}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            {/* Storage */}
-                                            <div className="flex items-start gap-4">
-                                                <FaHdd className="text-brand-purple text-xl mt-1 shrink-0" />
-                                                <div>
-                                                    <span className="block text-[10px] uppercase text-brand-silver tracking-wider mb-1">Storage</span>
-                                                    <span className="text-white font-bold text-sm md:text-base leading-tight block">
-                                                        {getSpec(product.specs, ["Storage", "SSD", "recipe_storage"])}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* PRICE & ACTION */}
-                                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-8">
-                                            <div>
-                                                <span className="block text-xs text-brand-silver uppercase tracking-widest mb-1">Commission Price</span>
-                                                <span className="font-orbitron text-4xl font-bold text-white">₹{product.price.toLocaleString("en-IN")}</span>
-                                            </div>
-                                            
-                                            <Link href={`/product/${product.id}`}>
-                                                <button className="px-8 py-4 bg-white text-black font-orbitron font-bold text-sm uppercase tracking-widest hover:bg-brand-purple hover:text-white transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:shadow-brand-purple/50 flex items-center gap-3">
-                                                    Inspect Build <FaArrowRight />
-                                                </button>
-                                            </Link>
-                                        </div>
-
-                                    </div>
-                                </Reveal>
-                            </div>
-
-                            {/* --- IMAGE SIDE (NO BLOCK) --- */}
-                            <div className={`relative h-[60vh] lg:h-[90vh] w-full order-1 ${isEven ? 'lg:order-2' : 'lg:order-1'} overflow-hidden`}>
-                                <Reveal delay={0.2} className="h-full w-full">
-                                    
-                                    {/* 1. The Glow Behind (Natural Merge) */}
-                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60%] h-[60%] bg-brand-purple/20 blur-[150px] rounded-full" />
-                                    
-                                    {/* 2. The Image */}
-                                    {product.image_url ? (
-                                        <div className="relative w-full h-full">
-                                            <Image 
-                                                src={product.image_url} 
-                                                alt={product.name}
-                                                fill
-                                                className="object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.8)] scale-90 group-hover:scale-100 transition-transform duration-[1.5s] ease-out"
-                                                priority={index === 0}
-                                            />
-                                            
-                                            {/* 3. Gradient overlay at bottom to blend with section border */}
-                                            <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-[#121212] to-transparent pointer-events-none" />
-                                        </div>
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center">
-                                            <span className="font-orbitron text-white/10 text-4xl">CONFIDENTIAL</span>
-                                        </div>
-                                    )}
-                                </Reveal>
-                            </div>
-
+                        {/* SPECS GRID */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 mb-12 border-t border-b border-rb-line py-10">
+                          <SpecItem icon={<FaMicrochip />} label="Processor" value={getSpec(product.specs, ["Processor", "CPU", "recipe_cpu"])} />
+                          <SpecItem icon={<FaBolt />} label="Graphics" value={getSpec(product.specs, ["Graphics Card", "GPU", "Graphics", "recipe_gpu"])} />
+                          <SpecItem icon={<FaMemory />} label="Memory" value={getSpec(product.specs, ["Memory", "RAM", "recipe_ram"])} />
+                          <SpecItem icon={<FaHdd />} label="Storage" value={getSpec(product.specs, ["Storage", "SSD", "recipe_storage"])} />
                         </div>
-                    </section>
-                );
-            })
+
+                        {/* PRICE & ACTION */}
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-8">
+                          <div>
+                            <span className="block text-xs text-rb-silver uppercase tracking-widest mb-1">Commission Price</span>
+                            <span className="font-saira text-4xl font-bold text-rb-white">₹{Number(product.price || 0).toLocaleString("en-IN")}</span>
+                          </div>
+                          <Link href={`/product/${product.id}`}>
+                            <button className="rb-cta rb-sheen px-8 py-4 rounded-lg font-orbitron font-bold text-sm uppercase tracking-widest flex items-center gap-3">
+                              Inspect Build <FaArrowRight />
+                            </button>
+                          </Link>
+                        </div>
+                      </div>
+                    </Reveal>
+                  </div>
+
+                  {/* IMAGE SIDE */}
+                  <div className={`relative h-[60vh] lg:h-[90vh] w-full order-1 ${isEven ? "lg:order-2" : "lg:order-1"} overflow-hidden`}>
+                    <Reveal delay={0.2} className="h-full w-full">
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60%] h-[60%] bg-rb-orange/20 blur-[150px] rounded-full" />
+                      {product.image_url ? (
+                        <div className="relative w-full h-full">
+                          <Image
+                            src={product.image_url}
+                            alt={product.name}
+                            fill
+                            className="object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.8)] scale-90 group-hover:scale-100 transition-transform duration-[1.5s] ease-out"
+                            priority={index === 0}
+                          />
+                          <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-rb-black to-transparent pointer-events-none" />
+                        </div>
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <span className="font-orbitron text-white/10 text-4xl uppercase">Confidential</span>
+                        </div>
+                      )}
+                    </Reveal>
+                  </div>
+                </div>
+              </section>
+            );
+          })
         )}
       </div>
 
-      {/* --- PACKAGE INCLUSIONS (Unchanged) --- */}
-      <section className="py-24 px-6 bg-[#0A0A0A] border-t border-white/5">
+      {/* PACKAGE INCLUSIONS */}
+      <section className="py-24 px-6 bg-rb-surface border-t border-rb-line">
         <div className="max-w-6xl mx-auto">
-           <Reveal>
-             <h2 className="font-orbitron text-3xl md:text-4xl mb-16 text-white font-bold text-center">
-                 SIGNATURE <span className="text-brand-purple">PRIVILEGES</span>
-             </h2>
-           </Reveal>
-           
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {[
-                  { id: "01", title: "Thermal Certification", desc: "Every rig comes with a printed thermal stress-test certificate (Cinebench, 3DMark) proving stability." },
-                  { id: "02", title: "Builder's Signature", desc: "Signed verification card by the specific engineer who built, tuned, and cable-managed your machine." },
-                  { id: "03", title: "Bespoke Cabling", desc: "Hand-trained cables in our signature Matte Black & Deep Purple color theme. Zero loose wires." },
-                  { id: "04", title: "Digital Build Log", desc: "A personal QR code linking to high-res photos of your specific build process, from parts to final testing." }
-              ].map((feature, i) => (
-                  <Reveal key={i} delay={i * 0.1}>
-                    <div className="p-8 border border-white/5 bg-[#121212] hover:border-brand-purple/50 transition-all duration-300 h-full group">
-                        <span className="block text-brand-purple font-orbitron font-bold text-xl mb-4 opacity-50 group-hover:opacity-100">{feature.id}</span>
-                        <h3 className="text-white font-orbitron font-bold mb-3 text-lg">{feature.title}</h3>
-                        <p className="text-sm text-brand-silver/60 leading-relaxed group-hover:text-brand-silver transition-colors">{feature.desc}</p>
-                    </div>
-                  </Reveal>
-              ))}
-           </div>
+          <Reveal>
+            <h2 className="font-orbitron text-3xl md:text-4xl mb-16 text-rb-white font-black uppercase text-center">
+              Signature <span className="rb-text-ember">Privileges</span>
+            </h2>
+          </Reveal>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              { id: "01", title: "Thermal Certification", desc: "Every rig comes with a printed thermal stress-test certificate (Cinebench, 3DMark) proving stability." },
+              { id: "02", title: "Builder's Signature", desc: "Signed verification card by the specific engineer who built, tuned, and cable-managed your machine." },
+              { id: "03", title: "Bespoke Cabling", desc: "Hand-trained cables in our signature matte-black & molten-orange theme. Zero loose wires." },
+              { id: "04", title: "Digital Build Log", desc: "A personal QR code linking to high-res photos of your specific build process, from parts to final testing." },
+            ].map((feature, i) => (
+              <Reveal key={feature.id} delay={i * 0.1}>
+                <div className="rb-surface-card !bg-rb-black p-8 h-full group">
+                  <span className="block rb-text-ember font-orbitron font-black text-xl mb-4 opacity-60 group-hover:opacity-100 transition-opacity">{feature.id}</span>
+                  <h3 className="text-rb-white font-orbitron font-bold mb-3 text-lg">{feature.title}</h3>
+                  <p className="text-sm text-rb-silver leading-relaxed">{feature.desc}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
         </div>
       </section>
 
       <Footer />
     </main>
+  );
+}
+
+function SpecItem({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-start gap-4">
+      <span className="text-rb-orange text-xl mt-1 shrink-0">{icon}</span>
+      <div>
+        <span className="block text-[10px] uppercase text-rb-silver tracking-wider mb-1">{label}</span>
+        <span className="text-rb-white font-bold text-sm md:text-base leading-tight block">{value}</span>
+      </div>
+    </div>
   );
 }

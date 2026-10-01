@@ -130,18 +130,20 @@ export default function ConfiguratorPage() {
   };
 
   return (
-    <div className="bg-[#121212] min-h-screen text-white font-saira flex flex-col relative">
+    <div className="bg-rb-black min-h-screen text-white font-saira flex flex-col relative">
       <div className="fixed top-0 left-0 w-full h-full bg-[url('/images/noise.png')] opacity-[0.03] pointer-events-none z-0" />
+      <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-rb-orange/5 blur-[150px] pointer-events-none z-0" />
       <Navbar />
 
       {/* overflow-x-clip (not -hidden) prevents horizontal scroll WITHOUT
           creating a scroll container — the latter would break the sticky
-          summary card below. */}
-      <div className="flex-grow pt-8 sm:pt-12 pb-12 px-4 md:px-8 2xl:px-[100px] relative z-10 overflow-x-clip">
-        <div className="max-w-[1800px] mx-auto relative">
+          summary card below. rb-shell keeps the gutter aligned with the navbar
+          and every other section. */}
+      <div className="flex-grow pt-8 sm:pt-12 pb-12 relative z-10 overflow-x-clip">
+        <div className="rb-shell relative">
           <Reveal>
-              <h1 className="font-orbitron text-2xl sm:text-4xl font-bold mb-8 sm:mb-12 text-white uppercase tracking-wide">
-                  System <span className="text-[#FFE600]">Configurator</span>
+              <h1 className="font-orbitron text-3xl sm:text-5xl font-black mb-8 sm:mb-12 text-rb-white uppercase tracking-tight">
+                  System <span className="rb-text-ember">Configurator</span>
               </h1>
           </Reveal>
 

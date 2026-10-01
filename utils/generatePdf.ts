@@ -84,8 +84,12 @@ export const generateSpecSheetPDF = async (config: any) => {
   const margin = 15;
 
   // --- 1. BACKGROUND ---
-  doc.setFillColor(18, 18, 18);
+  doc.setFillColor(18, 18, 18); // rb-black #121212
   doc.rect(0, 0, pageWidth, pageHeight, "F");
+
+  // Brand accent bar (Molten Orange) across the very top.
+  doc.setFillColor(255, 90, 31); // rb-orange #FF5A1F
+  doc.rect(0, 0, pageWidth, 2.5, "F");
 
   // --- 2. PRELOAD ASSETS (Images + Local Fonts) ---
   const logoPath = "/icons/navbar/logo.png"; 
@@ -204,7 +208,7 @@ export const generateSpecSheetPDF = async (config: any) => {
           doc.setDrawColor(50, 50, 50);
           doc.roundedRect(xPos, currentY, colWidth, cardHeight, 2, 2, "FD");
 
-          doc.setTextColor(120, 75, 185); 
+          doc.setTextColor(255, 90, 31); // rb-orange
           doc.setFont(fontName, "bold");
           doc.setFontSize(6);
           doc.text(item.label, xPos + 4, currentY + 6);
@@ -227,18 +231,18 @@ export const generateSpecSheetPDF = async (config: any) => {
 
       // --- 6. PRICE ---
       currentY += 5;
-      doc.setDrawColor(120, 75, 185);
+      doc.setDrawColor(255, 90, 31); // rb-orange divider
       doc.line(margin, currentY, pageWidth - margin, currentY);
       currentY += 10;
 
       doc.setFontSize(10);
       doc.setTextColor(160, 160, 160);
       doc.text("TOTAL ESTIMATE", margin, currentY + 5);
-      
+
       doc.setFontSize(18);
-      doc.setTextColor(255, 255, 255);
+      doc.setTextColor(255, 90, 31); // rb-orange price
       doc.setFont(fontName, "bold");
-      const priceString = `Rs. ${Number(config.total_price || config.price).toLocaleString("en-IN")}`;
+      const priceString = `Rs. ${Number(config.total_price || config.price || 0).toLocaleString("en-IN")}`;
       doc.text(priceString, pageWidth - margin, currentY + 5, { align: "right" });
 
       // --- 7. FOOTER ---

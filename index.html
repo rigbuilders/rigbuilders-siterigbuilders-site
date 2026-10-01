@@ -1,0 +1,626 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rig Builders — Commissioned, not assembled</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   THEME TOKENS — swap these six to match rigbuilders.in exactly.
+   Everything else derives from them.
+   ============================================================ */
+:root{
+  --bg:#06070a;          /* page background            */
+  --surface:#0d0f15;     /* raised panels and cards    */
+  --hair:#ffffff14;      /* hairline borders           */
+  --text:#f3f4f7;        /* primary text               */
+  --muted:#8b90a0;       /* secondary text             */
+  --accent:#3b6dff;      /* the one bright colour      */
+
+  --gut:clamp(20px,4vw,56px);
+  --display:"Unbounded",system-ui,sans-serif;
+  --body:"Inter",system-ui,-apple-system,sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;background:var(--bg);color:var(--text);font-family:var(--body);
+  font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden
+}
+a{color:inherit;text-decoration:none}
+h1,h2,h3{font-family:var(--display);font-weight:300;margin:0;line-height:1.06}
+p{margin:0}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+
+/* the loom sits behind everything and never takes clicks */
+#loom{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+.page{position:relative;z-index:1}
+.wrap{max-width:1180px;margin:0 auto;padding:0 var(--gut)}
+
+/* ---------- nav ---------- */
+.nav{
+  position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;gap:32px;
+  padding:22px var(--gut);border-bottom:1px solid transparent;
+  transition:padding .35s,background .35s,border-color .35s
+}
+.nav.stuck{padding:12px var(--gut);background:color-mix(in srgb,var(--bg) 82%,transparent);
+  backdrop-filter:blur(14px) saturate(140%);border-bottom-color:var(--hair)}
+.mark{font-family:var(--display);font-weight:600;font-size:14px;letter-spacing:.2em}
+.mark em{font-style:normal;color:var(--accent)}
+.menu{display:flex;gap:26px;margin:0 0 0 8px;padding:0;font-size:13.5px;font-weight:500;color:var(--muted)}
+.menu>li{position:relative;list-style:none}
+.menu a{padding:10px 0;display:inline-block;transition:color .2s}
+.menu a:hover{color:var(--text)}
+.nav-end{margin-left:auto;display:flex;align-items:center;gap:20px;font-size:13.5px;color:var(--muted)}
+.build{font-family:var(--display);font-size:11.5px;letter-spacing:.16em;color:var(--text);
+  border:1px solid var(--accent);padding:11px 18px;border-radius:2px;
+  background:color-mix(in srgb,var(--accent) 14%,transparent);transition:background .25s}
+.build:hover{background:color-mix(in srgb,var(--accent) 34%,transparent)}
+.drop{
+  position:absolute;top:100%;left:-22px;min-width:520px;padding:22px;display:grid;
+  grid-template-columns:1fr 1fr;gap:4px 28px;background:color-mix(in srgb,var(--surface) 95%,transparent);
+  backdrop-filter:blur(18px);border:1px solid var(--hair);border-radius:3px;
+  opacity:0;visibility:hidden;translate:0 8px;transition:.28s
+}
+.menu>li:hover .drop,.menu>li:focus-within .drop{opacity:1;visibility:visible;translate:0 0}
+.drop a{display:block;padding:10px 12px;border-radius:2px;font-size:14px}
+.drop a small{display:block;color:var(--muted);font-size:12px}
+.drop a:hover{background:color-mix(in srgb,var(--accent) 16%,transparent)}
+.burger{display:none;background:none;border:0;color:var(--text);font-size:20px;cursor:pointer}
+
+/* ---------- hero ---------- */
+.hero{min-height:100vh;min-height:100dvh;display:flex;align-items:center;padding:120px 0 90px}
+.ticker{display:inline-flex;align-items:center;gap:10px;font-size:12px;color:var(--muted);
+  letter-spacing:.08em;margin-bottom:26px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--accent);
+  box-shadow:0 0 12px var(--accent);animation:pulse 2.4s infinite}
+@keyframes pulse{50%{opacity:.3}}
+.hero h1{font-size:clamp(2.1rem,6.4vw,5.4rem);text-transform:uppercase;letter-spacing:-.01em;max-width:14ch}
+.hero h1 .ln{display:block;overflow:hidden}
+.hero h1 .ln b{display:block;font-weight:300}
+.lede{margin-top:26px;max-width:46ch;color:var(--muted);font-size:clamp(15px,1.6vw,17px)}
+.cta{display:flex;gap:14px;margin-top:38px;flex-wrap:wrap}
+.btn{font-family:var(--display);font-size:11.5px;letter-spacing:.16em;padding:15px 26px;
+  border-radius:2px;border:1px solid transparent;transition:.25s}
+.btn-a{background:var(--accent);color:#fff}
+.btn-a:hover{filter:brightness(1.18)}
+.btn-b{border-color:var(--hair);color:var(--text)}
+.btn-b:hover{border-color:var(--accent)}
+
+/* ---------- marquee ---------- */
+.brands{border-block:1px solid var(--hair);padding:24px 0;overflow:hidden;
+  mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
+.track{display:flex;gap:64px;width:max-content;animation:slide 40s linear infinite}
+.track span{font-size:14px;letter-spacing:.24em;color:var(--muted);white-space:nowrap}
+@keyframes slide{to{transform:translateX(-50%)}}
+
+/* ---------- sections ---------- */
+section{position:relative;scroll-margin-top:92px}
+.pad{padding:clamp(80px,11vw,150px) 0}
+.head{display:flex;justify-content:space-between;align-items:end;gap:30px;flex-wrap:wrap}
+.head h2{font-size:clamp(1.7rem,3.6vw,3rem);text-transform:uppercase}
+.head p{color:var(--muted);max-width:44ch;font-size:15px}
+
+/* ladder */
+.ladder{margin-top:60px;border-top:1px solid var(--hair)}
+.rung{display:grid;grid-template-columns:auto 1fr auto;gap:clamp(18px,4vw,54px);align-items:center;
+  padding:30px 0;border-bottom:1px solid var(--hair);transition:background .3s,padding-left .3s}
+.rung:hover,.rung:focus-within{background:color-mix(in srgb,var(--accent) 7%,transparent);padding-left:16px}
+.rung .no{font-family:var(--display);font-size:clamp(2.6rem,6vw,4.4rem);font-weight:300;
+  color:color-mix(in srgb,var(--text) 18%,transparent);line-height:1;transition:color .3s}
+.rung:hover .no{color:var(--accent)}
+.rung h3{font-family:var(--display);font-size:clamp(1rem,1.9vw,1.3rem);font-weight:600;letter-spacing:.04em}
+.rung p{color:var(--muted);font-size:14.5px;margin-top:8px;max-width:56ch}
+.spec{text-align:right;font-size:13px;white-space:nowrap}
+.spec b{display:block;font-weight:500}
+.spec small{color:var(--muted);font-size:11.5px;letter-spacing:.12em}
+
+/* pinned commission track */
+.pin{height:320vh}
+.pin-stage{position:sticky;top:0;height:100vh;height:100dvh;display:flex;flex-direction:column;
+  justify-content:center;overflow:hidden;padding-top:8vh}
+.pin-head{padding:0 var(--gut);max-width:1180px;margin:0 auto 42px;width:100%}
+.pin-head h2{font-size:clamp(1.7rem,3.6vw,3rem);text-transform:uppercase}
+.steps{display:flex;gap:clamp(16px,2.4vw,30px);
+  padding-left:max(var(--gut),calc(50vw - 590px + var(--gut)));will-change:transform}
+.step{flex:0 0 clamp(250px,30vw,360px);padding:30px;border:1px solid var(--hair);border-radius:3px;
+  background:var(--surface);min-height:270px;display:flex;flex-direction:column}
+.step .n{font-family:var(--display);font-size:12px;letter-spacing:.2em;color:var(--accent)}
+.step h3{font-family:var(--display);font-size:1.05rem;font-weight:600;margin-top:18px;letter-spacing:.02em}
+.step p{color:var(--muted);font-size:14px;margin-top:12px}
+.bar{height:1px;background:var(--hair);margin-top:auto}
+.bar i{display:block;height:1px;background:var(--accent);width:0}
+
+/* split */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:clamp(24px,4vw,64px);margin-top:56px}
+.panel{padding:clamp(26px,3vw,40px);border:1px solid var(--hair);border-radius:3px;background:var(--surface)}
+.panel h3{font-family:var(--display);font-size:1.25rem;font-weight:600;letter-spacing:.04em}
+.panel p{color:var(--muted);margin-top:14px;font-size:15px}
+.panel ul{margin:24px 0 0;padding:0;list-style:none;display:grid;gap:1px;background:var(--hair)}
+.panel li{background:var(--surface);padding:14px 2px;font-size:14px;display:flex;justify-content:space-between;gap:16px}
+.panel li span{color:var(--muted)}
+.panel .btn{display:inline-block;margin-top:28px}
+
+/* signature */
+.sig{border:1px solid var(--hair);border-radius:3px;margin-top:52px;overflow:hidden;background:var(--surface)}
+.sig-top{padding:clamp(28px,4vw,52px)}
+.sig-top h2{font-size:clamp(1.6rem,3.4vw,2.6rem);text-transform:uppercase}
+.sig-top p{color:var(--muted);max-width:52ch;margin-top:18px}
+.sig-grid{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--hair)}
+.sig-grid div{padding:clamp(22px,2.6vw,34px);border-left:1px solid var(--hair)}
+.sig-grid div:first-child{border-left:0}
+.sig-grid h4{margin:0 0 10px;font-family:var(--display);font-size:13px;font-weight:600;letter-spacing:.08em}
+.sig-grid p{color:var(--muted);font-size:14px}
+.idchip{font-family:var(--display);font-size:12px;letter-spacing:.18em;color:var(--accent);margin-top:22px}
+
+/* footer */
+footer{border-top:1px solid var(--hair);padding:64px 0 40px}
+.fgrid{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:36px}
+.fgrid h5{margin:0 0 16px;font-family:var(--display);font-size:11.5px;letter-spacing:.18em;font-weight:600;color:var(--muted)}
+.fgrid ul{margin:0;padding:0;list-style:none;display:grid;gap:10px;font-size:14px;color:var(--muted)}
+.fgrid a:hover{color:var(--text)}
+.fbot{display:flex;justify-content:space-between;gap:20px;margin-top:54px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+
+.rev{opacity:0;translate:0 22px;transition:opacity .8s cubic-bezier(.2,.7,.2,1),translate .8s cubic-bezier(.2,.7,.2,1)}
+.rev.in{opacity:1;translate:0 0}
+
+@media (max-width:900px){
+  .menu,.nav-end{display:none}
+  .burger{display:block;margin-left:auto}
+  .split,.sig-grid,.fgrid{grid-template-columns:1fr}
+  .sig-grid div{border-left:0;border-top:1px solid var(--hair)}
+  .rung{grid-template-columns:auto 1fr}
+  .spec{grid-column:2;text-align:left}
+  .pin{height:auto}
+  .pin-stage{position:static;height:auto;padding:0 0 20px}
+  .steps{flex-direction:column;padding-left:0;padding-inline:var(--gut);transform:none!important}
+  .step{flex:1 1 auto;min-height:0}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .track{animation:none}
+  .rev{opacity:1;translate:0 0;transition:none}
+  .steps{transform:none!important}
+}
+</style>
+</head>
+<body>
+<canvas id="loom" aria-hidden="true"></canvas>
+
+<header class="nav" id="nav">
+  <a class="mark" href="#top">RIG<em>/</em>BUILDERS</a>
+  <ul class="menu">
+    <li><a href="#gaming">Desktops</a>
+      <div class="drop">
+        <a href="#gaming">Ascend<small>High-FPS gaming, 1080p to 4K</small></a>
+        <a href="#work">WorkPro<small>Business fleets and workstations</small></a>
+        <a href="#create">Creator<small>Editing, streaming, 3D</small></a>
+        <a href="#signature">Signature<small>Hand-tuned flagship builds</small></a>
+      </div>
+    </li>
+    <li><a href="#components">Components</a></li>
+    <li><a href="#process">How we build</a></li>
+    <li><a href="#support">Support</a></li>
+  </ul>
+  <div class="nav-end"><span>Search</span><span>Cart</span>
+    <a class="build" href="#configure">BUILD YOURS</a></div>
+  <button class="burger" aria-label="Open menu">☰</button>
+</header>
+
+<div class="page" id="top">
+  <section class="hero" data-node="Power on">
+    <div class="wrap">
+      <p class="ticker"><span class="dot"></span>RTX 50-series configurations now open</p>
+      <h1>
+        <span class="ln"><b>Commissioned.</b></span>
+        <span class="ln"><b>Not assembled.</b></span>
+      </h1>
+      <p class="lede">We build one machine at a time, then prove it — thermals,
+        benchmarks and a photo log go out with every rig.</p>
+      <div class="cta">
+        <a class="btn btn-a" href="#configure">START YOUR BUILD</a>
+        <a class="btn btn-b" href="#signature">SEE SIGNATURE</a>
+      </div>
+    </div>
+  </section>
+
+  <div class="brands" id="components"><div class="track" id="track"></div></div>
+
+  <section class="pad" id="gaming" data-node="Ascend line">
+    <div class="wrap">
+      <div class="head rev">
+        <h2>Choose your weapon</h2>
+        <p>Three tiers of the Ascend line. Same build standard, different ceilings —
+          pick the one that matches the display you play on.</p>
+      </div>
+      <div class="ladder">
+        <a class="rung" href="#configure"><div class="no">5</div>
+          <div><h3>ASCEND 5</h3>
+            <p>Tuned for competitive shooters. Valorant and CS2 hold their frame rate
+              through the whole round, not just the benchmark.</p></div>
+          <div class="spec"><b>1080p · 240 Hz</b><small>COMPETITIVE</small></div></a>
+        <a class="rung" href="#configure"><div class="no">7</div>
+          <div><h3>ASCEND 7</h3>
+            <p>The tier most people should buy. Full detail at 1440p in current
+              AAA titles with headroom left for the next two years.</p></div>
+          <div class="spec"><b>1440p · 165 Hz</b><small>HIGH FIDELITY</small></div></a>
+        <a class="rung" href="#configure"><div class="no">9</div>
+          <div><h3>ASCEND 9</h3>
+            <p>Ray tracing at 4K without compromise. Liquid cooled, acoustically
+              tuned, and validated under sustained load before it ships.</p></div>
+          <div class="spec"><b>4K · Ultimate</b><small>THE APEX</small></div></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="pin" id="process" data-node="On the bench">
+    <div class="pin-stage">
+      <div class="pin-head"><h2>How we commission your rig</h2></div>
+      <div class="steps" id="steps">
+        <article class="step"><div class="n">STEP 01</div>
+          <h3>Order lock and blueprint</h3>
+          <p>Every part is checked against the rest for clearance, power and
+            compatibility before anything is allocated to your build.</p>
+          <div class="bar"><i></i></div></article>
+        <article class="step"><div class="n">STEP 02</div>
+          <h3>Precision assembly</h3>
+          <p>Hand-built on the bench. Cables are routed to length, and airflow is
+            planned around the parts you actually chose.</p>
+          <div class="bar"><i></i></div></article>
+        <article class="step"><div class="n">STEP 03</div>
+          <h3>Stress testing</h3>
+          <p>Sustained CPU and GPU load until temperatures settle, then benchmark
+            runs recorded against the target you bought the machine for.</p>
+          <div class="bar"><i></i></div></article>
+        <article class="step"><div class="n">STEP 04</div>
+          <h3>Proof of build</h3>
+          <p>Final inspection, photographed from every side, with your test results
+            written up and attached to the order.</p>
+          <div class="bar"><i></i></div></article>
+        <article class="step"><div class="n">STEP 05</div>
+          <h3>Packed and dispatched</h3>
+          <p>Foam-suspended inside the chassis, double boxed, and insured for the
+            full value until it reaches your door.</p>
+          <div class="bar"><i></i></div></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="pad" id="work" data-node="WorkPro / Creator">
+    <div class="wrap">
+      <div class="head rev">
+        <h2>Built for work</h2>
+        <p>Two lines for people whose machine is the job. Both ship with the same
+          testing and the same paperwork as our gaming rigs.</p>
+      </div>
+      <div class="split">
+        <div class="panel">
+          <h3>WORKPRO</h3>
+          <p>Fleet desktops and workstations for offices that measure downtime in
+            money. Stable parts, documented configurations, repeatable builds.</p>
+          <ul><li><span>WorkPro 5</span>Office fleets, ERP and CRM</li>
+            <li><span>WorkPro 7</span>Financial models, large datasets</li>
+            <li><span>WorkPro 9</span>Threadripper compute and local servers</li></ul>
+          <a class="btn btn-b" href="#configure">VIEW CATALOGUE</a>
+        </div>
+        <div class="panel" id="create">
+          <h3>CREATOR</h3>
+          <p>For timelines that stall and renders that run overnight. Specified
+            around the software you use, not a generic parts list.</p>
+          <ul><li><span>Creator 5</span>Single-PC streaming, NVENC tuned</li>
+            <li><span>Creator 7</span>4K scrubbing without proxies</li>
+            <li><span>Creator 9</span>3D rendering and 8K finishing</li></ul>
+          <a class="btn btn-b" href="#configure">VIEW STUDIO RIGS</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="pad" id="signature" data-node="Signature">
+    <div class="wrap">
+      <div class="sig rev">
+        <div class="sig-top">
+          <h2>The Signature edition</h2>
+          <p>Our flagship commission. Thermal curves tuned by ear as well as by
+            sensor, custom cabling, and a build log you can actually read.</p>
+          <p class="idchip">BUILD ID · RB-2026-0417</p>
+        </div>
+        <div class="sig-grid">
+          <div><h4>TRACEABLE</h4><p>A QR code on the chassis opens the gallery of
+            your own build, shot at each stage on our bench.</p></div>
+          <div><h4>TUNED BY HAND</h4><p>Fan curves set for the noise floor of a room,
+            not a spec sheet, and certified under stress test.</p></div>
+          <div><h4>DELIVERED IN PERSON</h4><p>Custom packaging, an accessories case,
+            and a certificate signed by the person who built it.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer id="support" data-node="Dispatch">
+    <div class="wrap">
+      <div class="fgrid">
+        <div><a class="mark" href="#top">RIG<em>/</em>BUILDERS</a>
+          <p style="color:var(--muted);font-size:14px;margin-top:18px;max-width:34ch">
+            India's premium custom PC brand, for people who want the engineering
+            shown rather than described.</p></div>
+        <div><h5>SERIES</h5><ul><li><a href="#gaming">Ascend</a></li>
+          <li><a href="#create">Creator</a></li><li><a href="#work">WorkPro</a></li>
+          <li><a href="#signature">Signature</a></li></ul></div>
+        <div><h5>SUPPORT</h5><ul><li><a href="#support">Returns</a></li>
+          <li><a href="#support">Guides</a></li><li><a href="#support">Warranty</a></li>
+          <li><a href="#support">Privacy</a></li></ul></div>
+        <div><h5>CONTACT</h5><ul><li>Bathinda, Punjab</li>
+          <li>info@rigbuilders.in</li><li>+91 77078-01014</li></ul></div>
+      </div>
+      <div class="fbot"><span>© 2026 Rig Builders. Sample layout — not the live site.</span>
+        <span>Designed for performance.</span></div>
+    </div>
+  </footer>
+</div>
+
+<script>
+/* ================================================================
+   THE LOOM — one continuous cable routed down the whole page.
+   It is the same object from the hero to the footer: the trunk is
+   already there in dim outline (the planned route), the bright part
+   is what has been "built" as far as you have scrolled, connectors
+   seat with a flash as each section arrives, and current pulses run
+   down the finished length.
+   ================================================================ */
+(function(){
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var cv = document.getElementById('loom'), ctx = cv.getContext('2d');
+  var css = getComputedStyle(document.documentElement);
+  var ACCENT = '#3b6dff';
+  function readTokens(){                       // re-read so a token swap takes effect
+    ACCENT = getComputedStyle(document.documentElement)
+      .getPropertyValue('--accent').trim() || ACCENT;
+  }
+  readTokens();
+
+  var W=0,H=0,dpr=1,pageH=0,path=[],cum=[],total=0,nodes=[],raf=0,running=false;
+
+  function rgba(hex,a){
+    hex=hex.replace('#','');
+    if(hex.length===3) hex=hex.split('').map(function(c){return c+c}).join('');
+    var n=parseInt(hex,16);
+    return 'rgba('+(n>>16&255)+','+(n>>8&255)+','+(n&255)+','+a+')';
+  }
+
+  /* ---- routing: vertical runs with radiused right-angle jogs,
+         the way a loom is actually dressed behind a motherboard tray ---- */
+  function corner(out,a,b,c,r){
+    var v1x=a.x-b.x, v1y=a.y-b.y, v2x=c.x-b.x, v2y=c.y-b.y;
+    var l1=Math.hypot(v1x,v1y)||1, l2=Math.hypot(v2x,v2y)||1;
+    r=Math.min(r,l1/2,l2/2);
+    var p1={x:b.x+v1x/l1*r, y:b.y+v1y/l1*r};
+    var p2={x:b.x+v2x/l2*r, y:b.y+v2y/l2*r};
+    out.push(p1);
+    for(var i=1;i<12;i++){                       // quadratic through the bend
+      var t=i/12, m=1-t;
+      out.push({x:m*m*p1.x+2*m*t*b.x+t*t*p2.x, y:m*m*p1.y+2*m*t*b.y+t*t*p2.y});
+    }
+    out.push(p2);
+  }
+
+  function build(){
+    var sections = [].slice.call(document.querySelectorAll('[data-node]'));
+    pageH = document.body.scrollHeight;
+    var narrow = W < 900;
+    /* Both lanes sit in the left margin, outside the content column, so the
+       cable never crosses a line of text. It steps between them instead of
+       running dead straight — dressed, not just dropped in. */
+    /* phones have no margin to spare, so both lanes hug the very edge */
+    var lane = narrow ? [8, 22] : [Math.max(46,W*0.055), Math.max(92,W*0.105)];
+    var verts=[], k=0;
+    nodes=[];
+
+    verts.push({x:lane[0], y:0});
+    sections.forEach(function(sec){
+      var r = sec.getBoundingClientRect();
+      var y = r.top + scrollY + Math.min(r.height*0.45, innerHeight*0.42);
+      var x = lane[k%2], nx = lane[(k+1)%2];
+      verts.push({x:x, y:y-60});
+      nodes.push({x:x, y:y, seat:0, label:sec.dataset.node, side:(k%2)});
+      verts.push({x:x, y:y+60});
+      verts.push({x:x,  y:y+120});          /* step across to the other lane */
+      verts.push({x:nx, y:y+120});
+      k++;
+    });
+    verts.push({x:lane[k%2], y:pageH-40});
+
+    var v=[verts[0]];
+    for(var i=1;i<verts.length;i++){
+      var p=verts[i], q=v[v.length-1];
+      if(Math.abs(p.x-q.x)>0.5 || Math.abs(p.y-q.y)>0.5) v.push(p);
+    }
+    path=[v[0]];
+    for(var i=1;i<v.length-1;i++) corner(path,v[i-1],v[i],v[i+1],narrow?14:22);
+    path.push(v[v.length-1]);
+
+    cum=[0]; total=0;
+    for(var i=1;i<path.length;i++){
+      total += Math.hypot(path[i].x-path[i-1].x, path[i].y-path[i-1].y);
+      cum.push(total);
+    }
+  }
+
+  function at(s){                                 // point at arc length s
+    if(s<=0) return path[0];
+    if(s>=total) return path[path.length-1];
+    var lo=0,hi=cum.length-1;
+    while(lo<hi-1){ var m=(lo+hi)>>1; if(cum[m]<s) lo=m; else hi=m; }
+    var t=(s-cum[lo])/((cum[hi]-cum[lo])||1);
+    return {x:path[lo].x+(path[hi].x-path[lo].x)*t, y:path[lo].y+(path[hi].y-path[lo].y)*t};
+  }
+
+  function size(){
+    W=innerWidth; H=innerHeight;
+    dpr=Math.min(devicePixelRatio||1, 2);
+    dpr=Math.min(dpr, Math.sqrt(2300000/(W*H)));
+    cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr);
+    readTokens();
+    build();
+  }
+
+  /* how far down the page the build has got */
+  function headLength(){
+    var y = scrollY + H*0.62, lo=-1;
+    for(var i=1;i<path.length;i++){ if(path[i].y>y){ lo=i-1; break; } }
+    if(lo<0) return total;
+    var a=path[lo], b=path[lo+1];
+    var t = (b.y===a.y) ? 1 : (y-a.y)/(b.y-a.y);
+    t = Math.min(1,Math.max(0,t));
+    return cum[lo] + (cum[lo+1]-cum[lo]) * t;
+  }
+
+  function stroke(from,to,width,colour,glow){
+    var i0=0,i1=path.length-1;
+    for(var i=0;i<cum.length;i++){ if(cum[i]>=from){ i0=Math.max(0,i-1); break; } }
+    for(var i=i0;i<cum.length;i++){ if(cum[i]>to){ i1=i; break; } }
+    /* Draw the whole run and let the canvas clip it. Skipping off-screen points
+       here looks like an optimisation but drops any long straight segment whose
+       endpoints both sit outside the viewport — which is most of this path. */
+    ctx.beginPath();
+    var last=Math.min(i1-1, path.length-1);
+    for(var i=i0;i<=last;i++){
+      var p=path[i];
+      if(i===i0) ctx.moveTo(p.x, p.y-scrollY); else ctx.lineTo(p.x, p.y-scrollY);
+    }
+    /* finish on the exact end point: segments here can be hundreds of pixels
+       long, so rounding up to the next vertex would overshoot visibly */
+    var e=at(Math.min(to,total));
+    if(last<i0) ctx.moveTo(e.x, e.y-scrollY); else ctx.lineTo(e.x, e.y-scrollY);
+    ctx.lineWidth=width; ctx.strokeStyle=colour; ctx.lineCap='round'; ctx.lineJoin='round';
+    ctx.shadowBlur=glow||0; ctx.shadowColor=glow?colour:'transparent';
+    ctx.stroke(); ctx.shadowBlur=0;
+  }
+
+  function frame(t){
+    raf=0;
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.clearRect(0,0,cv.width,cv.height);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+
+    var head=headLength();
+
+    /* the planned route, always visible but barely */
+    stroke(0,total,1,rgba('#ffffff',0.10));
+    /* the finished run */
+    stroke(0,head,1.6,rgba(ACCENT,0.85),10);
+    /* the build head */
+    var hp=at(head), hy=hp.y-scrollY;
+    if(hy>-40 && hy<H+40){
+      var g=ctx.createRadialGradient(hp.x,hy,0,hp.x,hy,46);
+      g.addColorStop(0,rgba('#ffffff',0.85)); g.addColorStop(0.25,rgba(ACCENT,0.5));
+      g.addColorStop(1,rgba(ACCENT,0));
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(hp.x,hy,46,0,6.2832); ctx.fill();
+    }
+
+    /* current pulses, only along the finished run */
+    if(!reduce && head>0){
+      for(var k=0;k<3;k++){
+        var speed=280+k*90, len=150+k*50, N=26;
+        var s=((t/1000*speed)+k*900)%Math.max(1,head);
+        ctx.beginPath();
+        for(var j=0;j<N;j++){
+          var d=s-j*(len/N); if(d<0) break;
+          var p=at(d);
+          if(j===0) ctx.moveTo(p.x,p.y-scrollY); else ctx.lineTo(p.x,p.y-scrollY);
+        }
+        ctx.strokeStyle=rgba('#ffffff',0.5); ctx.lineWidth=1.8; ctx.lineCap='round';
+        ctx.shadowBlur=12; ctx.shadowColor=rgba('#ffffff',0.6);
+        ctx.stroke(); ctx.shadowBlur=0;
+      }
+    }
+
+    /* connectors: outline until the section arrives, then seated and lit */
+    nodes.forEach(function(n){
+      var y=n.y-scrollY;
+      if(y<-60||y>H+60) return;
+      var want = (n.y < scrollY + H*0.62) ? 1 : 0;
+      n.seat += (want-n.seat) * (reduce?1:0.12);
+      var s=n.seat, half=6+s*2;
+      /* branch stub reaching in towards the section it belongs to */
+      ctx.strokeStyle=rgba(ACCENT,0.18+s*0.5); ctx.lineWidth=1;
+      var stub = W<900 ? 10 : 18+s*10;
+      ctx.beginPath(); ctx.moveTo(n.x+half, y); ctx.lineTo(n.x+half+stub, y); ctx.stroke();
+      ctx.strokeStyle=rgba(ACCENT,0.35+s*0.65); ctx.lineWidth=1.4;
+      ctx.shadowBlur=s*14; ctx.shadowColor=rgba(ACCENT,s);
+      ctx.strokeRect(n.x-half,y-half,half*2,half*2);
+      ctx.shadowBlur=0;
+      if(s>0.02){ ctx.fillStyle=rgba(ACCENT,s*0.85);
+        ctx.fillRect(n.x-half*0.38,y-half*0.38,half*0.76,half*0.76); }
+      if(s>0.5 && W>=1000){
+        ctx.save();
+        ctx.translate(n.x-half-10, y);
+        ctx.rotate(-Math.PI/2);
+        ctx.font='500 9.5px Inter, sans-serif';
+        ctx.fillStyle=rgba('#ffffff',(s-0.5)*0.8);
+        ctx.textAlign='center'; ctx.letterSpacing='0.14em';
+        ctx.fillText(n.label.toUpperCase(), 0, 0);
+        ctx.restore();
+      }
+    });
+
+    if(running) raf=requestAnimationFrame(frame);
+  }
+
+  function start(){ if(!running){ running=true; raf=requestAnimationFrame(frame); } }
+  function stop(){ running=false; if(raf) cancelAnimationFrame(raf); raf=0; }
+
+  addEventListener('resize', function(){ size(); if(!running) requestAnimationFrame(frame); });
+  document.addEventListener('visibilitychange', function(){ document.hidden ? stop() : start(); });
+  addEventListener('load', function(){ size(); });
+
+  size();
+  if(reduce){ requestAnimationFrame(frame); } else { start(); }
+
+  /* ---------------- page behaviour ---------------- */
+  var names=['NVIDIA','AMD','INTEL','ASUS','CORSAIR','LIAN LI','MSI','GIGABYTE',
+             'NZXT','SAMSUNG','KINGSTON','WESTERN DIGITAL'];
+  document.getElementById('track').innerHTML =
+    names.concat(names).map(function(n){return '<span>'+n+'</span>';}).join('');
+
+  if(!reduce){
+    document.querySelectorAll('.hero h1 b').forEach(function(b,i){
+      b.animate([{translate:'0 110%'},{translate:'0 0'}],
+        {duration:1000,delay:180+i*120,easing:'cubic-bezier(.16,1,.3,1)',fill:'both'});
+    });
+    ['.ticker','.lede','.cta'].forEach(function(sel,i){
+      document.querySelector(sel).animate([{opacity:0,translate:'0 14px'},{opacity:1,translate:'0 0'}],
+        {duration:820,delay:420+i*110,easing:'cubic-bezier(.16,1,.3,1)',fill:'both'});
+    });
+  }
+
+  var io=new IntersectionObserver(function(es){
+    es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+  },{threshold:.25});
+  document.querySelectorAll('.rev').forEach(function(el){ io.observe(el); });
+
+  var nav=document.getElementById('nav'), pin=document.getElementById('process'),
+      steps=document.getElementById('steps'),
+      bars=[].slice.call(document.querySelectorAll('.bar i')), queued=false;
+
+  function onFrame(){
+    queued=false;
+    nav.classList.toggle('stuck', scrollY>40);
+    if(reduce || steps.offsetParent===null) return;
+    var len=pin.offsetHeight-innerHeight;
+    var t=Math.min(1,Math.max(0,(scrollY-pin.offsetTop)/Math.max(1,len)));
+    var pad=parseFloat(getComputedStyle(steps).paddingLeft)||0;
+    var travel=steps.scrollWidth-(innerWidth-pad)+pad*0.5;
+    steps.style.transform='translate3d('+(-t*Math.max(0,travel))+'px,0,0)';
+    bars.forEach(function(b,i){ b.style.width=Math.min(1,Math.max(0,t*bars.length-i))*100+'%'; });
+  }
+  addEventListener('scroll',function(){ if(!queued){ queued=true; requestAnimationFrame(onFrame); } },{passive:true});
+  addEventListener('resize',onFrame);
+  onFrame();
+})();
+</script>
+</body>
+</html>

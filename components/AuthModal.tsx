@@ -42,25 +42,25 @@ export default function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClos
         </button>
         
         {/* Icon with Purple Glow */}
-        <div className="w-16 h-16 bg-brand-purple/10 rounded-full flex items-center justify-center mx-auto mb-6 ring-1 ring-brand-purple/20 shadow-[0_0_20px_rgba(78,44,139,0.3)]">
-            <FaLock className="text-xl text-brand-purple" />
+        <div className="w-16 h-16 bg-rb-orange/10 rounded-full flex items-center justify-center mx-auto mb-6 ring-1 ring-rb-orange/20 shadow-[0_0_20px_rgba(78,44,139,0.3)]">
+            <FaLock className="text-xl text-rb-orange" />
         </div>
         
         <h2 className="font-orbitron text-xl font-bold text-white mb-3 tracking-wide uppercase">Member Exclusive</h2>
-        <p className="text-brand-silver text-xs leading-relaxed mb-8 px-2">
+        <p className="text-rb-silver text-xs leading-relaxed mb-8 px-2">
             This hardware is reserved. Sign in to secure your allocation and track your build status.
         </p>
 
         <div className="space-y-3">
             <Link 
                 href="/signin" 
-                className="block w-full py-3 bg-brand-purple hover:bg-white hover:text-black font-orbitron font-bold uppercase tracking-widest text-xs rounded transition-all text-white shadow-lg shadow-brand-purple/20"
+                className="block w-full py-3 bg-rb-orange hover:bg-white hover:text-black font-orbitron font-bold uppercase tracking-widest text-xs rounded transition-all text-white shadow-lg shadow-rb-orange/20"
             >
                 Initiate Login
             </Link>
             <Link 
                 href="/signup" 
-                className="block w-full py-3 border border-white/10 hover:border-white/50 hover:bg-white/5 font-orbitron font-bold uppercase tracking-widest text-xs rounded transition-all text-brand-silver hover:text-white"
+                className="block w-full py-3 border border-white/10 hover:border-white/50 hover:bg-white/5 font-orbitron font-bold uppercase tracking-widest text-xs rounded transition-all text-rb-silver hover:text-white"
             >
                 Create Account
             </Link>

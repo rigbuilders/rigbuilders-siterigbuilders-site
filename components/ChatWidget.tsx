@@ -48,7 +48,7 @@ function renderMessageContent(content: string) {
         href={part}
         target="_blank"
         rel="noopener noreferrer"
-        className="underline underline-offset-2 text-brand-purple hover:text-white break-all"
+        className="underline underline-offset-2 text-rb-orange hover:text-white break-all"
       >
         {part}
       </a>
@@ -406,7 +406,7 @@ export default function ChatWidget({ children }: { children: React.ReactNode }) 
           {!isOpen && (
             <button
               onClick={() => setIsOpen(true)}
-              className="fixed bottom-32 right-4 md:bottom-6 md:right-6 z-[999] flex items-center gap-3 py-3 px-6 bg-brand-purple text-white rounded-full shadow-[0_0_25px_rgba(78,44,139,0.5)] hover:scale-105 hover:shadow-[0_0_35px_rgba(78,44,139,0.7)] transition-all duration-300"
+              className="fixed bottom-32 right-4 md:bottom-6 md:right-6 z-[999] flex items-center gap-3 py-3 px-6 bg-rb-orange text-white rounded-full shadow-[0_0_25px_rgba(78,44,139,0.5)] hover:scale-105 hover:shadow-[0_0_35px_rgba(78,44,139,0.7)] transition-all duration-300"
               title="Chat with Rix AI"
             >
               <Bot className="w-5 h-5" />
@@ -441,20 +441,20 @@ export default function ChatWidget({ children }: { children: React.ReactNode }) 
               <div className="fixed z-[999] inset-x-4 top-24 bottom-24 rounded-2xl border border-white/10 md:inset-x-auto md:inset-y-auto md:right-0 md:top-0 md:bottom-0 md:w-[420px] md:rounded-none md:border-y-0 md:border-r-0 bg-[#1A1A1A] shadow-[0_0_50px_rgba(0,0,0,0.7)] flex flex-col overflow-hidden">
           {/* Header */}
           <div className="px-4 py-3 border-b border-white/10 bg-brand-black/60 flex items-center gap-2.5 shrink-0">
-            <div className="w-8 h-8 rounded-full bg-brand-purple/20 flex items-center justify-center shrink-0">
-              <Bot className="w-4 h-4 text-brand-purple" />
+            <div className="w-8 h-8 rounded-full bg-rb-orange/20 flex items-center justify-center shrink-0">
+              <Bot className="w-4 h-4 text-rb-orange" />
             </div>
             <div className="flex-1">
               <p className="font-orbitron text-xs font-bold uppercase tracking-widest text-white">
                 Rix AI
               </p>
-              <p className="text-[11px] text-brand-silver mt-0.5">
+              <p className="text-[11px] text-rb-silver mt-0.5">
                 {status === "handed_off" ? "A team member has joined this chat" : "Usually replies instantly"}
               </p>
             </div>
             <button
               onClick={() => setIsOpen(false)}
-              className="text-brand-silver hover:text-white transition-colors"
+              className="text-rb-silver hover:text-white transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
@@ -463,7 +463,7 @@ export default function ChatWidget({ children }: { children: React.ReactNode }) 
           {/* Messages */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
             {messages.length === 0 && (
-              <p className="text-xs text-brand-silver/70 text-center mt-8">
+              <p className="text-xs text-rb-silver/70 text-center mt-8">
                 Ask about CPUs, GPUs, prebuilt tiers, pricing, or anything else — we&apos;re here to help.
               </p>
             )}
@@ -472,7 +472,7 @@ export default function ChatWidget({ children }: { children: React.ReactNode }) 
                 <div
                   className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words ${
                     m.role === "user"
-                      ? "bg-brand-purple text-white rounded-br-sm"
+                      ? "bg-rb-orange text-white rounded-br-sm"
                       : "bg-[#121212] border border-white/10 text-brand-text rounded-bl-sm"
                   }`}
                 >
@@ -503,12 +503,12 @@ export default function ChatWidget({ children }: { children: React.ReactNode }) 
               onChange={(e) => setInput(e.target.value)}
               placeholder="Type a message..."
               disabled={isSending}
-              className="flex-1 bg-[#121212] border border-white/10 rounded-full px-4 py-2 text-sm text-white placeholder-brand-silver/50 focus:border-brand-purple outline-none disabled:opacity-60"
+              className="flex-1 bg-[#121212] border border-white/10 rounded-full px-4 py-2 text-sm text-white placeholder-rb-silver/50 focus:border-rb-orange outline-none disabled:opacity-60"
             />
             <button
               type="submit"
               disabled={isSending || !input.trim()}
-              className="w-9 h-9 rounded-full bg-brand-purple text-white flex items-center justify-center disabled:opacity-40 hover:scale-105 transition-transform shrink-0"
+              className="w-9 h-9 rounded-full bg-rb-orange text-white flex items-center justify-center disabled:opacity-40 hover:scale-105 transition-transform shrink-0"
             >
               {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </button>
@@ -525,9 +525,9 @@ export default function ChatWidget({ children }: { children: React.ReactNode }) 
 function TypingDots() {
   return (
     <span className="flex items-center gap-1 py-1">
-      <span className="w-1.5 h-1.5 rounded-full bg-brand-silver/60 animate-bounce [animation-delay:-0.3s]" />
-      <span className="w-1.5 h-1.5 rounded-full bg-brand-silver/60 animate-bounce [animation-delay:-0.15s]" />
-      <span className="w-1.5 h-1.5 rounded-full bg-brand-silver/60 animate-bounce" />
+      <span className="w-1.5 h-1.5 rounded-full bg-rb-silver/60 animate-bounce [animation-delay:-0.3s]" />
+      <span className="w-1.5 h-1.5 rounded-full bg-rb-silver/60 animate-bounce [animation-delay:-0.15s]" />
+      <span className="w-1.5 h-1.5 rounded-full bg-rb-silver/60 animate-bounce" />
     </span>
   );
 }

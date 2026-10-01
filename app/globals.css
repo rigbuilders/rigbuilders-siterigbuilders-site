@@ -9,18 +9,68 @@
      the navbar) so it never jumps at responsive breakpoints — which was the cause
      of the misalignment when zooming in/out. Content is capped at 1920px and
      centred so ultra-wide screens stay aligned too. */
+  /* Canonical container — navbar, every section and the footer use this so
+     their content shares ONE left/right guideline at all widths. Capped at
+     1600px; the gutter is a clamp so the navbar pill and section text always
+     compute the same inset (they align exactly). */
   .rb-shell {
     width: 100%;
-    max-width: 1920px;
+    max-width: 1600px;
     margin-left: auto;
     margin-right: auto;
-    padding-left: 30px;
-    padding-right: 30px;
+    padding-left: clamp(24px, 6vw, 80px);
+    padding-right: clamp(24px, 6vw, 80px);
   }
   /* Full-bleed variant (gutter only, no max-width) for edge-to-edge sections. */
   .rb-gutter {
-    padding-left: 30px;
-    padding-right: 30px;
+    padding-left: clamp(24px, 6vw, 80px);
+    padding-right: clamp(24px, 6vw, 80px);
+  }
+  /* Navbar container — real CSS (not Tailwind arbitraries) so it reliably caps
+     to the same 1600px box as .rb-shell. The wrapper caps + centres; the pad
+     class supplies the same gutter as the sections so the logo lines up. */
+  .rb-navwrap {
+    width: 100%;
+    max-width: 1600px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .rb-navpad {
+    padding-left: clamp(24px, 6vw, 80px);
+    padding-right: clamp(24px, 6vw, 80px);
+  }
+
+  /* Dual-thumb range slider used by the reusable FilterSidebar. Two stacked
+     inputs over one track — pointer-events off on the input, on for the thumb,
+     so both handles stay draggable. */
+  .rb-range {
+    -webkit-appearance: none;
+    appearance: none;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    background: transparent;
+    pointer-events: none;
+  }
+  .rb-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    pointer-events: auto;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: #FF5A1F;
+    border: 2px solid #121212;
+    box-shadow: 0 0 0 1px #FF5A1F;
+    cursor: pointer;
+  }
+  .rb-range::-moz-range-thumb {
+    pointer-events: auto;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: #FF5A1F;
+    border: 2px solid #121212;
+    cursor: pointer;
   }
 
   /* Container-query equivalents of Tailwind's `lg:` breakpoint (1024px),
@@ -68,11 +118,12 @@
   --background: #121212;
   --foreground: #ededed;
 
-  /* RIG BUILDERS PALETTE (legacy — kept so existing pages don't break) */
+  /* RIG BUILDERS PALETTE (legacy var names — now retargeted to the orange
+     system so older desktop utilities inherit the rebrand automatically) */
   --rb-bg-dark: #121212;
-  --rb-bg-card: #1A1A1A;
-  --rb-purple: #4E2C8B;
-  --rb-blue: #265DAB;
+  --rb-bg-card: #1E1E1E;
+  --rb-purple: #FF5A1F;  /* legacy name → now molten orange */
+  --rb-blue: #E24410;    /* legacy name → now orange-deep */
 
   /* ============================================================
      RIG BUILDERS — CANONICAL BRAND TOKENS
@@ -81,11 +132,11 @@
      Mirrors tailwind.config.js `rb` colors so the same values are
      available to raw CSS, inline styles and the homepage.
      ============================================================ */
-  --rb-black:        #0A0A0A;   /* deepest / hero */
-  --rb-surface:      #101112;   /* page background */
-  --rb-elevated:     #17181A;   /* cards / panels */
-  --rb-raised:       #1F2123;   /* hover / elevated */
-  --rb-line:         #2A2D2F;   /* hairline borders */
+  --rb-black:        #121212;   /* deepest / hero — MATTE black */
+  --rb-surface:      #181818;   /* page background */
+  --rb-elevated:     #1E1E1E;   /* cards / panels */
+  --rb-raised:       #262626;   /* hover / elevated */
+  --rb-line:         #2E2E2E;   /* hairline borders */
   --rb-silver:       #8A8F90;   /* muted text */
   --rb-mist:         #C7CBCC;   /* secondary text */
   --rb-white:        #F4F5F5;   /* primary text */
@@ -126,9 +177,9 @@ body {
 
 /* 1. Ambient Hero Glow */
 .rb-hero-glow {
-  background: 
-    radial-gradient(800px circle at 30% 20%, rgba(78,44,139,0.25), transparent 55%),
-    radial-gradient(700px circle at 70% 30%, rgba(38,93,171,0.15), transparent 55%);
+  background:
+    radial-gradient(800px circle at 30% 20%, rgba(255,90,31,0.16), transparent 55%),
+    radial-gradient(700px circle at 70% 30%, rgba(255,255,255,0.04), transparent 55%);
   pointer-events: none;
   position: absolute;
   inset: 0;
@@ -138,25 +189,25 @@ body {
 /* 2. Premium Card */
 .rb-card {
   position: relative;
-  background: 
-    linear-gradient(#1A1A1A, #1A1A1A) padding-box, 
-    linear-gradient(135deg, rgba(78,44,139,0.5), rgba(38,93,171,0.5)) border-box; 
+  background:
+    linear-gradient(#17181A, #17181A) padding-box,
+    linear-gradient(135deg, rgba(255,90,31,0.45), rgba(226,68,16,0.35)) border-box;
   border: 1px solid transparent;
-  border-radius: 12px; 
+  border-radius: 12px;
   transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .rb-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 10px 30px -10px rgba(78, 44, 139, 0.3); 
-  background: 
-    linear-gradient(#1A1A1A, #1A1A1A) padding-box,
-    linear-gradient(135deg, rgba(78,44,139,0.9), rgba(38,93,171,0.9)) border-box;
+  box-shadow: 0 10px 30px -10px rgba(255, 90, 31, 0.28);
+  background:
+    linear-gradient(#17181A, #17181A) padding-box,
+    linear-gradient(135deg, rgba(255,90,31,0.9), rgba(226,68,16,0.7)) border-box;
 }
 
 /* 3. Premium Button */
 .rb-btn-primary {
-  background: linear-gradient(135deg, #4E2C8B 0%, #265DAB 100%);
+  background: linear-gradient(135deg, #FF5A1F 0%, #E24410 100%);
   color: white;
   font-weight: bold;
   letter-spacing: 0.05em;
@@ -177,7 +228,7 @@ body {
 }
 
 .rb-btn-primary:hover {
-  box-shadow: 0 0 20px rgba(78, 44, 139, 0.5);
+  box-shadow: 0 0 20px rgba(255, 90, 31, 0.45);
   transform: scale(1.02);
 }
 
@@ -278,4 +329,106 @@ body {
   text-transform: uppercase;
   color: var(--rb-silver);
   font-weight: 700;
+}
+
+/* ============================================================
+   RIG BUILDERS — FUTURISTIC MOTION / TEXTURE UTILITIES
+   Premium & restrained: subtle, engineered, never busy.
+   ============================================================ */
+
+/* Perspective tech grid — faint blueprint floor that drifts slowly. */
+.rb-grid {
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.045) 1px, transparent 1px);
+  background-size: 46px 46px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 75%);
+}
+.rb-grid-drift { animation: rb-grid-drift 22s linear infinite; }
+@keyframes rb-grid-drift {
+  from { background-position: 0 0, 0 0; }
+  to   { background-position: 46px 0, 0 46px; }
+}
+
+/* Ember pulse — slow breathing glow for hero accents. */
+.rb-ember-pulse { animation: rb-ember-pulse 6s ease-in-out infinite; }
+@keyframes rb-ember-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50%      { opacity: 0.9;  transform: scale(1.06); }
+}
+
+/* Slow float — for hero product/visual bob. */
+.rb-float { animation: rb-float 7s ease-in-out infinite; }
+@keyframes rb-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-12px); }
+}
+
+/* Sheen sweep — a single light bar sweeps a surface on hover. */
+.rb-sheen { position: relative; overflow: hidden; }
+.rb-sheen::after {
+  content: "";
+  position: absolute;
+  top: 0; left: -120%;
+  width: 60%; height: 100%;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,0.10), transparent);
+  transform: skewX(-18deg);
+  transition: left 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+  pointer-events: none;
+}
+.rb-sheen:hover::after { left: 130%; }
+
+/* Animated gradient underline / bar accent. */
+.rb-bar-anim {
+  background: linear-gradient(90deg, var(--rb-orange), var(--rb-orange-deep), var(--rb-orange));
+  background-size: 200% 100%;
+  animation: rb-bar-slide 3s linear infinite;
+}
+@keyframes rb-bar-slide {
+  to { background-position: -200% 0; }
+}
+
+/* Infinite marquee track (logos / word ribbon). */
+.rb-marquee { display: flex; width: max-content; animation: rb-marquee 30s linear infinite; }
+.rb-marquee:hover { animation-play-state: paused; }
+@keyframes rb-marquee { to { transform: translateX(-50%); } }
+
+/* Count-up / reveal helper handled by framer-motion <Reveal>. This is a
+   CSS fallback fade-up for non-JS reveal needs. */
+.rb-fade-up { animation: rb-fade-up 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes rb-fade-up {
+  from { opacity: 0; transform: translateY(22px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Scroll-indicator dot travelling down a hairline. */
+.rb-scroll-dot { animation: rb-scroll-dot 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+@keyframes rb-scroll-dot {
+  0%   { transform: translateY(-100%); opacity: 0; }
+  30%  { opacity: 1; }
+  100% { transform: translateY(200%); opacity: 0; }
+}
+
+/* Hero premium background: drifting dot matrix + slow orbit rings. */
+.rb-dots {
+  background-image: radial-gradient(rgba(255,255,255,0.12) 1px, transparent 1.6px);
+  background-size: 26px 26px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, #000 15%, transparent 72%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, #000 15%, transparent 72%);
+  animation: rb-dots-drift 24s linear infinite;
+}
+@keyframes rb-dots-drift { to { background-position: 26px 26px; } }
+
+.rb-spin-slow   { animation: rb-spin 42s linear infinite; }
+.rb-spin-slower { animation: rb-spin 72s linear infinite reverse; }
+@keyframes rb-spin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to   { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-grid-drift, .rb-ember-pulse, .rb-float, .rb-bar-anim,
+  .rb-marquee, .rb-fade-up, .rb-scroll-dot,
+  .rb-dots, .rb-spin-slow, .rb-spin-slower { animation: none !important; }
 }

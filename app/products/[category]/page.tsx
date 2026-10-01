@@ -98,9 +98,9 @@ export default async function Page(
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#121212] flex flex-col items-center justify-center text-brand-purple">
+        <div className="min-h-screen bg-rb-black flex flex-col items-center justify-center text-rb-orange">
           <div className="text-xl font-orbitron mb-2 tracking-widest animate-pulse">LOADING CATEGORY...</div>
-          <div className="h-[1px] w-24 bg-brand-purple"></div>
+          <div className="h-[1px] w-24 bg-rb-orange"></div>
         </div>
       }
     >

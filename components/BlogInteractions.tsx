@@ -151,20 +151,20 @@ export default function BlogInteractions({ postId, initialLikes, initialDislikes
     const CommentItem = ({ c, isReply = false }: { c: any, isReply?: boolean }) => (
         <div className={`p-4 ${isReply ? 'ml-12 border-l-2 border-white/10 mt-2 bg-white/5' : 'bg-[#121212] border border-white/5 mb-4'}`}>
             <div className="flex items-start gap-4">
-                <div className="pt-1"><FaUserCircle className="text-3xl text-brand-silver" /></div>
+                <div className="pt-1"><FaUserCircle className="text-3xl text-rb-silver" /></div>
                 <div className="flex-1">
                     <div className="flex justify-between items-start mb-2">
                         <div>
                             <span className="text-white font-bold font-orbitron text-sm tracking-wider block">{c.author}</span>
-                            <span className="text-brand-silver text-[10px] uppercase">{new Date(c.createdAt).toLocaleDateString()}</span>
+                            <span className="text-rb-silver text-[10px] uppercase">{new Date(c.createdAt).toLocaleDateString()}</span>
                         </div>
                     </div>
-                    <p className="text-brand-silver font-light text-sm leading-relaxed mb-4">{c.content}</p>
+                    <p className="text-rb-silver font-light text-sm leading-relaxed mb-4">{c.content}</p>
                     {/* Actions */}
                     {currentUser && (
-                        <div className="flex items-center gap-6 text-[10px] font-bold uppercase tracking-widest text-brand-silver/60">
+                        <div className="flex items-center gap-6 text-[10px] font-bold uppercase tracking-widest text-rb-silver/60">
                              {!isReply && (
-                                <button onClick={() => setActiveReplyId(activeReplyId === c.id ? null : c.id)} className="flex items-center gap-2 hover:text-brand-purple transition-colors">
+                                <button onClick={() => setActiveReplyId(activeReplyId === c.id ? null : c.id)} className="flex items-center gap-2 hover:text-rb-orange transition-colors">
                                     <FaReply /> Reply
                                 </button>
                             )}
@@ -173,9 +173,9 @@ export default function BlogInteractions({ postId, initialLikes, initialDislikes
                     {/* Reply Box */}
                     {activeReplyId === c.id && (
                         <div className="mt-4 flex gap-2 animate-in fade-in slide-in-from-top-2">
-                             <input className="flex-1 bg-black/30 border border-white/10 p-2 text-white text-xs outline-none focus:border-brand-purple"
+                             <input className="flex-1 bg-black/30 border border-white/10 p-2 text-white text-xs outline-none focus:border-rb-orange"
                                 placeholder={`Reply...`} value={replyContent} onChange={(e) => setReplyContent(e.target.value)} />
-                            <button onClick={() => handleComment(c.id, replyContent)} className="bg-brand-purple px-4 text-white text-xs font-bold">SEND</button>
+                            <button onClick={() => handleComment(c.id, replyContent)} className="bg-rb-orange px-4 text-white text-xs font-bold">SEND</button>
                         </div>
                     )}
                 </div>
@@ -193,10 +193,10 @@ export default function BlogInteractions({ postId, initialLikes, initialDislikes
             {/* VOTES */}
             <div className="flex gap-4 mb-12">
                 <button onClick={() => handlePostVote("LIKE")} className={`flex items-center gap-2 border border-white/20 px-6 py-3 transition-all text-white font-orbitron uppercase text-sm ${currentUser ? 'hover:bg-green-500/20 hover:border-green-500' : 'opacity-50'}`}>
-                    <FaThumbsUp /> Like <span className="text-brand-silver ml-2">{likes}</span>
+                    <FaThumbsUp /> Like <span className="text-rb-silver ml-2">{likes}</span>
                 </button>
                 <button onClick={() => handlePostVote("DISLIKE")} className={`flex items-center gap-2 border border-white/20 px-6 py-3 transition-all text-white font-orbitron uppercase text-sm ${currentUser ? 'hover:bg-red-500/20 hover:border-red-500' : 'opacity-50'}`}>
-                    <FaThumbsDown /> Dislike <span className="text-brand-silver ml-2">{dislikes}</span>
+                    <FaThumbsDown /> Dislike <span className="text-rb-silver ml-2">{dislikes}</span>
                 </button>
             </div>
 
@@ -206,17 +206,17 @@ export default function BlogInteractions({ postId, initialLikes, initialDislikes
             {currentUser ? (
                 // LOGGED IN
                 <div className="bg-[#121212] border border-white/10 p-6 mb-8">
-                    <p className="text-xs text-brand-purple uppercase font-bold mb-4 tracking-widest">
+                    <p className="text-xs text-rb-orange uppercase font-bold mb-4 tracking-widest">
                         Posting as: <span className="text-white">{currentUser.name}</span>
                     </p>
                     <div className="flex gap-4">
                         <textarea 
-                            className="flex-1 bg-[#1A1A1A] border border-white/10 p-4 text-white text-sm outline-none focus:border-brand-purple resize-none h-24 placeholder:text-white/20"
+                            className="flex-1 bg-[#1A1A1A] border border-white/10 p-4 text-white text-sm outline-none focus:border-rb-orange resize-none h-24 placeholder:text-white/20"
                             placeholder="Share your thoughts..."
                             value={newComment}
                             onChange={(e) => setNewComment(e.target.value)}
                         />
-                        <button onClick={() => handleComment(null, newComment)} className="bg-brand-purple px-8 text-white font-bold hover:bg-white hover:text-black transition-all flex items-center justify-center">
+                        <button onClick={() => handleComment(null, newComment)} className="bg-rb-orange px-8 text-white font-bold hover:bg-white hover:text-black transition-all flex items-center justify-center">
                             <FaPaperPlane />
                         </button>
                     </div>
@@ -224,9 +224,9 @@ export default function BlogInteractions({ postId, initialLikes, initialDislikes
             ) : (
                 // GUEST
                 <div className="bg-[#121212] border border-white/10 p-8 mb-8 text-center flex flex-col items-center justify-center gap-4">
-                    <FaLock className="text-brand-silver text-2xl" />
+                    <FaLock className="text-rb-silver text-2xl" />
                     <h4 className="text-white font-orbitron text-lg uppercase">Join the Discussion</h4>
-                    <p className="text-brand-silver text-sm font-light max-w-md">
+                    <p className="text-rb-silver text-sm font-light max-w-md">
                         Login to share your thoughts and interact with others.
                     </p>
                     <Link href="/signin" className="px-8 py-3 border border-white/20 text-white font-bold font-orbitron uppercase text-xs tracking-widest hover:bg-white hover:text-black transition-all">

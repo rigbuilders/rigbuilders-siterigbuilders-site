@@ -19,10 +19,10 @@ export const ConfiguratorSummary = ({ selections, totals, user, onSave, onAddToC
     ];
 
     return (
-        <div className="bg-[#151515] border border-white/5 rounded-2xl p-4 sm:p-6 shadow-2xl flex flex-col lg:max-h-[calc(100vh-8rem)] overflow-hidden">
-            
+        <div className="bg-rb-surface border border-rb-line rounded-2xl p-4 sm:p-6 shadow-2xl flex flex-col">
+
             {/* CABINET VIEWER */}
-            <div className="relative w-full h-[180px] sm:h-[220px] lg:h-[250px] lg:max-h-[30vh] shrink-0 mb-6 flex items-center justify-center bg-[#111111] rounded-xl overflow-hidden border border-white/5">
+            <div className="relative w-full aspect-square shrink-0 mb-5 flex items-center justify-center bg-rb-black rounded-xl overflow-hidden border border-white/5">
                 {selections.cabinet?.image ? (
                     <Image src={selections.cabinet.image} alt="Cabinet" fill className="object-contain p-4" />
                 ) : (
@@ -30,17 +30,17 @@ export const ConfiguratorSummary = ({ selections, totals, user, onSave, onAddToC
                 )}
             </div>
 
-            {/* TDP ESTIMATOR (Yellow Theme) */}
-            <div className="bg-[#111111] rounded-xl p-4 mb-6 border border-white/5 shrink-0">
+            {/* TDP ESTIMATOR */}
+            <div className="bg-rb-black rounded-xl p-4 mb-5 border border-white/5 shrink-0">
                 <div className="flex justify-between items-end mb-3">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-white/50">TDP Estimate</span>
-                    <span className={`font-orbitron font-bold text-xs ${!isPowerSufficient ? "text-red-500" : "text-[#FFE600]"}`}>
+                    <span className={`font-orbitron font-bold text-xs ${!isPowerSufficient ? "text-red-500" : "text-rb-orange"}`}>
                         {estimatedTDP}W <span className="text-white/30">/ {psuWattage}W</span>
                     </span>
                 </div>
                 <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
                     <div 
-                        className={`h-full transition-all duration-500 ${!isPowerSufficient ? "bg-red-500" : "bg-[#FFE600]"}`} 
+                        className={`h-full transition-all duration-500 ${!isPowerSufficient ? "bg-red-500" : "bg-rb-orange"}`} 
                         style={{ width: `${Math.min((estimatedTDP / (psuWattage || 1)) * 100, 100)}%` }}
                     ></div>
                 </div>
@@ -49,10 +49,8 @@ export const ConfiguratorSummary = ({ selections, totals, user, onSave, onAddToC
                 )}
             </div>
 
-            {/* LIVE RECEIPT LIST — the ONLY scrollable zone. Grows to fill the
-                space between the fixed top (cabinet + TDP) and the fixed footer,
-                and scrolls internally when the parts don't all fit. */}
-            <div className="lg:flex-1 lg:min-h-0 overflow-y-auto custom-scrollbar pr-2 sm:pr-4 space-y-4 mb-6 max-h-[45vh] lg:max-h-none">
+            {/* LIVE RECEIPT LIST — shows every component at once (no inner scroll). */}
+            <div className="space-y-2.5 mb-6">
                 {orderList.map((key) => {
                     const val = selections[key];
                     return (
@@ -70,15 +68,15 @@ export const ConfiguratorSummary = ({ selections, totals, user, onSave, onAddToC
             <div className="pt-6 border-t border-white/5 shrink-0 space-y-4">
                 <div className="flex justify-between items-end">
                     <span className="text-white/40 text-xs font-bold uppercase tracking-widest">Total Estimate</span>
-                    <span className="text-2xl font-bold font-orbitron text-white leading-none">
+                    <span className="text-2xl font-bold font-saira text-white leading-none">
                         ₹{totalPrice.toLocaleString("en-IN")}
                     </span>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                    <button onClick={onSave} disabled={saving} className="col-span-1 py-3 bg-[#111111] border border-white/10 rounded-lg text-white font-bold font-orbitron uppercase tracking-widest text-[10px] hover:bg-white/5 transition-all flex items-center justify-center gap-2">
+                    <button onClick={onSave} disabled={saving} className="col-span-1 py-3 bg-rb-black border border-white/10 rounded-lg text-white font-bold font-orbitron uppercase tracking-widest text-[10px] hover:bg-white/5 transition-all flex items-center justify-center gap-2">
                         <FaSave /> {user ? (saving ? "..." : "Save") : "Login to Save"}
                     </button>
-                    <button onClick={onAddToCart} disabled={!selections.cpu || !selections.motherboard} className="col-span-1 py-3 bg-[#FFE600] text-black rounded-lg font-bold font-orbitron uppercase tracking-widest text-[10px] hover:bg-[#FFE600]/90 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:bg-white/10 disabled:text-white/50">
+                    <button onClick={onAddToCart} disabled={!selections.cpu || !selections.motherboard} className="col-span-1 py-3 bg-rb-orange text-rb-orange-ink rounded-lg font-bold font-orbitron uppercase tracking-widest text-[10px] hover:bg-rb-orange-deep transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:bg-white/10 disabled:text-white/50">
                         <FaShoppingCart /> Add to Cart
                     </button>
                     <button onClick={downloadPDF} className="col-span-2 py-3 bg-transparent border border-white/10 rounded-lg text-white/40 hover:text-white font-bold font-orbitron uppercase tracking-widest text-[10px] transition-all">

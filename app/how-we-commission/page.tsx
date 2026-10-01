@@ -65,13 +65,13 @@ export default function CommissionPage() {
 
       {/* --- HERO HEADER --- */}
       <section className="pt-[65px] pb-20 px-6 border-b border-white/5 bg-[#121212] relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-brand-purple/5 blur-[150px] pointer-events-none" />
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-rb-orange/5 blur-[150px] pointer-events-none" />
         <div className="max-w-7xl mx-auto text-center relative z-10">
           <Reveal>
             <h1 className="font-orbitron font-bold text-5xl md:text-7xl mb-6 tracking-tighter">
-              THE <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-purple to-brand-blue">COMMISSIONING</span>
+              THE <span className="text-transparent bg-clip-text bg-gradient-to-r from-rb-orange to-rb-orange-deep">COMMISSIONING</span>
             </h1>
-            <p className="text-brand-silver text-lg max-w-2xl mx-auto font-saira tracking-wide">
+            <p className="text-rb-silver text-lg max-w-2xl mx-auto font-saira tracking-wide">
               We don&apos;t just assemble parts. We commission machines. 
               Here is the journey your rig takes before it reaches your desk.
             </p>
@@ -96,16 +96,16 @@ export default function CommissionPage() {
 
                 <Reveal className="w-full">
                     <div className="relative">
-                        <span className="text-brand-purple font-bold tracking-[0.3em] text-sm uppercase mb-4 block">
+                        <span className="text-rb-orange font-bold tracking-[0.3em] text-sm uppercase mb-4 block">
                             Phase {item.step}
                         </span>
                         <h2 className="font-orbitron text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">
                             {item.title}
                         </h2>
-                        <h3 className="text-xl text-white/80 font-bold mb-6 border-l-2 border-brand-purple pl-4">
+                        <h3 className="text-xl text-white/80 font-bold mb-6 border-l-2 border-rb-orange pl-4">
                             {item.subtitle}
                         </h3>
-                        <p className="text-brand-silver leading-relaxed text-lg">
+                        <p className="text-rb-silver leading-relaxed text-lg">
                             {item.description}
                         </p>
                     </div>
@@ -113,11 +113,11 @@ export default function CommissionPage() {
             </div>
 
             {/* 2. IMAGE HALF */}
-            <div className="w-full md:w-1/2 relative min-h-[400px] md:min-h-auto overflow-hidden bg-[#0A0A0A]">
+            <div className="w-full md:w-1/2 relative min-h-[400px] md:min-h-auto overflow-hidden bg-rb-black">
                 {item.image ? (
                     // IF IMAGE EXISTS
                     <>
-                        <div className="absolute inset-0 bg-brand-purple/20 mix-blend-overlay z-10 group-hover:bg-transparent transition-all duration-700" />
+                        <div className="absolute inset-0 bg-rb-orange/20 mix-blend-overlay z-10 group-hover:bg-transparent transition-all duration-700" />
                         <Image 
                             src={item.image} 
                             alt={item.title}
@@ -139,7 +139,7 @@ export default function CommissionPage() {
                         <div className="relative z-10 border border-white/10 p-12 bg-black/50 backdrop-blur-sm max-w-md text-center">
                             <div className="text-6xl mb-4 opacity-50">⚙️</div>
                             <h4 className="font-orbitron text-2xl font-bold text-white mb-2">PROTOCOL {item.step}</h4>
-                            <p className="text-brand-silver text-sm uppercase tracking-widest">Awaiting Visual Uplink</p>
+                            <p className="text-rb-silver text-sm uppercase tracking-widest">Awaiting Visual Uplink</p>
                         </div>
                     </div>
                 )}
@@ -150,11 +150,11 @@ export default function CommissionPage() {
       </div>
 
       {/* CALL TO ACTION */}
-      <section className="py-24 px-6 text-center bg-[#1A1A1A] border-t border-white/5">
+      <section className="py-24 px-6 text-center bg-rb-black border-t border-white/5">
         <Reveal>
             <h2 className="font-orbitron text-3xl md:text-4xl font-bold mb-6">READY TO COMMISSION YOURS?</h2>
-            <p className="text-brand-silver mb-8">Experience the difference of a hand-crafted machine.</p>
-            <a href="/configure" className="inline-block bg-white text-black px-10 py-4 font-orbitron font-bold uppercase tracking-widest hover:bg-brand-purple hover:text-white transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)]">
+            <p className="text-rb-silver mb-8">Experience the difference of a hand-crafted machine.</p>
+            <a href="/configure" className="inline-block bg-white text-black px-10 py-4 font-orbitron font-bold uppercase tracking-widest hover:bg-rb-orange hover:text-white transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)]">
                 Start Configuration
             </a>
         </Reveal>

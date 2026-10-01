@@ -1,6 +1,6 @@
 "use client";
 
-import Navbar from "@/components/Navbar";
+import NavbarNeo from "@/components/home/NavbarNeo";
 import Footer from "@/components/Footer";
 import Link from "next/link";
 import { useCart } from "../context/CartContext";
@@ -38,25 +38,25 @@ export default function CartPage() {
   };
 
   return (
-    <div className="bg-[#121212] min-h-screen text-white font-saira flex flex-col relative">
+    <div className="bg-rb-black min-h-screen text-white font-saira flex flex-col relative">
 
-      <div className="fixed top-0 left-0 w-full h-[500px] bg-brand-purple/5 blur-[120px] pointer-events-none z-0" />
-      <Navbar />
+      <div className="fixed top-0 left-0 w-full h-[500px] bg-rb-orange/5 blur-[120px] pointer-events-none z-0" />
+      <NavbarNeo />
 
-      <div className="flex-grow pt-16 pb-24 rb-shell relative z-10 overflow-hidden">
-        
+      <div className="flex-grow pt-8 lg:pt-10 pb-16 rb-shell relative z-10 overflow-hidden">
+
         <Reveal>
-          <h1 className="font-orbitron text-4xl md:text-5xl font-bold mb-12 text-white tracking-wide">
-            YOUR <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-purple to-brand-blue">CART</span>
+          <h1 className="font-orbitron text-4xl md:text-5xl font-black mb-8 text-white tracking-tight">
+            YOUR <span className="rb-text-ember">CART</span>
           </h1>
         </Reveal>
 
         {cart.length === 0 ? (
           <Reveal>
             <div className="text-center py-24 border border-dashed border-white/10 rounded-xl bg-white/5 backdrop-blur-sm">
-              <p className="font-orbitron text-brand-silver text-xl md:text-2xl mb-8">Your cart is empty.</p>
+              <p className="font-orbitron text-rb-silver text-xl md:text-2xl mb-8">Your cart is empty.</p>
               <Link href="/configure">
-                <button className="px-10 py-4 bg-brand-purple hover:bg-white hover:text-black rounded font-bold uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(78,44,139,0.4)] hover:shadow-none">
+                <button className="px-10 py-4 bg-rb-orange text-rb-orange-ink hover:bg-rb-orange-deep rounded-lg font-bold uppercase tracking-widest transition-all shadow-[0_0_24px_-6px_rgba(255,90,31,0.6)]">
                   Start Configuration
                 </button>
               </Link>
@@ -70,7 +70,7 @@ export default function CartPage() {
               <StaggerGrid className="space-y-6">
                 {cart.map((item) => (
                   <StaggerItem key={item.id}>
-                    <div className="flex flex-col sm:flex-row items-center justify-between bg-[#1A1A1A] p-6 border border-white/5 rounded-lg group hover:border-brand-purple/30 transition-all duration-300 relative overflow-hidden">
+                    <div className="flex flex-col sm:flex-row items-center justify-between bg-rb-surface p-6 border border-white/5 rounded-lg group hover:border-rb-orange/30 transition-all duration-300 relative overflow-hidden">
                       
                       {/* Product Info */}
                       <div className="flex items-center gap-6 w-full sm:w-auto z-10">
@@ -86,16 +86,16 @@ export default function CartPage() {
                           <h3 className="font-orbitron font-bold text-lg text-white mb-2 line-clamp-1">{item.name}</h3>
                           
                           <div className="flex flex-col sm:flex-row items-center gap-3 mb-3">
-                              <p className="text-brand-purple font-bold font-saira text-lg">₹{item.price.toLocaleString("en-IN")}</p>
+                              <p className="text-rb-orange font-bold font-saira text-lg">₹{Number(item.price || 0).toLocaleString("en-IN")}</p>
                               
                               {/* POLICY BADGES */}
                               {item.cod_policy === 'no_cod' && (
-                                  <span className="text-[10px] font-bold uppercase tracking-wider bg-red-500/20 text-red-500 px-2 py-1 rounded border border-red-500/30">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider bg-rb-danger/20 text-rb-danger px-2 py-1 rounded border border-rb-danger/30">
                                       Online Payment Only
                                   </span>
                               )}
                               {item.cod_policy === 'partial_cod' && (
-                                  <span className="text-[10px] font-bold uppercase tracking-wider bg-yellow-500/20 text-yellow-500 px-2 py-1 rounded border border-yellow-500/30">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider bg-rb-warn/20 text-rb-warn px-2 py-1 rounded border border-rb-warn/30">
                                       Requires 10% Advance
                                   </span>
                               )}
@@ -106,14 +106,14 @@ export default function CartPage() {
                               <div className="flex items-center bg-black/40 border border-white/20 rounded">
                                   <button 
                                     onClick={() => handleQuantity(item.id, item.quantity, -1)}
-                                    className="px-3 py-1 text-brand-silver hover:text-white hover:bg-white/10 transition-colors border-r border-white/10 h-full"
+                                    className="px-3 py-1 text-rb-silver hover:text-white hover:bg-white/10 transition-colors border-r border-white/10 h-full"
                                   >
                                     <FaMinus size={10} />
                                   </button>
                                   <span className="px-4 text-sm font-bold font-orbitron w-10 text-center">{item.quantity}</span>
                                   <button 
                                     onClick={() => handleQuantity(item.id, item.quantity, 1)}
-                                    className="px-3 py-1 text-brand-silver hover:text-white hover:bg-white/10 transition-colors border-l border-white/10 h-full"
+                                    className="px-3 py-1 text-rb-silver hover:text-white hover:bg-white/10 transition-colors border-l border-white/10 h-full"
                                   >
                                     <FaPlus size={10} />
                                   </button>
@@ -125,7 +125,7 @@ export default function CartPage() {
                       {/* Remove Action */}
                       <button 
                         onClick={() => handleRemove(item.id, item.name)} 
-                        className="mt-6 sm:mt-0 text-red-500/50 hover:text-red-400 p-3 rounded-full hover:bg-red-500/10 transition-all z-10"
+                        className="mt-6 sm:mt-0 text-rb-danger/50 hover:text-rb-danger p-3 rounded-full hover:bg-rb-danger/10 transition-all z-10"
                         title="Remove Item"
                       >
                         <FaTrash size={16} />
@@ -138,26 +138,26 @@ export default function CartPage() {
 
             {/* --- SUMMARY --- */}
             <Reveal delay={0.2} className="relative">
-                <div className="bg-[#1A1A1A]/80 backdrop-blur-md p-8 border border-white/10 rounded-lg sticky top-32 shadow-2xl">
+                <div className="bg-rb-surface/80 backdrop-blur-md p-8 border border-white/10 rounded-lg sticky top-32 shadow-2xl">
                   <h3 className="font-orbitron text-xl font-bold mb-6 text-white border-b border-white/10 pb-4">Cart Total</h3>
                   <div className="space-y-4 mb-8 text-sm font-saira">
-                    <div className="flex justify-between text-brand-silver">
+                    <div className="flex justify-between text-rb-silver">
                       <span>Subtotal</span>
                       <span>₹{subtotalInclusive.toLocaleString("en-IN")}</span>
                     </div>
-                    <div className="flex justify-between text-brand-silver">
+                    <div className="flex justify-between text-rb-silver">
                       <span>Shipping</span>
-                      <span className="text-green-400 font-bold uppercase tracking-wider text-xs">Calculated at Checkout</span>
+                      <span className="text-rb-success font-bold uppercase tracking-wider text-xs">Calculated at Checkout</span>
                     </div>
 
                     {/* POLICY WARNINGS */}
                     {hasRestrictedItems && (
-                        <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded text-[10px] text-red-400">
+                        <div className="mt-4 p-3 bg-rb-danger/10 border border-rb-danger/20 rounded text-[10px] text-rb-danger">
                             ⚠️ Some items in cart are restricted to <b>Online Payment Only</b>.
                         </div>
                     )}
                     {!hasRestrictedItems && hasPartialItems && (
-                        <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded text-[10px] text-yellow-500">
+                        <div className="mt-4 p-3 bg-rb-warn/10 border border-rb-warn/20 rounded text-[10px] text-rb-warn">
                             ⚠️ High-value items require <b>10% Advance Payment</b>.
                         </div>
                     )}
@@ -165,9 +165,9 @@ export default function CartPage() {
                   </div>
                   <div className="flex justify-between text-2xl font-black text-white mb-8 pt-6 border-t border-white/10 font-orbitron">
                     <span>TOTAL</span>
-                    <span>₹{subtotalInclusive.toLocaleString("en-IN")}</span>
+                    <span className="font-saira">₹{subtotalInclusive.toLocaleString("en-IN")}</span>
                   </div>
-                  <button onClick={handleCheckout} className="w-full bg-white text-black py-4 font-orbitron font-bold uppercase tracking-[0.15em] hover:bg-brand-purple hover:text-white transition-all duration-300 rounded shadow-lg hover:shadow-brand-purple/50">
+                  <button onClick={handleCheckout} className="w-full bg-rb-orange text-rb-orange-ink py-4 font-orbitron font-bold uppercase tracking-[0.15em] hover:bg-rb-orange-deep transition-all duration-300 rounded-lg shadow-[0_0_24px_-6px_rgba(255,90,31,0.6)]">
                     Proceed to Checkout
                   </button>
                 </div>

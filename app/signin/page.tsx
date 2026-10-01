@@ -1,51 +1,41 @@
 "use client";
 
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { FcGoogle } from "react-icons/fc";
-import { FaEye, FaEyeSlash } from "react-icons/fa"; 
-import { supabase } from "@/lib/supabaseClient"; 
-import { toast } from "sonner"; // <--- IMPORT SONNER
+import { FaEye, FaEyeSlash } from "react-icons/fa";
+import { supabase } from "@/lib/supabaseClient";
+import { toast } from "sonner";
+import AuthLayout, { authInput, authLabel } from "@/components/auth/AuthLayout";
 
 export default function SignInPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  
-  const [formData, setFormData] = useState({
-    email: "",
-    password: ""
-  });
+
+  const [formData, setFormData] = useState({ email: "", password: "" });
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
       });
-
       if (error) throw error;
-
       if (data.user) {
-        // CINEMATIC SUCCESS TOAST
         toast.success("Welcome Back", {
-            description: "Access granted to your workstation.",
-            duration: 3000,
+          description: "Access granted to your workstation.",
+          duration: 3000,
         });
-        router.push("/"); 
+        router.push("/");
       }
     } catch (err: any) {
       console.error("Login Failed:", err.message);
-      
-      // CINEMATIC ERROR TOAST
       toast.error("Access Denied", {
-          description: "Invalid credentials. Please check your email and password."
+        description: "Invalid credentials. Please check your email and password.",
       });
     } finally {
       setLoading(false);
@@ -54,121 +44,101 @@ export default function SignInPage() {
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
-    
     try {
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/`,
-        },
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/` },
       });
-
       if (error) throw error;
-      
     } catch (err: any) {
-      toast.error("Connection Failed", {
-          description: err.message || "Google sign in failed."
-      });
+      toast.error("Connection Failed", { description: err.message || "Google sign in failed." });
       setLoading(false);
     }
   };
 
   return (
-    <div className="bg-[#121212] min-h-screen text-white font-saira flex flex-col"> 
-      <Navbar />
+    <AuthLayout
+      kicker="Access Terminal"
+      title="Welcome"
+      highlight="Back"
+      subtitle="Sign in to access your commissioned builds, saved configurations and order timeline."
+      bullets={["Compatibility verified", "Thermals validated", "Performance proven"]}
+    >
+      <div className="mb-8">
+        <h2 className="font-orbitron text-2xl font-bold text-white">Sign In</h2>
+        <p className="text-rb-silver text-sm mt-1">Enter your credentials to continue.</p>
+      </div>
 
-      <div className="flex-grow pt-16 pb-12 px-6 flex items-center justify-center w-full relative z-10">
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-64 h-64 bg-[#4E2C8B]/20 blur-[100px] rounded-full pointer-events-none"></div>
+      <form onSubmit={handleLogin} className="space-y-5">
+        <div>
+          <label htmlFor="email" className={authLabel}>Email Address</label>
+          <input
+            type="email"
+            id="email"
+            required
+            value={formData.email}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            className={authInput}
+            placeholder="you@example.com"
+          />
+        </div>
 
-        <div className="bg-[#1A1A1A] p-8 md:p-12 rounded-xl shadow-2xl w-full max-w-md border border-white/5 relative z-20">
-          <h1 className="font-orbitron text-3xl font-bold text-center mb-2 text-white">
-            Welcome Back
-          </h1>
-          <p className="text-[#A0A0A0] text-sm text-center mb-10">Sign in to access your commissioned builds.</p>
-
-          {/* OLD ERROR BOX REMOVED - Now handled by Toast */}
-
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div>
-              <label htmlFor="email" className="block text-xs uppercase tracking-wider text-[#A0A0A0] mb-2">
-                Email Address
-              </label>
-              <input
-                type="email"
-                id="email"
-                required
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full bg-[#121212] border border-white/10 rounded p-3 text-white focus:border-[#4E2C8B] outline-none transition-colors"
-                placeholder="you@example.com"
-              />
-            </div>
-
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <label htmlFor="password" className="block text-xs uppercase tracking-wider text-[#A0A0A0]">
-                  Password
-                </label>
-                <Link href="/forgot-password">
-                    <span className="text-xs text-[#4E2C8B] hover:text-white cursor-pointer transition-colors">Forgot Password?</span>
-                </Link>
-              </div>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"} 
-                  id="password"
-                  required
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full bg-[#121212] border border-white/10 rounded p-3 text-white focus:border-[#4E2C8B] outline-none transition-colors pr-10"
-                  placeholder="•••••••••••••"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A0A0A0] hover:text-white transition-colors"
-                >
-                  {showPassword ? <FaEyeSlash /> : <FaEye />}
-                </button>
-              </div>
-            </div>
-
-            <button 
-              type="submit"
-              disabled={loading}
-              className="w-full py-4 bg-[#4E2C8B] hover:bg-[#3b2169] text-white font-bold rounded uppercase tracking-widest transition-all disabled:opacity-50 font-orbitron shadow-[0_0_15px_rgba(78,44,139,0.3)] hover:shadow-none"
-            >
-              {loading ? "Authenticating..." : "Sign In"}
-            </button>
-          </form>
-
-          <div className="relative my-8">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-white/10"></div>
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-[#1A1A1A] px-2 text-[#A0A0A0]">Or continue with</span>
-            </div>
-          </div>
-          
-          <button 
-            onClick={handleGoogleSignIn}
-            disabled={loading}
-            className="w-full py-3 bg-white text-black font-bold rounded flex items-center justify-center gap-3 hover:bg-[#D0D0D0] transition-colors disabled:opacity-50"
-          >
-            <FcGoogle size={24} />
-            <span>Google</span>
-          </button>
-
-          <div className="mt-8 text-center text-sm text-[#A0A0A0]">
-            New to Rig Builders?
-            <Link href="/signup" className="text-[#4E2C8B] font-bold hover:underline ml-1">
-              Create Account
+        <div>
+          <div className="flex justify-between items-center mb-2">
+            <label htmlFor="password" className="text-[11px] uppercase tracking-[0.15em] text-rb-silver">Password</label>
+            <Link href="/forgot-password" className="text-xs text-rb-orange hover:text-white transition-colors">
+              Forgot Password?
             </Link>
           </div>
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              id="password"
+              required
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              className={`${authInput} pr-10`}
+              placeholder="•••••••••••••"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-rb-silver hover:text-rb-orange transition-colors"
+            >
+              {showPassword ? <FaEyeSlash /> : <FaEye />}
+            </button>
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="rb-cta rb-sheen w-full py-3.5 rounded-lg uppercase tracking-widest text-sm font-orbitron disabled:opacity-50"
+        >
+          {loading ? "Authenticating…" : "Sign In"}
+        </button>
+      </form>
+
+      <div className="relative my-7">
+        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-rb-line" /></div>
+        <div className="relative flex justify-center text-[11px] uppercase tracking-widest">
+          <span className="bg-rb-surface px-3 text-rb-silver">Or continue with</span>
         </div>
       </div>
-      <Footer />
-    </div>
+
+      <button
+        onClick={handleGoogleSignIn}
+        disabled={loading}
+        className="rb-sheen w-full py-3 bg-white text-black font-bold rounded-lg flex items-center justify-center gap-3 hover:bg-rb-mist transition-colors disabled:opacity-50"
+      >
+        <FcGoogle size={22} />
+        <span>Google</span>
+      </button>
+
+      <div className="mt-8 text-center text-sm text-rb-silver">
+        New to Rig Builders?
+        <Link href="/signup" className="text-rb-orange font-bold hover:underline ml-1">Create Account</Link>
+      </div>
+    </AuthLayout>
   );
 }

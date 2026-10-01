@@ -113,7 +113,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             <div className="max-w-[1440px] mx-auto px-[30px] w-full">
                 <Reveal>
                     <div className="flex items-center gap-4 mb-4">
-                        <span className="text-brand-silver text-xs uppercase tracking-widest font-bold">
+                        <span className="text-rb-silver text-xs uppercase tracking-widest font-bold">
                             {new Date(post.createdAt).toLocaleDateString()}
                         </span>
                     </div>
@@ -124,7 +124,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                     
                     <div className="flex items-center gap-4 border-t border-white/20 pt-4">
                         <div className="flex flex-col">
-                            <span className="text-[10px] text-brand-silver uppercase tracking-widest">Author</span>
+                            <span className="text-[10px] text-rb-silver uppercase tracking-widest">Author</span>
                             <span className="text-xs font-bold text-white uppercase">{post.author || "Rig Builders Team"}</span>
                         </div>
                     </div>
@@ -142,11 +142,11 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                 className="max-w-[1440px] mx-auto px-[30px] 
                 prose prose-invert prose-lg md:prose-xl max-w-none 
                 prose-headings:font-orbitron prose-headings:font-bold prose-headings:text-white prose-headings:uppercase
-                prose-p:text-brand-silver prose-p:leading-loose prose-p:font-light
-                prose-a:text-brand-purple prose-a:no-underline hover:prose-a:underline
+                prose-p:text-rb-silver prose-p:leading-loose prose-p:font-light
+                prose-a:text-rb-orange prose-a:no-underline hover:prose-a:underline
                 prose-strong:text-white prose-strong:font-bold
                 prose-img:rounded-none prose-img:border prose-img:border-white/10
-                prose-blockquote:border-l-brand-purple prose-blockquote:text-white prose-blockquote:bg-white/5 prose-blockquote:py-2 prose-blockquote:px-6 prose-blockquote:not-italic"
+                prose-blockquote:border-l-rb-orange prose-blockquote:text-white prose-blockquote:bg-white/5 prose-blockquote:py-2 prose-blockquote:px-6 prose-blockquote:not-italic"
                 dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.content) }}
             />
         </Reveal>

@@ -41,7 +41,7 @@ export default function GlobalSearch({
         const { data, error } = await supabase
           .from('products')
           .select('id, name, price, category, image_url, brand')
-          .or(`seo_name.ilike.%${cleanQuery}%,breadcrumb_name.ilike.%${cleanQuery}%`)
+          .or(`name.ilike.%${cleanQuery}%,breadcrumb_name.ilike.%${cleanQuery}%`)
           .limit(6);
         
         if (error) {
@@ -99,7 +99,7 @@ export default function GlobalSearch({
             type="text" 
             placeholder={placeholder}
             autoComplete="off" 
-            className={`w-full text-white text-sm focus:outline-none focus:border-brand-purple transition-colors rounded-sm 
+            className={`w-full text-white text-sm focus:outline-none focus:border-rb-orange transition-colors rounded-sm
               ${variant === "minimal" 
                 ? "bg-white/5 border border-white/10 py-2 pl-10" 
                 : "bg-[#090909] border border-white/20 py-3 pl-12"

@@ -356,7 +356,7 @@ export default function CreateOrderPage() {
                                             <div className="text-[10px] text-brand-silver uppercase">{item.brand} • {item.category}</div>
                                         </div>
                                     </div>
-                                    <div className="font-orbitron font-bold text-sm shrink-0">₹{item.price.toLocaleString("en-IN")}</div>
+                                    <div className="font-saira font-bold text-sm shrink-0">₹{item.price.toLocaleString("en-IN")}</div>
                                 </div>
                             ))
                         )}
@@ -365,7 +365,7 @@ export default function CreateOrderPage() {
                     <div className="border-t border-white/10 mt-4 pt-4">
                         <div className="flex justify-between items-center text-xl font-bold font-orbitron">
                             <span>Total</span>
-                            <span>₹{cart.reduce((a,b) => a + b.price, 0).toLocaleString("en-IN")}</span>
+                            <span className="font-saira">₹{cart.reduce((a,b) => a + b.price, 0).toLocaleString("en-IN")}</span>
                         </div>
                     </div>
                 </div>

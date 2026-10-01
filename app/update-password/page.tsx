@@ -38,11 +38,11 @@ export default function UpdatePassword() {
   };
 
   return (
-    <div className="bg-[#121212] min-h-screen text-white font-saira flex flex-col">
+    <div className="bg-rb-black min-h-screen text-white font-saira flex flex-col">
       <Navbar />
       <div className="flex-grow pt-32 pb-12 flex items-center justify-center px-6">
         {/* Expanded max-w to md:max-w-xl to accommodate the two columns */}
-        <div className="w-full max-w-xl bg-[#1A1A1A] p-8 rounded-xl border border-white/5">
+        <div className="w-full max-w-xl bg-rb-surface p-8 rounded-xl border border-rb-line">
           <h1 className="font-orbitron text-2xl font-bold mb-6">Set New Password</h1>
           
           <form onSubmit={handleUpdate} className="space-y-6">
@@ -56,14 +56,14 @@ export default function UpdatePassword() {
                   type={showPassword ? "text" : "password"} 
                   required 
                   placeholder="New Password"
-                  className="w-full bg-[#121212] border border-white/10 rounded p-3 text-white focus:border-brand-purple outline-none pr-10"
+                  className="w-full bg-rb-black border border-rb-line rounded p-3 text-white focus:border-rb-orange outline-none pr-10"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
                 <button 
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3.5 text-brand-silver hover:text-white transition-colors"
+                  className="absolute right-3 top-3.5 text-rb-silver hover:text-white transition-colors"
                   tabIndex={-1}
                 >
                   {showPassword ? <FaEyeSlash size={16} /> : <FaEye size={16} />}
@@ -76,14 +76,14 @@ export default function UpdatePassword() {
                   type={showPassword ? "text" : "password"} 
                   required 
                   placeholder="Confirm Password"
-                  className="w-full bg-[#121212] border border-white/10 rounded p-3 text-white focus:border-brand-purple outline-none pr-10"
+                  className="w-full bg-rb-black border border-rb-line rounded p-3 text-white focus:border-rb-orange outline-none pr-10"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                 />
                 <button 
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3.5 text-brand-silver hover:text-white transition-colors"
+                  className="absolute right-3 top-3.5 text-rb-silver hover:text-white transition-colors"
                   tabIndex={-1}
                 >
                   {showPassword ? <FaEyeSlash size={16} /> : <FaEye size={16} />}
@@ -94,7 +94,7 @@ export default function UpdatePassword() {
 
             <button 
                 disabled={loading} 
-                className="w-full py-3 bg-brand-purple rounded font-bold uppercase tracking-wider hover:bg-white hover:text-black transition-all disabled:opacity-50"
+                className="w-full py-3 bg-rb-orange text-rb-orange-ink rounded font-bold uppercase tracking-wider hover:bg-rb-orange-deep transition-all disabled:opacity-50"
             >
               {loading ? "Updating..." : "Update Password"}
             </button>

@@ -148,8 +148,8 @@ export default function RootLayout({
   };
 
   return (
-    <html lang="en">
-      <body 
+    <html lang="en" suppressHydrationWarning={true}>
+      <body
         suppressHydrationWarning={true}
         className={`${saira.variable} ${orbitron.variable} font-saira antialiased bg-brand-black text-brand-silver`}
       >

@@ -62,7 +62,7 @@ export default function ChatProductCard({ product }: { product: ChatProductCardD
           // eslint-disable-next-line @next/next/no-img-element
           <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-brand-silver/40 text-[9px] text-center px-1">
+          <div className="w-full h-full flex items-center justify-center text-rb-silver/40 text-[9px] text-center px-1">
             No image
           </div>
         )}
@@ -71,7 +71,7 @@ export default function ChatProductCard({ product }: { product: ChatProductCardD
       <div className="flex-1 min-w-0">
         <button
           onClick={goToProduct}
-          className="text-left text-xs font-bold text-white leading-snug line-clamp-2 hover:text-brand-purple transition-colors"
+          className="text-left text-xs font-bold text-white leading-snug line-clamp-2 hover:text-rb-orange transition-colors"
         >
           {product.name}
         </button>
@@ -79,7 +79,7 @@ export default function ChatProductCard({ product }: { product: ChatProductCardD
         <div className="flex items-baseline gap-1.5 mt-1">
           <span className="text-sm font-bold text-white">₹{product.price.toLocaleString("en-IN")}</span>
           {hasDiscount && (
-            <span className="text-[11px] text-brand-silver/60 line-through">
+            <span className="text-[11px] text-rb-silver/60 line-through">
               ₹{product.mrp!.toLocaleString("en-IN")}
             </span>
           )}
@@ -100,13 +100,13 @@ export default function ChatProductCard({ product }: { product: ChatProductCardD
             onClick={() => handleAction(true)}
             disabled={!product.inStock}
             title="Buy Now"
-            className="w-7 h-7 rounded-full bg-brand-purple hover:scale-105 flex items-center justify-center disabled:opacity-30 transition-transform"
+            className="w-7 h-7 rounded-full bg-rb-orange hover:scale-105 flex items-center justify-center disabled:opacity-30 transition-transform"
           >
             <Zap className="w-3.5 h-3.5 text-white" />
           </button>
           <button
             onClick={goToProduct}
-            className="text-[11px] text-brand-silver hover:text-white underline underline-offset-2 transition-colors ml-auto"
+            className="text-[11px] text-rb-silver hover:text-white underline underline-offset-2 transition-colors ml-auto"
           >
             View details
           </button>

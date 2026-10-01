@@ -27,27 +27,27 @@ export default function OrdersPage() {
   }, []);
 
   return (
-    <div className="bg-[#121212] min-h-screen text-white font-saira flex flex-col">
+    <div className="bg-rb-black min-h-screen text-white font-saira flex flex-col">
       <Navbar />
-      <div className="flex-grow pt-32 pb-12 px-[80px] 2xl:px-[100px]">
+      <div className="flex-grow pt-32 pb-12 rb-shell">
         <h1 className="font-orbitron text-4xl font-bold mb-8">ORDER HISTORY</h1>
 
         {loading ? (
           <p>Loading orders...</p>
         ) : orders.length === 0 ? (
-          <div className="text-center py-20 border border-dashed border-white/10 rounded-xl">
-            <p className="text-brand-silver text-xl">You haven&apos;t placed any orders yet.</p>
+          <div className="text-center py-20 border border-dashed border-rb-line rounded-xl">
+            <p className="text-rb-silver text-xl">You haven&apos;t placed any orders yet.</p>
           </div>
         ) : (
           <div className="space-y-4">
             {orders.map((order) => (
-              <div key={order.id} className="bg-[#1A1A1A] p-6 border border-white/5 rounded flex justify-between items-center">
+              <div key={order.id} className="rb-surface-card p-6 flex justify-between items-center">
                 <div>
-                  <p className="font-bold text-lg">{order.order_display_id}</p>
-                  <p className="text-brand-silver text-sm">{new Date(order.created_at).toLocaleDateString()}</p>
+                  <p className="font-orbitron font-bold text-lg text-rb-white">{order.order_display_id}</p>
+                  <p className="text-rb-silver text-sm">{new Date(order.created_at).toLocaleDateString()}</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-xl text-brand-purple">₹{order.total_amount?.toLocaleString("en-IN")}</p>
+                  <p className="font-saira font-bold text-xl text-rb-orange">₹{Number(order.total_amount || 0).toLocaleString("en-IN")}</p>
                   <span className="text-xs uppercase bg-white/10 px-2 py-1 rounded text-white">{order.status}</span>
                 </div>
               </div>

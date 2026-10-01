@@ -7,18 +7,18 @@ import { FaShieldAlt, FaUserSecret, FaLock, FaCookie, FaTrash } from "react-icon
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-[#121212] text-white font-saira flex flex-col">
+    <div className="min-h-screen bg-rb-black text-white font-saira flex flex-col">
       <Navbar />
 
       {/* --- HERO HEADER --- */}
-      <section className="pt-12 pb-12 px-6 border-b border-white/5 bg-[#1A1A1A] relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-brand-purple/5 blur-[150px] pointer-events-none" />
+      <section className="pt-12 pb-12 px-6 border-b border-rb-line bg-rb-black relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-rb-orange/5 blur-[150px] pointer-events-none" />
         <div className="max-w-4xl mx-auto relative z-10 text-center">
           <Reveal>
             <h1 className="font-orbitron font-bold text-4xl md:text-5xl mb-4 tracking-tighter text-white">
-              PRIVACY <span className="text-brand-purple">PROTOCOLS</span>
+              PRIVACY <span className="text-rb-orange">PROTOCOLS</span>
             </h1>
-            <p className="text-brand-silver font-saira tracking-wide text-sm md:text-base">
+            <p className="text-rb-silver font-saira tracking-wide text-sm md:text-base">
         
             </p>
           </Reveal>
@@ -29,7 +29,7 @@ export default function PrivacyPage() {
       <div className="max-w-4xl mx-auto px-6 py-20 flex flex-col gap-12">
         
         <Reveal>
-            <div className="bg-[#1A1A1A] p-8 border-l-4 border-brand-purple rounded-r-lg">
+            <div className="bg-rb-surface p-8 border-l-4 border-rb-orange rounded-r-lg">
                 <p className="text-lg leading-relaxed text-white/90">
                     At Rig Builders, we treat your data with the same security standards as our hardware configurations. 
                     We collect only what is necessary to commission, build, and deliver your machine. 
@@ -74,8 +74,8 @@ export default function PrivacyPage() {
         />
 
         <div className="border-t border-white/10 pt-10 mt-10 text-center">
-            <p className="text-brand-silver text-sm mb-4">Questions regarding your data?</p>
-            <a href="mailto:info@rigbuilders.in" className="text-brand-purple font-bold hover:text-white transition-colors">info@rigbuilders.in</a>
+            <p className="text-rb-silver text-sm mb-4">Questions regarding your data?</p>
+            <a href="mailto:info@rigbuilders.in" className="text-rb-orange font-bold hover:text-white transition-colors">info@rigbuilders.in</a>
         </div>
 
       </div>
@@ -90,15 +90,15 @@ function Section({ icon, title, content }: any) {
         <Reveal>
             <div className="group">
                 <div className="flex items-center gap-4 mb-4">
-                    <div className="text-brand-purple text-xl bg-brand-purple/10 p-3 rounded-full border border-brand-purple/20 group-hover:border-brand-purple group-hover:bg-brand-purple group-hover:text-white transition-all">
+                    <div className="text-rb-orange text-xl bg-rb-orange/10 p-3 rounded-full border border-rb-orange/20 group-hover:border-rb-orange group-hover:bg-rb-orange group-hover:text-white transition-all">
                         {icon}
                     </div>
-                    <h2 className="font-orbitron text-2xl font-bold text-white group-hover:text-brand-purple transition-colors">
+                    <h2 className="font-orbitron text-2xl font-bold text-white group-hover:text-rb-orange transition-colors">
                         {title}
                     </h2>
                 </div>
                 <div className="pl-[60px]">
-                    <p className="text-brand-silver leading-relaxed text-sm md:text-base">
+                    <p className="text-rb-silver leading-relaxed text-sm md:text-base">
                         {content}
                     </p>
                 </div>

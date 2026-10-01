@@ -77,7 +77,7 @@ export default function MobileSignature() {
                             </div>
 
                             <div className="flex justify-between items-center pt-4 border-t border-white/10">
-                                <span className="font-orbitron font-bold text-lg text-white">₹{p.price.toLocaleString("en-IN")}</span>
+                                <span className="font-saira font-bold text-lg text-white">₹{p.price.toLocaleString("en-IN")}</span>
                                 <Link href={`/m/product/${p.id}`} className="bg-white text-black px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-full hover:bg-[#FFD700] transition-colors flex items-center gap-2 active:scale-95">
                                     Explore <FaArrowRight />
                                 </Link>

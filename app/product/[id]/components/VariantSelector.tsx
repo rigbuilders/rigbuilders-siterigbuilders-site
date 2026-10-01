@@ -68,7 +68,7 @@ export default function VariantSelector({ currentProductId, variantGroupId, curr
             {/* 1. GENERIC OPTION SELECTOR (Uses "Button Label" from Admin) */}
             {labels.length > 0 && (
                 <div>
-                    <label className="text-[10px] uppercase text-brand-silver font-bold tracking-wider mb-3 block">
+                    <label className="text-[10px] uppercase text-rb-silver font-bold tracking-wider mb-3 block">
                         Model / Option
                     </label>
                     <div className="flex flex-wrap gap-2">
@@ -80,8 +80,8 @@ export default function VariantSelector({ currentProductId, variantGroupId, curr
                                     onClick={() => handleSwitch('variant_label', label)}
                                     className={`px-4 py-2 text-xs font-bold rounded border transition-all ${
                                         isSelected 
-                                            ? "bg-brand-purple text-white border-brand-purple shadow-[0_0_10px_rgba(124,58,237,0.3)]" 
-                                            : "bg-[#1A1A1A] text-brand-silver border-white/10 hover:border-white/40 hover:text-white"
+                                            ? "bg-rb-orange text-white border-rb-orange shadow-[0_0_10px_rgba(255,90,31,0.35)]" 
+                                            : "bg-rb-surface text-rb-silver border-white/10 hover:border-white/40 hover:text-white"
                                     }`}
                                 >
                                     {label}
@@ -95,7 +95,7 @@ export default function VariantSelector({ currentProductId, variantGroupId, curr
             {/* 2. COLOR SELECTOR */}
             {colors.length > 0 && (
                 <div>
-                    <label className="text-[10px] uppercase text-brand-silver font-bold tracking-wider mb-3 block">
+                    <label className="text-[10px] uppercase text-rb-silver font-bold tracking-wider mb-3 block">
                         Color: <span className="text-white">{currentSpecs.color || "Selected"}</span>
                     </label>
                     <div className="flex flex-wrap gap-3">
@@ -111,7 +111,7 @@ export default function VariantSelector({ currentProductId, variantGroupId, curr
                                     key={color}
                                     onClick={() => handleSwitch('color', color)}
                                     title={color}
-                                    className={`w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all relative ${isSelected ? "border-brand-purple scale-110 shadow-[0_0_15px_rgba(124,58,237,0.4)]" : "border-white/10 hover:border-white/50"} ${!isActive && "opacity-50 grayscale"}`}
+                                    className={`w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all relative ${isSelected ? "border-rb-orange scale-110 shadow-[0_0_15px_rgba(255,90,31,0.45)]" : "border-white/10 hover:border-white/50"} ${!isActive && "opacity-50 grayscale"}`}
                                     style={{ backgroundColor: bg }}
                                 >
                                     {isSelected && <FaCheck className={`text-[10px] ${bg.includes('white') ? 'text-black' : 'text-white'}`} />}
@@ -125,7 +125,7 @@ export default function VariantSelector({ currentProductId, variantGroupId, curr
             {/* 3. CAPACITY / SIZE SELECTOR */}
             {capacities.length > 0 && (
                 <div>
-                    <label className="text-[10px] uppercase text-brand-silver font-bold tracking-wider mb-3 block">
+                    <label className="text-[10px] uppercase text-rb-silver font-bold tracking-wider mb-3 block">
                         Capacity / Size
                     </label>
                     <div className="flex flex-wrap gap-2">
@@ -137,8 +137,8 @@ export default function VariantSelector({ currentProductId, variantGroupId, curr
                                     onClick={() => handleSwitch('capacity', cap)}
                                     className={`px-4 py-2 text-xs font-bold rounded border transition-all ${
                                         isSelected 
-                                            ? "bg-brand-purple text-white border-brand-purple shadow-[0_0_10px_rgba(124,58,237,0.3)]" 
-                                            : "bg-[#1A1A1A] text-brand-silver border-white/10 hover:border-white/40 hover:text-white"
+                                            ? "bg-rb-orange text-white border-rb-orange shadow-[0_0_10px_rgba(255,90,31,0.35)]" 
+                                            : "bg-rb-surface text-rb-silver border-white/10 hover:border-white/40 hover:text-white"
                                     }`}
                                 >
                                     {cap}
@@ -152,7 +152,7 @@ export default function VariantSelector({ currentProductId, variantGroupId, curr
             {/* 4. STYLE / TYPE SELECTOR */}
             {styles.length > 0 && (
                 <div>
-                    <label className="text-[10px] uppercase text-brand-silver font-bold tracking-wider mb-3 block">
+                    <label className="text-[10px] uppercase text-rb-silver font-bold tracking-wider mb-3 block">
                         Style / Type
                     </label>
                     <div className="flex flex-wrap gap-2">
@@ -164,8 +164,8 @@ export default function VariantSelector({ currentProductId, variantGroupId, curr
                                     onClick={() => handleSwitch('style', style)}
                                     className={`px-4 py-2 text-xs font-bold rounded border transition-all ${
                                         isSelected 
-                                            ? "bg-brand-purple text-white border-brand-purple" 
-                                            : "bg-[#1A1A1A] text-brand-silver border-white/10 hover:border-white/40 hover:text-white"
+                                            ? "bg-rb-orange text-white border-rb-orange" 
+                                            : "bg-rb-surface text-rb-silver border-white/10 hover:border-white/40 hover:text-white"
                                     }`}
                                 >
                                     {style}
@@ -179,7 +179,7 @@ export default function VariantSelector({ currentProductId, variantGroupId, curr
             {/* 5. LATENCY SELECTOR */}
             {latencies.length > 0 && (
                 <div>
-                    <label className="text-[10px] uppercase text-brand-silver font-bold tracking-wider mb-3 block">
+                    <label className="text-[10px] uppercase text-rb-silver font-bold tracking-wider mb-3 block">
                         CAS Latency
                     </label>
                     <div className="flex flex-wrap gap-2">
@@ -189,8 +189,8 @@ export default function VariantSelector({ currentProductId, variantGroupId, curr
                                 onClick={() => handleSwitch('latency', lat)}
                                 className={`px-4 py-2 text-xs font-bold rounded border transition-all ${
                                     currentSpecs.latency === lat 
-                                        ? "bg-brand-purple text-white border-brand-purple" 
-                                        : "bg-[#1A1A1A] text-brand-silver border-white/10 hover:border-white/40 hover:text-white"
+                                        ? "bg-rb-orange text-white border-rb-orange" 
+                                        : "bg-rb-surface text-rb-silver border-white/10 hover:border-white/40 hover:text-white"
                                 }`}
                             >
                                 {lat}

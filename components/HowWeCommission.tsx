@@ -34,7 +34,7 @@ const steps = [
 
 export default function HowWeCommission() {
   return (
-    <section className="relative py-24 bg-[#121212] overflow-hidden border-t border-white/5">
+    <section className="relative py-24 bg-rb-surface overflow-hidden border-t border-rb-line">
       
       {/* 1. BACKGROUND IMAGE - Raw & Unaltered */}
       <div className="absolute inset-0">
@@ -71,15 +71,15 @@ export default function HowWeCommission() {
         <StaggerGrid className="grid grid-cols-1 md:grid-cols-5 gap-8 mb-16 relative">
           
           {/* Connector Line (Desktop Only) */}
-          <div className="hidden md:block absolute top-12 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-brand-purple/50 to-transparent z-0" />
+          <div className="hidden md:block absolute top-12 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-rb-orange/50 to-transparent z-0" />
 
           {steps.map((step) => (
             <StaggerItem key={step.id} className="relative z-10 flex flex-col items-center group">
               
               {/* Circle Shape */}
               {/* Added bg-black/40 backdrop-blur to ensure text is readable even if image is bright behind it */}
-              <div className="w-24 h-24 rounded-full bg-[#121212]/80 border border-white/10 group-hover:border-brand-purple group-hover:shadow-[0_0_20px_rgba(78,44,139,0.5)] transition-all duration-300 flex items-center justify-center mb-6 backdrop-blur-md">
-                <span className="font-orbitron text-2xl font-bold text-white group-hover:text-brand-purple transition-colors">
+              <div className="w-24 h-24 rounded-full bg-rb-surface/80 border border-rb-line group-hover:border-rb-orange group-hover:shadow-[0_0_20px_rgba(255,90,31,0.5)] transition-all duration-300 flex items-center justify-center mb-6 backdrop-blur-md">
+                <span className="font-orbitron text-2xl font-bold text-white group-hover:text-rb-orange transition-colors">
                     {step.id}
                 </span>
               </div>
@@ -90,9 +90,9 @@ export default function HowWeCommission() {
               </h3>
               
               {/* Divider Line */}
-              <div className="w-12 h-[2px] bg-brand-purple/50 mb-3 group-hover:w-full transition-all duration-500" />
-              
-              <p className="font-saira text-brand-silver text-xs leading-relaxed max-w-[150px] drop-shadow-md">
+              <div className="w-12 h-[2px] bg-rb-orange/60 mb-3 group-hover:w-full transition-all duration-500" />
+
+              <p className="font-saira text-rb-silver text-xs leading-relaxed max-w-[150px] drop-shadow-md">
                 {step.desc}
               </p>
 
@@ -103,7 +103,7 @@ export default function HowWeCommission() {
         {/* LEARN MORE BUTTON */}
         <Reveal delay={0.4}>
             <Link href="/how-we-commission">
-                <button className="px-10 py-4 bg-black/40 backdrop-blur-sm border border-white/30 hover:border-brand-purple text-white hover:text-brand-purple font-orbitron font-bold text-sm tracking-widest uppercase transition-all hover:bg-white/5 rounded-sm">
+                <button className="rb-sheen px-10 py-4 bg-black/40 backdrop-blur-sm border border-white/30 hover:border-rb-orange text-white hover:text-rb-orange font-orbitron font-bold text-sm tracking-widest uppercase transition-all hover:bg-white/5 rounded-sm">
                     Learn More
                 </button>
             </Link>

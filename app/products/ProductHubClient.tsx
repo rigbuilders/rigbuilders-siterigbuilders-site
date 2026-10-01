@@ -1,6 +1,7 @@
 "use client";
 
-import Navbar from "@/components/Navbar";
+import NavbarNeo from "@/components/home/NavbarNeo";
+import HeroCarousel from "@/components/home/HeroCarousel";
 import Footer from "@/components/Footer";
 import Link from "next/link";
 import Image from "next/image";
@@ -21,87 +22,88 @@ const FALLBACK_CARDS: HubCard[] = HUB_CATEGORIES.map((c) => ({
 
 export default function ProductHubClient({ categories: categoriesProp }: { categories?: HubCard[] }) {
   const categories = categoriesProp && categoriesProp.length > 0 ? categoriesProp : FALLBACK_CARDS;
+
   return (
-    <div className="min-h-screen bg-[#121212] text-white font-saira flex flex-col">
-      <Navbar />
-      
-      {/* HERO SECTION */}
-      <section className="pt-12 pb-12 px-6 border-b border-white/5 bg-[#121212] relative z-10">
-        <div className="max-w-7xl mx-auto text-center">
-          <Reveal>
-            <h1 className="font-orbitron font-bold text-5xl md:text-6xl text-white mb-4 tracking-tighter">
-                COMPONENT <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-purple to-brand-blue">ECOSYSTEM</span>
+    <main className="min-h-screen bg-rb-black text-white font-saira flex flex-col">
+      <NavbarNeo overlay />
+
+      {/* full-bleed carousel (managed in /admin/hero → Products page) */}
+      <HeroCarousel location="products" compact />
+
+      {/* SECTION HEADER */}
+      <section className="rb-shell pt-14 lg:pt-16 pb-8">
+        <Reveal>
+          <div className="max-w-2xl">
+            <span className="rb-kicker">Component ecosystem</span>
+            <h1 className="mt-3 font-orbitron text-4xl md:text-6xl font-black uppercase text-rb-white leading-[0.95]">
+              Every<span className="rb-text-ember"> part</span>
             </h1>
-            <p className="text-brand-silver font-saira tracking-widest uppercase text-sm">
-                Engineer your ultimate machine with precision hardware.
+            <p className="mt-4 font-saira text-rb-silver text-sm md:text-base leading-relaxed">
+              Engineer your ultimate machine with precision hardware — each category vetted for
+              reliability, backed by official warranty and insured shipping.
             </p>
-          </Reveal>
-        </div>
+          </div>
+        </Reveal>
       </section>
 
-      {/* CINEMATIC GRID */}
-      <div className="flex-grow w-full">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-          {categories.map((cat) => (
-            <Link 
-                key={cat.id} 
-                href={`/products/${cat.id}`} 
-                className="group relative h-[500px] overflow-hidden border-b border-white/5 md:border-r border-white/5 lg:[&:nth-child(3n)]:border-r-0"
-            >
-              
-              {/* --- 1. BACKGROUND IMAGE --- */}
-              <div className="absolute inset-0 w-full h-full">
-                <Image 
-                    src={cat.image} 
-                    alt={cat.name} 
-                    fill 
-                    className="object-cover transition-transform duration-[1.5s] ease-out group-hover:scale-110"
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                />
-                <div className="absolute inset-0 bg-black/40 group-hover:bg-black/40 transition-colors duration-500"></div>
-                <div className="absolute bottom-0 left-0 w-full h-2/3 bg-gradient-to-t from-black via-black/50 to-transparent"></div>
-              </div>
+      {/* CINEMATIC CATEGORY GRID */}
+      <div className="flex-grow w-full pb-16">
+        <div className="rb-shell">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-5">
+            {categories.map((cat, i) => (
+              <Reveal key={cat.id} delay={i * 0.05}>
+                <Link
+                  href={`/products/${cat.id}`}
+                  className="group relative block h-[260px] sm:h-[380px] lg:h-[440px] overflow-hidden rounded-xl sm:rounded-2xl border border-rb-line"
+                >
+                  {/* BACKGROUND IMAGE */}
+                  <div className="absolute inset-0">
+                    <Image
+                      src={cat.image}
+                      alt={cat.name}
+                      fill
+                      className="object-cover transition-transform duration-[1.5s] ease-out group-hover:scale-110"
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    />
+                    <div className="absolute inset-0 bg-rb-black/40 group-hover:bg-rb-black/55 transition-colors duration-500" />
+                    <div className="absolute bottom-0 left-0 w-full h-2/3 bg-gradient-to-t from-rb-black via-rb-black/55 to-transparent" />
+                    {/* ember wash on hover */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-rb-orange/25 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 mix-blend-screen" />
+                  </div>
 
-              {/* --- 2. CONTENT LAYER --- */}
-              <div className="relative z-10 h-full flex flex-col items-center justify-end p-8 text-center pb-12">
-                 
-                 {/* Floating Border Box */}
-                 <div className="absolute inset-8 border border-white/10 scale-95 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-500 pointer-events-none"></div>
+                  {/* CONTENT */}
+                  <div className="relative z-10 h-full flex flex-col justify-end p-4 sm:p-6 lg:p-7">
+                    {/* framed hover box */}
+                    <div className="absolute inset-4 sm:inset-6 border border-rb-orange/30 rounded-lg sm:rounded-xl scale-95 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-500 pointer-events-none" />
 
-                 {/* CENTER POP-UP CONTENT (Sub, Desc, Button) */}
-                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                     <div className="opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 flex flex-col items-center">
-                        <span aria-hidden="true" className="text-brand-purple font-bold tracking-[0.3em] text-[10px] uppercase mb-3 block">
-                            {cat.sub}
-                        </span>
-                        
-                        <p className="text-brand-silver text-xs font-medium uppercase tracking-wider mb-6">
-                            {cat.desc}
-                        </p>
-
-                        <button className="flex items-center gap-3 text-xs font-orbitron font-bold uppercase tracking-widest text-white hover:text-brand-purple transition-colors pointer-events-auto">
-                            Browse Parts <FaArrowRight />
-                        </button>
-                     </div>
-                 </div>
-
-                 {/* BOTTOM FIXED CONTENT (Main Title) */}
-                 <div className="relative z-10 transform transition-transform duration-500 group-hover:-translate-y-2">
-                    <h2 className="font-orbitron text-4xl md:text-5xl font-bold text-white tracking-tight drop-shadow-2xl">
-                        {cat.name}
+                    <span className="rb-kicker text-rb-orange mb-1.5 sm:mb-2 text-[9px] sm:text-[10px]">{cat.sub}</span>
+                    <h2 className="font-orbitron text-lg sm:text-2xl lg:text-4xl font-black uppercase text-rb-white tracking-tight leading-none drop-shadow-2xl">
+                      {cat.name}
                     </h2>
-                 </div>
-                 
-              </div>
 
-              <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-brand-purple to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-700"></div>
-              
-            </Link>
-          ))}
+                    {/* reveal-on-hover desc + cta */}
+                    <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-all duration-500 ease-out">
+                      <div className="overflow-hidden">
+                        <p className="mt-4 text-rb-mist text-xs font-saira uppercase tracking-wider leading-relaxed">
+                          {cat.desc}
+                        </p>
+                        <span className="mt-4 inline-flex items-center gap-2.5 text-xs font-orbitron font-bold uppercase tracking-widest text-rb-orange">
+                          Browse Parts <FaArrowRight size={11} />
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* top sweep line */}
+                  <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-rb-orange to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-700" />
+                </Link>
+              </Reveal>
+            ))}
+          </div>
         </div>
       </div>
 
       <Footer />
-    </div>
+    </main>
   );
 }

@@ -21,7 +21,7 @@ export default function OrdersList({ orders, handleDeleteOrder }: any) {
                  <p className="text-[9px] text-[#A0A0A0] font-saira">{new Date(o.created_at).toLocaleDateString()} • {o.itemsList?.length || 1} Items</p>
               </div>
               <div className="text-right flex flex-col items-end">
-                 <p className="font-orbitron font-bold text-sm text-[#B084FF]">₹{Number(o.total_amount||0).toLocaleString()}</p>
+                 <p className="font-saira font-bold text-sm text-[#B084FF]">₹{Number(o.total_amount||0).toLocaleString()}</p>
                  {['pending','processing'].includes(o.status) && (
                     <button onClick={() => handleDeleteOrder(o.id, o.source)} className="text-[#A0A0A0] hover:text-red-500 mt-2 active:scale-90"><FaTrash size={12}/></button>
                  )}

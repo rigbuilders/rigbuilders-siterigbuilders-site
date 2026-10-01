@@ -38,17 +38,17 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="bg-[#121212] min-h-screen text-white font-saira flex flex-col relative">
+    <div className="bg-rb-black min-h-screen text-white font-saira flex flex-col relative">
 
       {/* Background Ambience */}
-      <div className="fixed top-0 left-0 w-full h-[500px] bg-brand-purple/5 blur-[120px] pointer-events-none z-0" />
+      <div className="fixed top-0 left-0 w-full h-[500px] bg-rb-orange/5 blur-[120px] pointer-events-none z-0" />
 
       <Navbar />
 
       <div className="flex-grow pt-32 pb-12 flex items-center justify-center px-6 relative z-10 overflow-hidden">
-        <div className="w-full max-w-md bg-[#1A1A1A] p-8 rounded-xl border border-white/5 shadow-2xl">
+        <div className="w-full max-w-md bg-rb-surface p-8 rounded-xl border border-rb-line shadow-2xl">
           <h1 className="font-orbitron text-2xl font-bold mb-4 text-white">Reset Password</h1>
-          <p className="text-brand-silver text-sm mb-8">
+          <p className="text-rb-silver text-sm mb-8">
             Enter the email address associated with your Rig Builders account.
           </p>
           
@@ -56,12 +56,12 @@ export default function ForgotPassword() {
 
           <form onSubmit={handleReset} className="space-y-6">
             <div>
-                <label className="block text-xs uppercase tracking-wider text-brand-silver mb-2 font-bold">Email Address</label>
+                <label className="block text-xs uppercase tracking-wider text-rb-silver mb-2 font-bold">Email Address</label>
                 <input 
                   type="email" 
                   required 
                   placeholder="you@example.com"
-                  className="w-full bg-[#121212] border border-white/10 rounded p-4 text-white focus:border-brand-purple outline-none transition-colors"
+                  className="w-full bg-rb-black border border-rb-line rounded p-4 text-white focus:border-rb-orange outline-none transition-colors"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
@@ -69,7 +69,7 @@ export default function ForgotPassword() {
             
             <button 
                 disabled={loading} 
-                className="w-full py-4 bg-brand-purple rounded font-orbitron font-bold uppercase tracking-widest hover:bg-white hover:text-black transition-all shadow-lg hover:shadow-brand-purple/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-4 bg-rb-orange text-rb-orange-ink rounded font-orbitron font-bold uppercase tracking-widest hover:bg-rb-orange-deep transition-all shadow-[0_0_24px_-6px_rgba(255,90,31,0.6)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Sending..." : "Send Reset Link"}
             </button>
