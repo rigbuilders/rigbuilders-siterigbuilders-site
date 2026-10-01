@@ -169,6 +169,17 @@ export async function handleWebsiteMessage(
     const geminiConfig = getGeminiConfig();
 
     if (!geminiConfig && !llmConfig) {
+      // Names only, never values — this is the log that tells you whether the
+      // env vars actually reached the running deployment, which is the only
+      // thing that can cause this branch.
+      console.error(
+        "[chatbot:website] no LLM provider configured. Seen: " +
+          `LLM_API_KEY=${process.env.LLM_API_KEY ? "set" : "MISSING"}, ` +
+          `LLM_BASE_URL=${process.env.LLM_BASE_URL ? "set" : "MISSING"}, ` +
+          `LLM_MODEL=${process.env.LLM_MODEL ? "set" : "MISSING"}, ` +
+          `TOGETHER_API_KEY=${process.env.TOGETHER_API_KEY ? "set" : "MISSING"}, ` +
+          `GEMINI_API_KEY=${process.env.GEMINI_API_KEY ? "set" : "MISSING"}`
+      );
       const fallback =
         "Sorry, live chat isn't configured right now. Please reach us on WhatsApp and we'll help you out.";
       await appendMessage(conversation.id, "assistant", fallback, "none");

@@ -368,31 +368,14 @@ export default function ChatWidget({ children }: { children: React.ReactNode }) 
     }
   }
 
-  // Staff-only area — never show the widget (or squeeze the layout) there.
+  // Staff-only area — never show the widget there.
   const hideWidget = pathname?.startsWith("/admin") ?? false;
-  const showDrawer = isOpen && !hideWidget;
 
   return (
     <>
-      {/*
-        On desktop, opening the window pushes this wrapper's left edge in by
-        420px (the window's width) — a genuine squeeze/reflow, not an overlay
-        sitting on top of the page. On mobile there's no margin change at
-        all: the window is a small floating pop-up instead (see below), so
-        squeezing a narrow viewport never happens.
-
-        [container-type:inline-size] turns this wrapper into a CSS
-        containment context: descendants can query ITS width (via the
-        "rb-page" cq-* classes defined in globals.css) instead of the
-        browser viewport. That's what lets the navbar (and anything else
-        that opts in) fall back to its existing tablet/mobile layout once
-        the squeezed area actually gets that narrow — genuinely responsive
-        to the room it has, on any screen size, rather than the page
-        content shrinking its own text/icons to cram into less space.
-      */}
-      <div
-        className={`min-h-screen transition-[margin-right] duration-300 ease-in-out [container-type:inline-size] [container-name:rb-page] ${showDrawer ? "md:mr-[420px]" : ""}`}
-      >
+      {/* The chat window is now a floating glass pop-up (see below), so the
+          page never squeezes/reflows when it opens — content stays put. */}
+      <div className="min-h-screen">
         {children}
       </div>
 
@@ -404,52 +387,53 @@ export default function ChatWidget({ children }: { children: React.ReactNode }) 
               hidden — see DesktopWidgets.tsx). High z-index clears the
               mobile bottom nav. */}
           {!isOpen && (
-            <button
-              onClick={() => setIsOpen(true)}
-              className="fixed bottom-32 right-4 md:bottom-6 md:right-6 z-[999] flex items-center gap-3 py-3 px-6 bg-rb-orange text-white rounded-full shadow-[0_0_25px_rgba(78,44,139,0.5)] hover:scale-105 hover:shadow-[0_0_35px_rgba(78,44,139,0.7)] transition-all duration-300"
-              title="Chat with Rix AI"
-            >
-              <Bot className="w-5 h-5" />
-              <span className="text-xs font-orbitron font-bold tracking-widest uppercase">Rix AI</span>
-              {unread > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                  {unread}
-                </span>
-              )}
-            </button>
+            <div className="fixed bottom-5 right-4 md:bottom-6 md:right-6 z-[999] group/launcher">
+              <button
+                onClick={() => setIsOpen(true)}
+                aria-label="Ask our chatbot"
+                className="relative flex items-center justify-center w-14 h-14 rounded-full bg-rb-orange text-rb-orange-ink shadow-[0_0_28px_-6px_rgba(255,90,31,0.7)] hover:bg-rb-orange-deep hover:scale-105 transition-all duration-300"
+              >
+                <Bot className="w-6 h-6" />
+                {unread > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-rb-danger text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                    {unread}
+                  </span>
+                )}
+              </button>
+              {/* hover tooltip */}
+              <span className="pointer-events-none absolute right-16 top-1/2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-rb-black/90 backdrop-blur-md border border-white/10 px-3 py-1.5 text-xs font-saira text-rb-white opacity-0 translate-x-1 group-hover/launcher:opacity-100 group-hover/launcher:translate-x-0 transition-all duration-200">
+                Ask our chatbot
+              </span>
+            </div>
           )}
 
           {isOpen && (
             <>
-              {/* Mobile-only backdrop — tapping anywhere outside the pop-up
-                  closes it back to the floating bubble. Desktop doesn't get
-                  one: the page stays visible and interactive alongside the
-                  docked window, so there's nothing to "tap away" from. */}
+              {/* Click-away backdrop — closes the pop-up. Dimmed on mobile,
+                  transparent on desktop (page stays visible behind it). */}
               <div
-                className="fixed inset-0 z-[998] md:hidden"
+                className="fixed inset-0 z-[998] bg-black/50 md:bg-transparent"
                 onClick={() => setIsOpen(false)}
                 aria-hidden="true"
               />
 
               {/*
-                Mobile: a small floating pop-up card (inset on all sides,
-                clearly separate from a full-screen takeover).
-                Desktop (md+): a full-height docked window flush against the
-                right edge, top to bottom — the page squeezes into the
-                remaining width instead of this floating on top of it.
+                Floating glass pop-up (like the navbar dropdowns, but click-opened).
+                Mobile: inset card. Desktop: anchored bottom-right, spanning from
+                just below the navbar down to the launcher corner. No page squeeze.
               */}
-              <div className="fixed z-[999] inset-x-4 top-24 bottom-24 rounded-2xl border border-white/10 md:inset-x-auto md:inset-y-auto md:right-0 md:top-0 md:bottom-0 md:w-[420px] md:rounded-none md:border-y-0 md:border-r-0 bg-[#1A1A1A] shadow-[0_0_50px_rgba(0,0,0,0.7)] flex flex-col overflow-hidden">
+              <div className="fixed z-[999] inset-x-4 top-24 bottom-5 md:inset-x-auto md:right-6 md:top-24 md:bottom-6 md:w-[400px] rounded-2xl bg-rb-black/80 backdrop-blur-2xl backdrop-saturate-150 border border-white/10 ring-1 ring-inset ring-white/5 shadow-[0_28px_70px_-20px_rgba(0,0,0,0.95)] flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200">
           {/* Header */}
-          <div className="px-4 py-3 border-b border-white/10 bg-brand-black/60 flex items-center gap-2.5 shrink-0">
-            <div className="w-8 h-8 rounded-full bg-rb-orange/20 flex items-center justify-center shrink-0">
+          <div className="px-4 py-3 border-b border-white/10 bg-rb-black/40 flex items-center gap-2.5 shrink-0">
+            <div className="w-8 h-8 rounded-full bg-rb-orange/15 border border-rb-orange/30 flex items-center justify-center shrink-0">
               <Bot className="w-4 h-4 text-rb-orange" />
             </div>
             <div className="flex-1">
               <p className="font-orbitron text-xs font-bold uppercase tracking-widest text-white">
-                Rix AI
+                AI Assistant
               </p>
               <p className="text-[11px] text-rb-silver mt-0.5">
-                {status === "handed_off" ? "A team member has joined this chat" : "Usually replies instantly"}
+                {status === "handed_off" ? "A team member has joined this chat" : ""}
               </p>
             </div>
             <button
@@ -472,8 +456,8 @@ export default function ChatWidget({ children }: { children: React.ReactNode }) 
                 <div
                   className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words ${
                     m.role === "user"
-                      ? "bg-rb-orange text-white rounded-br-sm"
-                      : "bg-[#121212] border border-white/10 text-brand-text rounded-bl-sm"
+                      ? "bg-rb-orange text-rb-orange-ink rounded-br-sm"
+                      : "bg-rb-black/70 border border-white/10 text-rb-mist rounded-bl-sm"
                   }`}
                 >
                   {m.content ? renderMessageContent(m.content) : m.pending ? <TypingDots /> : ""}
@@ -503,12 +487,12 @@ export default function ChatWidget({ children }: { children: React.ReactNode }) 
               onChange={(e) => setInput(e.target.value)}
               placeholder="Type a message..."
               disabled={isSending}
-              className="flex-1 bg-[#121212] border border-white/10 rounded-full px-4 py-2 text-sm text-white placeholder-rb-silver/50 focus:border-rb-orange outline-none disabled:opacity-60"
+              className="flex-1 bg-rb-black/60 border border-white/10 rounded-full px-4 py-2 text-sm text-white placeholder-rb-silver/50 focus:border-rb-orange outline-none disabled:opacity-60"
             />
             <button
               type="submit"
               disabled={isSending || !input.trim()}
-              className="w-9 h-9 rounded-full bg-rb-orange text-white flex items-center justify-center disabled:opacity-40 hover:scale-105 transition-transform shrink-0"
+              className="w-9 h-9 rounded-full bg-rb-orange text-rb-orange-ink flex items-center justify-center disabled:opacity-40 hover:scale-105 transition-transform shrink-0"
             >
               {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </button>
