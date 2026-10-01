@@ -5,6 +5,7 @@ export type TextAlign = "left" | "center" | "right";
 export type ImagePosition = "left" | "right" | "background";
 export type ImageAspect = "portrait" | "landscape" | "square";
 export type CtaStyle = "primary" | "secondary";
+export type TextSize = "sm" | "md" | "lg" | "xl";
 
 export interface HeroSlide {
   id: string;
@@ -15,6 +16,7 @@ export interface HeroSlide {
   heading_accent: string | null;
   subheading: string | null;
   text_align: TextAlign;
+  text_size: TextSize; // heading scale
   image_url: string | null;
   image_url_mobile: string | null; // optional separate image for phones
   image_position: ImagePosition;
@@ -40,6 +42,7 @@ export const DEFAULT_SLIDE: HeroSlide = {
   subheading:
     "Commissioned. Not assembled. Precision custom PCs — built and proven for exactly how you play, create and work.",
   text_align: "left",
+  text_size: "lg",
   image_url: "/images/homepage/hero/1.jpg",
   image_url_mobile: null,
   image_position: "right",
@@ -58,6 +61,14 @@ export const ASPECT_CLASS: Record<ImageAspect, string> = {
   portrait: "aspect-[4/5]",
   landscape: "aspect-[16/9]",
   square: "aspect-square",
+};
+
+// Heading scale per text_size (mobile → desktop).
+export const HEADING_SIZE_CLASS: Record<TextSize, string> = {
+  sm: "text-3xl sm:text-4xl md:text-5xl",
+  md: "text-4xl sm:text-5xl md:text-6xl",
+  lg: "text-5xl sm:text-6xl md:text-7xl",
+  xl: "text-6xl sm:text-7xl md:text-8xl",
 };
 
 // Normalises a raw DB row into a fully-typed HeroSlide (fills gaps).
