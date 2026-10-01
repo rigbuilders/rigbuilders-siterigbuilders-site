@@ -21,6 +21,10 @@
     padding-left: clamp(24px, 6vw, 80px);
     padding-right: clamp(24px, 6vw, 80px);
   }
+  /* Tighter, unified gutter on phones — navbar, hero and every section share it. */
+  @media (max-width: 640px) {
+    .rb-shell { padding-left: 16px; padding-right: 16px; }
+  }
   /* Full-bleed variant (gutter only, no max-width) for edge-to-edge sections. */
   .rb-gutter {
     padding-left: clamp(24px, 6vw, 80px);

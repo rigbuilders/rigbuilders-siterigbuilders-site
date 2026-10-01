@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import BrandCarousel from "@/components/BrandCarousel";
 import ComponentsPicker from "@/components/home/ComponentsPicker";
 import { HUB_CATEGORIES } from "@/app/data/categories";
@@ -15,7 +14,23 @@ import {
   FaFingerprint,
   FaTruck,
   FaArrowRight,
+  FaMicrochip,
+  FaDesktop,
+  FaServer,
+  FaHdd,
+  FaBox,
+  FaPlug,
+  FaMemory,
+  FaFan,
+  FaCrown,
+  FaTools,
 } from "react-icons/fa";
+import type { IconType } from "react-icons";
+
+const CAT_ICON: Record<string, IconType> = {
+  cpu: FaMicrochip, gpu: FaDesktop, motherboard: FaServer, storage: FaHdd,
+  cabinet: FaBox, psu: FaPlug, ram: FaMemory, cooler: FaFan,
+};
 
 const VALUES = [
   "Compatibility Verified",
@@ -77,43 +92,41 @@ const PROOF = [
 ];
 
 export default function HomeShowcase() {
-  const MOBILE_SERIES = [
-    { name: "Ascend", tag: "Gaming", href: "/ascend", img: "/images/Desktops/ascend.jpg" },
-    { name: "Creator", tag: "Studio", href: "/creator", img: "/images/Desktops/creator.jpg" },
-    { name: "WorkPro", tag: "Workstation", href: "/workpro", img: "/images/Desktops/workpro.jpg" },
-    { name: "Signature", tag: "Flagship", href: "/signature", img: "/images/Desktops/signature.jpg" },
+  const MOBILE_SERIES: { name: string; tag: string; href: string; icon: IconType }[] = [
+    { name: "Ascend", tag: "Gaming", href: "/ascend", icon: FaGamepad },
+    { name: "Creator", tag: "Studio", href: "/creator", icon: FaVideo },
+    { name: "WorkPro", tag: "Workstation", href: "/workpro", icon: FaBuilding },
+    { name: "Signature", tag: "Flagship", href: "/signature", icon: FaCrown },
   ];
 
   return (
     <>
-      {/* ═══════════ MOBILE — minimal, floating images, no cards ═══════════ */}
+      {/* ═══════════ MOBILE — minimal: bare icons + text, no cards ═══════════ */}
       <div className="lg:hidden bg-rb-black">
         {/* PRODUCTS */}
-        <section className="px-5 pt-12 pb-14">
-          <div className="flex items-baseline justify-between mb-7">
+        <section className="rb-shell pt-12 pb-14">
+          <div className="flex items-baseline justify-between mb-8">
             <h2 className="font-orbitron text-2xl font-black uppercase text-rb-white">
               Compo<span className="rb-text-ember">nents</span>
             </h2>
             <Link href="/products" className="text-[11px] font-bold uppercase tracking-widest text-rb-orange">View all ›</Link>
           </div>
-          <div className="grid grid-cols-3 gap-x-4 gap-y-8">
-            {HUB_CATEGORIES.slice(0, 6).map((c) => (
-              <Link key={c.slug} href={`/products/${c.slug}`} className="group flex flex-col items-center text-center">
-                <div className="relative w-full aspect-square mb-2">
-                  <Image src={c.hub!.image} alt={c.hub!.name} fill className="object-contain drop-shadow-[0_14px_20px_rgba(0,0,0,0.8)] group-active:scale-95 transition-transform" sizes="33vw" />
-                </div>
-                <span className="font-orbitron text-[11px] font-bold uppercase text-rb-mist">{c.short}</span>
-              </Link>
-            ))}
+          <div className="grid grid-cols-4 gap-x-3 gap-y-8">
+            {HUB_CATEGORIES.slice(0, 8).map((c) => {
+              const Icon = CAT_ICON[c.slug] || FaMicrochip;
+              return (
+                <Link key={c.slug} href={`/products/${c.slug}`} className="group flex flex-col items-center text-center gap-2.5">
+                  <Icon className="text-rb-orange text-[28px] group-active:scale-90 transition-transform" />
+                  <span className="font-orbitron text-[10px] font-bold uppercase tracking-wide text-rb-mist leading-tight">{c.short}</span>
+                </Link>
+              );
+            })}
           </div>
         </section>
 
         {/* BUILD YOUR OWN */}
-        <section className="px-5 py-14 text-center border-t border-rb-line">
-          <div className="relative w-48 h-48 mx-auto mb-6">
-            <div className="absolute inset-0 bg-rb-orange/10 blur-3xl rounded-full" />
-            <Image src="/images/Default custom rig/3.jpg" alt="Custom rig" fill className="object-contain drop-shadow-[0_24px_36px_rgba(0,0,0,0.85)]" sizes="192px" />
-          </div>
+        <section className="rb-shell py-14 text-center border-t border-rb-line">
+          <FaTools className="text-rb-orange text-5xl mx-auto mb-5" />
           <span className="rb-kicker">Fully custom</span>
           <h2 className="mt-2 font-orbitron text-3xl font-black uppercase text-rb-white leading-none">
             Build Your <span className="rb-text-ember">Own</span>
@@ -127,22 +140,22 @@ export default function HomeShowcase() {
         </section>
 
         {/* DESKTOPS */}
-        <section className="px-5 py-14 border-t border-rb-line">
-          <h2 className="font-orbitron text-2xl font-black uppercase text-rb-white mb-7">
+        <section className="rb-shell py-14 border-t border-rb-line">
+          <h2 className="font-orbitron text-2xl font-black uppercase text-rb-white mb-8">
             Desk<span className="rb-text-ember">tops</span>
           </h2>
-          <div className="grid grid-cols-2 gap-x-5 gap-y-9">
-            {MOBILE_SERIES.map((s) => (
-              <Link key={s.href} href={s.href} className="group flex flex-col items-center text-center">
-                <div className="relative w-full aspect-[4/3] mb-2.5">
-                  <Image src={s.img} alt={s.name} fill className="object-contain drop-shadow-[0_18px_26px_rgba(0,0,0,0.85)] group-active:scale-95 transition-transform" sizes="50vw" />
-                </div>
-                <span className="font-orbitron text-sm font-black uppercase text-rb-white">{s.name}</span>
-                <span className="font-saira text-[11px] uppercase tracking-wider text-rb-silver">{s.tag}</span>
-              </Link>
-            ))}
+          <div className="grid grid-cols-4 gap-x-3 gap-y-8">
+            {MOBILE_SERIES.map((s) => {
+              const Icon = s.icon;
+              return (
+                <Link key={s.href} href={s.href} className="group flex flex-col items-center text-center gap-2.5">
+                  <Icon className="text-rb-orange text-[28px] group-active:scale-90 transition-transform" />
+                  <span className="font-orbitron text-[10px] font-black uppercase tracking-wide text-rb-white leading-tight">{s.name}</span>
+                </Link>
+              );
+            })}
           </div>
-          <Link href="/desktops" className="block text-center mt-9">
+          <Link href="/desktops" className="block text-center mt-10">
             <button className="rb-ghost px-8 py-3 rounded-lg uppercase tracking-widest text-xs">All Desktops</button>
           </Link>
         </section>

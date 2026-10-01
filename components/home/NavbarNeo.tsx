@@ -150,7 +150,7 @@ export default function NavbarNeo({ overlay = false }: { overlay?: boolean }) {
             is inset from the screen edges and lines up with the content. */}
         <div className="rb-shell">
           <div
-            className="pointer-events-auto relative mt-3 sm:mt-4 mx-2 sm:mx-0"
+            className="pointer-events-auto relative mt-3 sm:mt-4"
             onMouseLeave={scheduleClose}
           >
             {/* soft ember under the capsule */}
