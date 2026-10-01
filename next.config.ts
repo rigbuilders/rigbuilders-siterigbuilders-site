@@ -70,6 +70,17 @@ const securityHeaders = [
  * (or .js/.cjs) back — if you ever need a change, edit this file only.
  */
 const nextConfig: NextConfig = {
+  // `web-push` is a CommonJS Node library (dynamic requires, Node crypto/https
+  // built-ins). Letting the bundler inline it into the serverless function
+  // bundle is exactly the kind of package that breaks at *module load* in
+  // production — and because lib/chatbot/push-notify.ts is imported by
+  // orchestrator.ts, which is imported by app/api/webhook/[channel]/route.ts,
+  // a load failure there takes down the ENTIRE WhatsApp/Messenger/Instagram
+  // webhook route, not just notifications: Meta's POST gets a 500, so nothing
+  // is saved and nobody gets a reply. Marking it external keeps it as a plain
+  // runtime require from node_modules instead.
+  serverExternalPackages: ["web-push"],
+
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**" }, // Allows all external images

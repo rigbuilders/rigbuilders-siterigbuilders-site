@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
-import type { ChannelAdapter } from "@/lib/chatbot/types";
+import type { ChannelAdapter, NormalizedMessage } from "@/lib/chatbot/types";
 import { whatsappAdapter } from "@/lib/chatbot/adapters/whatsapp";
 import { messengerAdapter } from "@/lib/chatbot/adapters/messenger";
 import { instagramAdapter } from "@/lib/chatbot/adapters/instagram";
@@ -32,9 +32,86 @@ const ADAPTERS: Record<string, ChannelAdapter> = {
   instagram: instagramAdapter,
 };
 
+/**
+ * Meta batches: a single webhook POST can carry several entries, several
+ * changes per entry, and several messages per change — routinely so when more
+ * than one customer writes in at the same moment. Every adapter's
+ * parseIncoming only ever looks at the FIRST message in the payload, so
+ * everything after it used to be silently dropped: with 4 customers messaging
+ * at once, 3 of them got no reply and no inbox row, with nothing logged to
+ * say why.
+ *
+ * Rather than change all three adapters (and the ChannelAdapter contract) to
+ * return arrays, this fans a batched payload out into N single-message
+ * payloads of exactly the shape each adapter already expects, so each one
+ * flows through the normal path untouched. A payload with only one message in
+ * it comes back out as a single-element list, i.e. unchanged behaviour.
+ */
+function splitBatchedPayload(channel: string, rawPayload: unknown): unknown[] {
+  const payload = rawPayload as {
+    object?: string;
+    entry?: { changes?: { field?: string; value?: Record<string, unknown> }[]; messaging?: unknown[] }[];
+  };
+  if (!payload?.entry?.length) return [rawPayload];
+
+  const out: unknown[] = [];
+
+  // One output payload per (entry, change, message) tuple — note this splits
+  // on multiple *entries* too, not just multiple messages inside one entry.
+  // Several customers writing at the same time most often arrives as several
+  // entries with one message each, and since every adapter reads entry[0]
+  // only, that case dropped everyone but the first customer.
+  for (const entry of payload.entry) {
+    if (channel === "whatsapp") {
+      for (const change of entry.changes ?? []) {
+        const messages = change.value?.messages as unknown[] | undefined;
+        if (!Array.isArray(messages) || messages.length === 0) continue;
+        for (const message of messages) {
+          out.push({
+            ...payload,
+            entry: [{ ...entry, changes: [{ ...change, value: { ...change.value, messages: [message] } }] }],
+          });
+        }
+      }
+    } else {
+      // Messenger + Instagram share the Messenger Platform shape: one
+      // `messaging` array per entry, one event each.
+      const messaging = entry.messaging;
+      if (!Array.isArray(messaging) || messaging.length === 0) continue;
+      for (const event of messaging) {
+        out.push({ ...payload, entry: [{ ...entry, messaging: [event] }] });
+      }
+    }
+  }
+
+  // No actual messages in this payload (a delivery-status or read-receipt
+  // callback, say) — hand back the original so the adapter's own "nothing to
+  // reply to" path runs exactly as before.
+  return out.length > 0 ? out : [rawPayload];
+}
+
 async function processInbound(adapter: ChannelAdapter, rawPayload: unknown): Promise<void> {
-  const message = await adapter.parseIncoming(rawPayload);
+  // parseIncoming does network work now (resolving + re-hosting inbound
+  // media), so it can genuinely throw. This runs inside after(), where an
+  // unhandled rejection is invisible — catch it here or a media hiccup
+  // silently swallows the customer's whole message.
+  let message: NormalizedMessage | null;
+  try {
+    message = await adapter.parseIncoming(rawPayload);
+  } catch (err) {
+    console.error(`[webhook:${adapter.channelId}] parseIncoming threw: ${(err as Error).message}`);
+    return;
+  }
   if (!message) return; // status update, echo, unsupported type, etc. — nothing to reply to
+
+  // Deliberate "we got this far" marker. When the complaint is "the bot
+  // isn't replying at all", the single most important thing to know is
+  // whether Meta is even delivering webhooks to us — if this line is absent
+  // from the logs the problem is upstream (webhook subscription, app mode,
+  // token), and nothing in this codebase can fix it.
+  console.log(
+    `[webhook:${adapter.channelId}] inbound from ${message.externalUserId}: ${JSON.stringify(message.text).slice(0, 200)}`
+  );
 
   if (adapter.markAsRead && message.messageId) {
     try {
@@ -50,7 +127,24 @@ async function processInbound(adapter: ChannelAdapter, rawPayload: unknown): Pro
     // null means: excluded number, or a human already has this conversation
     // handed off — stay silent, the message is already saved for the admin inbox.
     if (reply) {
-      await adapter.sendReply(message.externalUserId, reply.text, reply.meta);
+      // Meta rejects an empty/whitespace-only message body outright (and for
+      // an interactive cta_url message it's a hard 400), so an LLM that
+      // returned nothing usable would turn into a send error and total
+      // silence. Substitute the same wording the orchestrator uses when both
+      // providers fail, so the customer always gets *something* back.
+      const outgoing = reply.text?.trim()
+        ? reply.text
+        : "Sorry, I'm having trouble getting you an answer right now. A member of the Rig Builders team will follow up with you shortly.";
+      if (!reply.text?.trim()) {
+        console.error(`[webhook:${adapter.channelId}] empty reply text for ${message.externalUserId} — sent fallback instead`);
+      }
+      await adapter.sendReply(message.externalUserId, outgoing, reply.meta);
+      // Paired with the inbound marker above: inbound logged + this missing
+      // = the failure is ours (LLM/DB/send error, and the catch below names
+      // it). Both present = we handed the reply to Meta successfully, so a
+      // customer still not seeing it is a Meta-side delivery problem, which
+      // the delivery-status logging in POST() below will show.
+      console.log(`[webhook:${adapter.channelId}] reply sent to ${message.externalUserId}`);
       // Set only by the quotation flow right now (orchestrator.ts) — the
       // generated PDF, sent the same way admin-sent media already is.
       if (reply.media && adapter.sendMedia) {
@@ -146,7 +240,14 @@ export async function POST(
     }
   }
 
-  after(() => processInbound(adapter, rawPayload));
+  // Sequential, not Promise.all: two messages from the same customer in one
+  // batch would otherwise race findOrCreateUser/findOrCreateActiveConversation
+  // and create duplicate rows for the same person.
+  after(async () => {
+    for (const single of splitBatchedPayload(channel, rawPayload)) {
+      await processInbound(adapter, single);
+    }
+  });
 
   return NextResponse.json({ status: "ok" }, { status: 200 });
 }

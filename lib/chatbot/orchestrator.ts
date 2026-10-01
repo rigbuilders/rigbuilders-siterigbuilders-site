@@ -32,6 +32,20 @@ function toAbsoluteUrl(path: string): string {
   return `${SITE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
 }
 
+/**
+ * Conversation history is context, not a requirement — if the read fails,
+ * answering the customer's current message with no memory of the thread is
+ * far better than throwing and answering nothing at all.
+ */
+async function safeHistory(conversationId: string) {
+  try {
+    return await getRecentHistory(conversationId);
+  } catch (err) {
+    console.error(`[chatbot:orchestrator] history load failed, continuing without it: ${(err as Error).message}`);
+    return [];
+  }
+}
+
 export interface HandledReply {
   text: string;
   meta?: ReplyMeta;
@@ -87,14 +101,23 @@ export async function handleMessage(msg: NormalizedMessage): Promise<HandledRepl
   // Fires regardless of bot/exclusion/handoff status below — if a watched
   // number messages at all, the admin wants to know, independent of whether
   // the bot goes on to reply normally.
-  const watched = await getWatched(msg.channel, msg.externalUserId);
-  if (watched) {
-    await notifyWatchedNumberMessage({
-      channel: msg.channel,
-      externalUserId: msg.externalUserId,
-      label: watched.label,
-      message: msg.text,
-    });
+  //
+  // Wrapped because this is a *notification*, not part of answering the
+  // customer: a watchlist table hiccup must never be the reason a customer
+  // gets silence. Same reasoning applies to every other non-essential await
+  // in this function — see the ones below.
+  try {
+    const watched = await getWatched(msg.channel, msg.externalUserId);
+    if (watched) {
+      await notifyWatchedNumberMessage({
+        channel: msg.channel,
+        externalUserId: msg.externalUserId,
+        label: watched.label,
+        message: msg.text,
+      });
+    }
+  } catch (err) {
+    console.error(`[chatbot:orchestrator] watchlist check failed: ${(err as Error).message}`);
   }
 
   if (conversation.status === "handed_off") {
@@ -128,12 +151,36 @@ export async function handleMessage(msg: NormalizedMessage): Promise<HandledRepl
   // from the normal conversational flow below, so it's checked and handled
   // completely separately. Returns null when this message isn't a
   // multi-product quote request, letting the normal flow run as usual.
-  const quotation = await tryHandleQuotationRequest(msg, conversation.id);
+  // Wrapped: the quotation path does LLM extraction, DB lookups, PDF
+  // rendering and a storage upload. Any of those blowing up used to throw
+  // straight out of handleMessage, which the webhook route catches and logs —
+  // meaning the customer got complete silence for a message the bot could
+  // otherwise have answered normally. Falling through to the normal reply
+  // flow is always a better outcome than saying nothing.
+  let quotation: HandledReply | null = null;
+  try {
+    quotation = await tryHandleQuotationRequest(msg, conversation.id);
+  } catch (err) {
+    console.error(`[chatbot:orchestrator] quotation flow failed, falling back to normal reply: ${(err as Error).message}`);
+  }
   if (quotation) {
     return quotation;
   }
 
-  const history = await getRecentHistory(conversation.id);
+  // getRecentHistory already includes the inbound message appended above, and
+  // generateReply() appends msg.text again as the final user turn — so
+  // without this drop, every single request sent the customer's message
+  // TWICE in a row (once as the last history entry, once as the live turn).
+  // Besides wasting tokens, back-to-back identical user turns measurably
+  // degrade reply quality and are what makes the model read a fresh question
+  // as if the customer were repeating themselves.
+  let history = await safeHistory(conversation.id);
+  if (history.length > 0) {
+    const last = history[history.length - 1];
+    if (last.role === "user" && last.content === msg.text) {
+      history = history.slice(0, -1);
+    }
+  }
 
   // Look up matching products and fold them into the system prompt for this
   // one call only — keeps the base prompt small and the data always fresh.
@@ -141,7 +188,19 @@ export async function handleMessage(msg: NormalizedMessage): Promise<HandledRepl
   // be checked afterward for which specific product it ended up discussing —
   // see findMentionedProduct's own comment for why that's a separate step
   // from "which products matched the question."
-  const candidateProducts = await findRelevantProducts(msg.text);
+  //
+  // Wrapped for the same reason as the quotation flow: product context is an
+  // enhancement to the reply, never a precondition for having one. Its own
+  // doc comment claims it never throws, but it makes several DB round trips
+  // (category detection, brand detection, then the search itself) and any of
+  // those can fail — which must degrade to "answer without catalog data",
+  // not to "don't answer at all".
+  let candidateProducts: Awaited<ReturnType<typeof findRelevantProducts>> = [];
+  try {
+    candidateProducts = await findRelevantProducts(msg.text);
+  } catch (err) {
+    console.error(`[chatbot:orchestrator] product lookup failed: ${(err as Error).message}`);
+  }
   const productContext = buildProductContext(candidateProducts);
   const systemPrompt = productContext ? `${SYSTEM_PROMPT}\n\n${productContext}` : SYSTEM_PROMPT;
 
