@@ -49,7 +49,7 @@ interface WhatsAppWebhookPayload {
           // design, for privacy reasons — same limitation every WhatsApp
           // Cloud API integration hits, not a gap in our code. Meta
           // sometimes includes a more specific title/message/details here
-          // though, so always surface those instead of a single generic string.
+          // though,so always surface those instead of a single generic string.
           errors?: { code: number; title: string; message?: string; error_data?: { details?: string } }[];
         }[];
       };
