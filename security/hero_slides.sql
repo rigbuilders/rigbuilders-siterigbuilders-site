@@ -23,6 +23,7 @@ create table if not exists public.hero_slides (
   subheading     text,
 
   text_align     text not null default 'left', -- 'left' | 'center' | 'right'
+  text_size      text not null default 'lg',   -- 'sm' | 'md' | 'lg' | 'xl' (heading scale)
 
   image_url        text,                       -- local /public path (desktop)
   image_url_mobile text,                        -- optional separate image for phones
@@ -48,6 +49,7 @@ create index if not exists idx_hero_slides_order on public.hero_slides (active, 
 alter table public.hero_slides add column if not exists image_opacity    int  not null default 100;
 alter table public.hero_slides add column if not exists location         text not null default 'home';
 alter table public.hero_slides add column if not exists image_url_mobile text;
+alter table public.hero_slides add column if not exists text_size        text not null default 'lg';
 create index if not exists idx_hero_slides_loc on public.hero_slides (location, active, sort_order);
 
 -- ---------------------------------------------------------------------

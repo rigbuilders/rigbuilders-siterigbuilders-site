@@ -150,7 +150,7 @@ export default function NavbarNeo({ overlay = false }: { overlay?: boolean }) {
             is inset from the screen edges and lines up with the content. */}
         <div className="rb-shell">
           <div
-            className="pointer-events-auto relative mt-4"
+            className="pointer-events-auto relative mt-3 sm:mt-4 mx-2 sm:mx-0"
             onMouseLeave={scheduleClose}
           >
             {/* soft ember under the capsule */}
@@ -158,7 +158,7 @@ export default function NavbarNeo({ overlay = false }: { overlay?: boolean }) {
 
             {/* ── CAPSULE (glassmorphism) ── */}
             <div
-              className={`relative flex items-center justify-between gap-3 rounded-full h-[60px] px-6 sm:px-8 backdrop-blur-md backdrop-saturate-150 transition-all duration-500 ${
+              className={`relative flex items-center justify-between gap-3 rounded-[18px] sm:rounded-full h-[56px] sm:h-[60px] px-4 sm:px-8 backdrop-blur-md backdrop-saturate-150 transition-all duration-500 ${
               scrolled || activeMenu
                 ? "bg-rb-black/92 shadow-[0_8px_24px_-18px_rgba(0,0,0,0.6)]"
                 : "bg-rb-black/80 shadow-[0_6px_18px_-18px_rgba(0,0,0,0.45)]"

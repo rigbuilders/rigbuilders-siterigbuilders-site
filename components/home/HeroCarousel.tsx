@@ -7,7 +7,7 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { supabase } from "@/lib/supabaseClient";
 import {
-  HeroSlide, DEFAULT_SLIDE, ASPECT_CLASS, normalizeSlide, TextAlign,
+  HeroSlide, DEFAULT_SLIDE, ASPECT_CLASS, HEADING_SIZE_CLASS, normalizeSlide, TextAlign,
 } from "@/lib/hero";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -51,7 +51,7 @@ function TextBlock({ slide, reduce }: { slide: HeroSlide; reduce: boolean | null
       )}
 
       <motion.h1
-        className="font-orbitron font-black uppercase leading-[0.9] text-rb-white text-5xl sm:text-6xl md:text-7xl"
+        className={`font-orbitron font-black uppercase leading-[0.9] text-rb-white ${HEADING_SIZE_CLASS[slide.text_size] || HEADING_SIZE_CLASS.lg}`}
         initial={reduce ? { opacity: 1 } : { opacity: 0, y: 22 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: reduce ? 0 : 0.15, duration: 0.7, ease: EASE }}
@@ -112,12 +112,22 @@ function FramedImage({ slide, src }: { slide: HeroSlide; src: string | null }) {
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: 0.2, duration: 1, ease: EASE }}
     >
-      <div className="absolute -inset-6 bg-rb-orange/15 blur-3xl rounded-[40px] pointer-events-none" />
-      <div className="rb-float relative rounded-2xl overflow-hidden border border-rb-line shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)]">
+      {/* soft ember glow behind the floating image */}
+      <div className="absolute inset-0 sm:-inset-6 bg-rb-orange/10 sm:bg-rb-orange/15 blur-3xl rounded-[40px] pointer-events-none" />
+      {/* Mobile: frameless floating image. Desktop (sm+): framed glass card. */}
+      <div className="rb-float relative sm:rounded-2xl sm:overflow-hidden sm:border sm:border-rb-line sm:shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)]">
         <div className={`relative w-full ${ASPECT_CLASS[slide.image_aspect]}`}>
-          <Image src={src} alt={slide.heading || "Rig Builders"} fill priority className="object-cover" sizes="(max-width: 1024px) 100vw, 50vw" style={{ opacity: (slide.image_opacity ?? 100) / 100 }} />
-          <div className="absolute inset-0 bg-gradient-to-t from-rb-black/70 via-transparent to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-tr from-rb-orange/10 via-transparent to-transparent mix-blend-screen" />
+          <Image
+            src={src}
+            alt={slide.heading || "Rig Builders"}
+            fill
+            priority
+            className="object-contain sm:object-cover drop-shadow-[0_24px_40px_rgba(0,0,0,0.85)] sm:drop-shadow-none"
+            sizes="(max-width: 1024px) 100vw, 50vw"
+            style={{ opacity: (slide.image_opacity ?? 100) / 100 }}
+          />
+          <div className="hidden sm:block absolute inset-0 bg-gradient-to-t from-rb-black/70 via-transparent to-transparent" />
+          <div className="hidden sm:block absolute inset-0 bg-gradient-to-tr from-rb-orange/10 via-transparent to-transparent mix-blend-screen" />
         </div>
       </div>
     </motion.div>

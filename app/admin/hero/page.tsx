@@ -27,6 +27,7 @@ const emptyForm = {
   heading_accent: "",
   subheading: "",
   text_align: "left",
+  text_size: "lg",
   image_url: "",
   image_url_mobile: "",
   image_position: "right",
@@ -91,6 +92,7 @@ export default function HeroEditor() {
       heading_accent: s.heading_accent || "",
       subheading: s.subheading || "",
       text_align: s.text_align || "left",
+      text_size: s.text_size || "lg",
       image_url: s.image_url || "",
       image_url_mobile: s.image_url_mobile || "",
       image_position: s.image_position || "right",
@@ -119,6 +121,7 @@ export default function HeroEditor() {
       heading_accent: form.heading_accent.trim() || null,
       subheading: form.subheading.trim() || null,
       text_align: form.text_align,
+      text_size: form.text_size,
       image_url: form.image_url.trim() || null,
       image_url_mobile: form.image_url_mobile.trim() || null,
       image_position: form.image_position,
@@ -248,6 +251,11 @@ export default function HeroEditor() {
               <div><label className={label}>Text alignment</label>
                 <select className={input} value={form.text_align} onChange={(e) => setForm({ ...form, text_align: e.target.value })}>
                   <option value="left">Left</option><option value="center">Center</option><option value="right">Right</option>
+                </select>
+              </div>
+              <div><label className={label}>Heading size</label>
+                <select className={input} value={form.text_size} onChange={(e) => setForm({ ...form, text_size: e.target.value })}>
+                  <option value="sm">Small</option><option value="md">Medium</option><option value="lg">Large</option><option value="xl">Extra large</option>
                 </select>
               </div>
               <div><label className={label}>Sort order</label><input type="number" className={input} value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} /></div>

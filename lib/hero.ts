@@ -82,6 +82,7 @@ export function normalizeSlide(row: any): HeroSlide {
     heading_accent: row.heading_accent ?? null,
     subheading: row.subheading ?? null,
     text_align: (row.text_align as TextAlign) || "left",
+    text_size: (row.text_size as TextSize) || "lg",
     image_url: row.image_url ?? null,
     image_url_mobile: row.image_url_mobile ?? null,
     image_position: (row.image_position as ImagePosition) || "right",
