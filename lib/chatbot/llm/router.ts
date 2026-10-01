@@ -1,7 +1,7 @@
-import { getGeminiConfig, getTogetherConfig, getOllamaConfig } from "../config";
+import { getGeminiConfig, getLlmApiConfig, getOllamaConfig } from "../config";
 import type { ChatMessage } from "../types";
 import { createGeminiProvider } from "./providers/gemini";
-import { createTogetherProvider } from "./providers/together";
+import { createOpenAICompatProvider } from "./providers/openai-compatible";
 import { createOllamaProvider } from "./providers/ollama";
 import { LLMProviderError, type LLMProvider, type LLMResult } from "./types";
 
@@ -13,10 +13,18 @@ interface ProviderFactory {
 /**
  * Priority order: local Ollama first WHEN configured (OLLAMA_BASE_URL set in
  * .env.local — see config.ts's getOllamaConfig), same "local override" intent
- * as website-stream.ts already uses. Otherwise Gemini (primary), then
- * Together (fallback). Adding a new provider later = one new config getter
- * in config.ts, one new provider file implementing LLMProvider, and one line
- * here.
+ * as website-stream.ts already uses. Then the OpenAI-compatible endpoint
+ * (primary), then Gemini (fallback).
+ *
+ * Gemini used to be primary and was demoted deliberately: a provider that's
+ * out of credits still costs a full failed round trip on every single
+ * message before the fallback runs, and on WhatsApp that latency is in front
+ * of a customer watching a typing indicator. It stays in the chain so topping
+ * the account back up makes it a working safety net again — and if
+ * GEMINI_API_KEY is unset entirely it's simply skipped.
+ *
+ * Adding a new provider later = one new config getter in config.ts, one new
+ * provider file implementing LLMProvider, and one line here.
  */
 const PROVIDER_FACTORIES: ProviderFactory[] = [
   {
@@ -27,17 +35,17 @@ const PROVIDER_FACTORIES: ProviderFactory[] = [
     },
   },
   {
+    name: "llm-api",
+    build: () => {
+      const config = getLlmApiConfig();
+      return config ? createOpenAICompatProvider(config) : null;
+    },
+  },
+  {
     name: "gemini",
     build: () => {
       const config = getGeminiConfig();
       return config ? createGeminiProvider(config) : null;
-    },
-  },
-  {
-    name: "together",
-    build: () => {
-      const config = getTogetherConfig();
-      return config ? createTogetherProvider(config) : null;
     },
   },
 ];

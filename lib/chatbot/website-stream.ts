@@ -5,14 +5,14 @@ import {
   getRecentHistory,
   updateConversationStatus,
 } from "./conversation-store";
-import { getGeminiConfig, getTogetherConfig } from "./config";
+import { getGeminiConfig, getLlmApiConfig } from "./config";
 import { isExcluded } from "./exclusions";
 import { isHandoffRequest, HANDOFF_ACK_MESSAGE } from "./handoff";
 import { notifyAdminOfHandoff, notifyWatchedNumberMessage } from "./admin-alerts";
 import { notifyAdminOfNewMessage } from "./push-notify";
 import { getWatched } from "./watchlist";
 import { createGeminiProvider } from "./llm/providers/gemini";
-import { streamTogetherReply } from "./llm/providers/together";
+import { streamOpenAICompatReply } from "./llm/providers/openai-compatible";
 import { buildProductContext, findRelevantProducts, toProductCards, type ProductCard } from "./product-knowledge";
 import { detectBuildIntent, buildQuoteContext, type BuildQuote } from "./build-recommender";
 import { tryHandleQuotationRequest } from "./quotation-flow";
@@ -161,23 +161,37 @@ export async function handleWebsiteMessage(
       return withProductsHeader([], null, staticStream(displayText));
     }
 
-    // API providers only — Gemini (primary, same as WhatsApp) then Together
-    // (fallback). No Ollama on this channel, unlike the WhatsApp/Messenger/
+    // API providers only — the OpenAI-compatible endpoint (primary) then
+    // Gemini (fallback), matching llm/router.ts's order for the other
+    // channels. No Ollama on this channel, unlike the WhatsApp/Messenger/
     // Instagram path's local-dev override in llm/router.ts.
+    const llmConfig = getLlmApiConfig();
     const geminiConfig = getGeminiConfig();
-    const togetherConfig = getTogetherConfig();
 
-    if (!geminiConfig && !togetherConfig) {
+    if (!geminiConfig && !llmConfig) {
       const fallback =
         "Sorry, live chat isn't configured right now. Please reach us on WhatsApp and we'll help you out.";
       await appendMessage(conversation.id, "assistant", fallback, "none");
       return withProductsHeader([], null, staticStream(fallback));
     }
 
-    const [history, products] = await Promise.all([
+    const [rawHistory, products] = await Promise.all([
       getRecentHistory(conversation.id),
       findRelevantProducts(text),
     ]);
+
+    // getRecentHistory already includes the inbound message appended above,
+    // and every provider below appends `text` again as the final user turn —
+    // so without this drop each request sent the visitor's message TWICE in a
+    // row. Besides the wasted tokens, back-to-back identical user turns make
+    // the model read a fresh question as if it were being repeated. Same fix
+    // as orchestrator.ts applies for the other channels.
+    const history =
+      rawHistory.length > 0 &&
+      rawHistory[rawHistory.length - 1].role === "user" &&
+      rawHistory[rawHistory.length - 1].content === text
+        ? rawHistory.slice(0, -1)
+        : rawHistory;
     const productContext = buildProductContext(products);
     let systemPrompt = productContext ? `${SYSTEM_PROMPT}\n\n${productContext}` : SYSTEM_PROMPT;
     const cards = toProductCards(products);
@@ -216,28 +230,40 @@ export async function handleWebsiteMessage(
       await appendMessage(conversation.id, "assistant", finalText, provider);
     };
 
-    // Gemini has no streaming provider wired up (see llm/providers/gemini.ts —
-    // a single generateContent call), so a Gemini reply arrives as one
-    // finished string and gets wrapped as a one-chunk stream rather than
-    // typed out token-by-token. Together's provider streams natively and is
-    // used as-is when it's the one answering.
-    if (geminiConfig) {
+    // Primary: the OpenAI-compatible endpoint, which streams natively — the
+    // right default for this channel specifically, since a visitor watching
+    // the widget sees tokens appear instead of waiting on a blank bubble for
+    // the whole reply. createSanitizingTransform() strips markdown/emoji AND
+    // any inline <think> chain-of-thought as it flows past (see
+    // text-sanitizer.ts), so a reasoning model's internals never reach the
+    // page even though nothing downstream could claw them back once sent.
+    if (llmConfig) {
       try {
-        const fullText = await createGeminiProvider(geminiConfig).generate(systemPrompt, history, text);
-        await persist("gemini")(fullText);
-        return withProductsHeader(cards, buildQuote, staticStream(stripFormatting(fullText)));
+        const stream = await streamOpenAICompatReply(
+          llmConfig,
+          systemPrompt,
+          history,
+          text,
+          persist(llmConfig.label)
+        );
+        return withProductsHeader(cards, buildQuote, stream.pipeThrough(createSanitizingTransform()));
       } catch (err) {
-        console.error(`[chatbot:website] gemini failed, falling back to together: ${(err as Error).message}`);
-        // Falls through to Together below.
+        console.error(`[chatbot:website] ${llmConfig.label} failed, falling back to gemini: ${(err as Error).message}`);
+        // Falls through to Gemini below.
       }
     }
 
+    // Fallback: Gemini has no streaming provider wired up (see
+    // llm/providers/gemini.ts — a single generateContent call), so its reply
+    // arrives as one finished string and gets wrapped as a one-chunk stream
+    // rather than typed out token-by-token.
     try {
-      if (!togetherConfig) {
-        throw new Error("Together not configured and Gemini failed or was unavailable.");
+      if (!geminiConfig) {
+        throw new Error("Gemini not configured and the primary LLM endpoint failed or was unavailable.");
       }
-      const stream = await streamTogetherReply(togetherConfig, systemPrompt, history, text, persist("together"));
-      return withProductsHeader(cards, buildQuote, stream.pipeThrough(createSanitizingTransform()));
+      const fullText = await createGeminiProvider(geminiConfig).generate(systemPrompt, history, text);
+      await persist("gemini")(fullText);
+      return withProductsHeader(cards, buildQuote, staticStream(stripFormatting(fullText)));
     } catch (err) {
       const fallback =
         "Sorry, I'm having trouble getting you an answer right now. A member of the Rig Builders team will follow up with you shortly.";

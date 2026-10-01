@@ -29,6 +29,50 @@ const INLINE_CODE = /`([^`]+)`/g;
 // but invisible, so worth stripping alongside it).
 const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}️]/gu;
 
+// ---- Reasoning-model chain-of-thought stripping ----
+//
+// Reasoning models (gpt-oss, Qwen3, DeepSeek-R1 and friends) can emit their
+// internal thinking in the same `content` field as the actual reply. Well-
+// behaved endpoints put it on a separate `reasoning`/`reasoning_content`
+// field instead — which llm/providers/openai-compatible.ts simply never reads
+// — but plenty of aggregators pass it through inline, and a customer seeing
+// "Okay, the user is asking about Ryzen 7. Let me check the product list..."
+// before the answer is worse than any markdown leak this file was originally
+// written for. Belt and braces, exactly like the markdown stripping: don't
+// rely on the model or the vendor behaving.
+
+const THINK_BLOCK = /<(think|thinking|reasoning)>[\s\S]*?<\/\1>/gi;
+const UNCLOSED_THINK = /<(think|thinking|reasoning)>[\s\S]*$/i;
+// gpt-oss's "harmony" response format, if an endpoint forwards the raw
+// channel markers: the deliverable answer is the final channel's message.
+const HARMONY_FINAL = /<\|channel\|>final<\|message\|>/i;
+const HARMONY_TOKEN = /<\|[^|]*\|>/g;
+
+/**
+ * Removes a reasoning model's chain of thought from a reply, leaving only the
+ * answer intended for the customer. Safe on text that contains no reasoning
+ * at all — every pattern matches explicit markers, so ordinary prose passes
+ * through untouched.
+ */
+export function stripReasoning(text: string): string {
+  let s = text;
+
+  // Harmony channels first: when the final-channel marker is present
+  // everything before it is preamble/analysis by definition.
+  if (HARMONY_FINAL.test(s)) {
+    const parts = s.split(HARMONY_FINAL);
+    s = parts[parts.length - 1];
+  }
+  s = s.replace(HARMONY_TOKEN, "");
+
+  s = s.replace(THINK_BLOCK, "");
+  // An opening tag with no closing one means generation was cut off
+  // mid-thought (hit max_tokens, say) — there's no answer after it to keep.
+  s = s.replace(UNCLOSED_THINK, "");
+
+  return s.trim();
+}
+
 /** Sanitizes a single line: strips a leading heading/bullet/numbered-list
  * marker, then any inline bold/italic/strikethrough/code markers and emoji
  * anywhere in the line. Safe to call on plain prose — every pattern only
@@ -65,19 +109,63 @@ export function createSanitizingTransform(): TransformStream<Uint8Array, Uint8Ar
   const encoder = new TextEncoder();
   let buffer = "";
 
+  // Reasoning suppression has to be stateful across lines here, unlike
+  // stripReasoning()'s whole-string version: a <think> block routinely spans
+  // many lines, and on this path the customer is watching the reply appear
+  // live — so a line of chain-of-thought that slips through is on screen
+  // before anything downstream could remove it.
+  let inReasoning = false;
+  const OPEN = /<(think|thinking|reasoning)>/i;
+  const CLOSE = /<\/(think|thinking|reasoning)>/i;
+
+  /** Returns the customer-visible part of one line, or "" if fully suppressed. */
+  function visiblePart(line: string): string {
+    let rest = line;
+    let out = "";
+
+    while (rest.length > 0) {
+      if (inReasoning) {
+        const close = CLOSE.exec(rest);
+        if (!close) return out; // rest of this line is still thinking
+        rest = rest.slice(close.index + close[0].length);
+        inReasoning = false;
+      } else {
+        const open = OPEN.exec(rest);
+        if (!open) {
+          out += rest;
+          break;
+        }
+        out += rest.slice(0, open.index);
+        rest = rest.slice(open.index + open[0].length);
+        inReasoning = true;
+      }
+    }
+    return out;
+  }
+
+  function emit(controller: TransformStreamDefaultController<Uint8Array>, line: string, withNewline: boolean) {
+    const wasSuppressing = inReasoning;
+    const visible = visiblePart(line).replace(HARMONY_TOKEN, "");
+    // Nothing survived and we were (or still are) inside a reasoning block —
+    // swallow the line entirely rather than streaming a blank one, otherwise
+    // the widget shows a growing run of empty lines while the model thinks.
+    if (!visible.trim() && (wasSuppressing || inReasoning)) return;
+    controller.enqueue(encoder.encode(stripFormattingLine(visible) + (withNewline ? "\n" : "")));
+  }
+
   return new TransformStream<Uint8Array, Uint8Array>({
     transform(chunk, controller) {
       buffer += decoder.decode(chunk, { stream: true });
       const lines = buffer.split("\n");
       buffer = lines.pop() ?? ""; // last (possibly incomplete) line stays buffered
       for (const line of lines) {
-        controller.enqueue(encoder.encode(stripFormattingLine(line) + "\n"));
+        emit(controller, line, true);
       }
     },
     flush(controller) {
       buffer += decoder.decode();
       if (buffer) {
-        controller.enqueue(encoder.encode(stripFormattingLine(buffer)));
+        emit(controller, buffer, false);
       }
     },
   });

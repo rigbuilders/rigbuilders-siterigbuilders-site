@@ -30,13 +30,65 @@ export function getGeminiConfig(): ProviderConfig | null {
   return { apiKey, model: optional("GEMINI_MODEL", "gemini-3.5-flash-lite") };
 }
 
-export function getTogetherConfig(): ProviderConfig | null {
-  const apiKey = raw("TOGETHER_API_KEY");
+/**
+ * Config for the generic OpenAI-compatible chat-completions provider (see
+ * llm/providers/openai-compatible.ts). Together, DeepInfra, Fireworks, Groq,
+ * OpenRouter, aicredits.in and OpenAI itself all speak the same protocol, so
+ * the vendor is just a base URL — swapping providers or models is an env var
+ * change, no code deploy.
+ */
+export interface LlmApiConfig {
+  apiKey: string;
+  model: string;
+  /** Fully-resolved chat-completions endpoint. */
+  baseUrl: string;
+  /** Short name stored in chatbot_messages.provider and shown in the admin inbox. */
+  label: string;
+  maxTokens: number;
+  /** Only sent when set — gpt-oss and other reasoning models accept it. */
+  reasoningEffort: string | null;
+}
+
+/**
+ * Accepts either a full chat-completions URL or just the API base, so it
+ * doesn't matter which form a provider's docs happen to show:
+ *   https://api.example.com/v1              -> .../v1/chat/completions
+ *   https://api.example.com/v1/             -> .../v1/chat/completions
+ *   https://api.example.com/v1/chat/completions -> used as-is
+ */
+function resolveChatCompletionsUrl(baseUrl: string): string {
+  const trimmed = baseUrl.trim().replace(/\/+$/, "");
+  return trimmed.endsWith("/chat/completions") ? trimmed : `${trimmed}/chat/completions`;
+}
+
+export function getLlmApiConfig(): LlmApiConfig | null {
+  // TOGETHER_* are the historical names this started with and are still read
+  // as fallbacks, so an existing deployment keeps working untouched after
+  // this refactor. New setups should use the LLM_* names.
+  const apiKey = raw("LLM_API_KEY") ?? raw("TOGETHER_API_KEY");
   if (!apiKey) return null;
-  return {
-    apiKey,
-    model: optional("TOGETHER_MODEL", "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free"),
-  };
+
+  const model = raw("LLM_MODEL") ?? raw("TOGETHER_MODEL") ?? "openai/gpt-oss-120b";
+  const baseUrl = resolveChatCompletionsUrl(
+    raw("LLM_BASE_URL") ?? raw("TOGETHER_BASE_URL") ?? "https://api.together.xyz/v1"
+  );
+
+  // Label the admin inbox by model rather than vendor — "which model wrote
+  // this reply" is the useful question when comparing two of them, and the
+  // vendor is just whoever is reselling it this month.
+  const label = raw("LLM_LABEL") ?? model.split("/").pop() ?? model;
+
+  const maxTokensRaw = Number(raw("LLM_MAX_TOKENS"));
+  // Deliberately well under WhatsApp's 4096-character body cap: a reasoning
+  // model that rambles would otherwise turn into a failed send rather than a
+  // long one.
+  const maxTokens = Number.isFinite(maxTokensRaw) && maxTokensRaw > 0 ? maxTokensRaw : 700;
+
+  // "none" explicitly disables the parameter for endpoints that reject it.
+  const effort = optional("LLM_REASONING_EFFORT", "low");
+  const reasoningEffort = effort.toLowerCase() === "none" ? null : effort;
+
+  return { apiKey, model, baseUrl, label, maxTokens, reasoningEffort };
 }
 
 /**

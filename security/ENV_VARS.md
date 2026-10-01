@@ -32,14 +32,24 @@ the repo (plus `prisma/schema.prisma`). Compare it against your Vercel list.
 ## 🤖 Chatbot (WhatsApp / Instagram / Messenger auto-replies)
 Server-only, used by `lib/chatbot/*` and `app/api/webhook/[channel]/route.ts`. Each is
 independently optional — a missing one just disables that provider/channel, never crashes
-the route. You need at least one of Gemini/Together for replies to work at all, and
+the route. You need at least one LLM provider for replies to work at all, and
 `META_VERIFY_TOKEN` + a channel's own token for that channel's webhook to work.
+
+Provider order is `LLM_*` (primary) then Gemini (fallback), with local Ollama taking
+precedence over both when `OLLAMA_BASE_URL` is set. The `LLM_*` provider speaks the
+standard OpenAI chat-completions protocol, so Together, DeepInfra, Fireworks, Groq,
+OpenRouter, aicredits.in and OpenAI itself are all just a different `LLM_BASE_URL` —
+switching vendor or model needs no code change.
 | Variable | Used by | Default if unset |
 |---|---|---|
 | `GEMINI_API_KEY` | llm/providers/gemini | disables Gemini |
 | `GEMINI_MODEL` | llm/providers/gemini | `gemini-2.5-flash-lite` |
-| `TOGETHER_API_KEY` | llm/providers/together | disables Together |
-| `TOGETHER_MODEL` | llm/providers/together | `meta-llama/Llama-3.3-70B-Instruct-Turbo-Free` |
+| `LLM_API_KEY` | llm/providers/openai-compatible | falls back to `TOGETHER_API_KEY`; disables the primary provider if both unset |
+| `LLM_BASE_URL` | llm/providers/openai-compatible | `https://api.together.xyz/v1` — accepts either the API base or a full `/chat/completions` URL |
+| `LLM_MODEL` | llm/providers/openai-compatible | `openai/gpt-oss-120b` |
+| `LLM_LABEL` | llm/providers/openai-compatible | model name after the `/` — stored in `chatbot_messages.provider`, shown in the admin inbox |
+| `LLM_MAX_TOKENS` | llm/providers/openai-compatible | `700` (kept well under WhatsApp's 4096-char body cap) |
+| `LLM_REASONING_EFFORT` | llm/providers/openai-compatible | `low` — set to `none` to omit the parameter entirely for endpoints that reject it |
 | `META_VERIFY_TOKEN` | webhook GET handshake, all 3 adapters | disables all 3 channels |
 | `WA_PHONE_ID` | adapters/whatsapp | disables WhatsApp |
 | `WHATSAPP_ACCESS_TOKEN` | adapters/whatsapp | disables WhatsApp |
