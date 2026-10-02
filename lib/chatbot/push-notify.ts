@@ -69,13 +69,28 @@ export async function notifyAdminPush(payload: PushPayload): Promise<void> {
 
     const body = JSON.stringify(payload);
 
+    // Hard timeout per send. web-push uses Node's https module with NO default
+    // timeout, so a push endpoint that accepts the connection and then never
+    // responds hangs this call forever — and because notifyAdminOfNewMessage
+    // is awaited on every inbound message in BOTH orchestrator.ts and
+    // website-stream.ts, that one dead subscription silently takes down
+    // replies on every channel at once. A notification is the least important
+    // thing happening on this code path; it must never be able to block the
+    // reply it's notifying about.
+    const SEND_TIMEOUT_MS = 5000;
+
     await Promise.all(
       subs.map(async (sub) => {
         try {
-          await webpush.sendNotification(
-            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-            body
-          );
+          await Promise.race([
+            webpush.sendNotification(
+              { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+              body
+            ),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error(`push send timed out after ${SEND_TIMEOUT_MS}ms`)), SEND_TIMEOUT_MS)
+            ),
+          ]);
         } catch (err) {
           const statusCode = (err as { statusCode?: number }).statusCode;
           if (statusCode === 404 || statusCode === 410) {
@@ -113,10 +128,25 @@ export async function notifyAdminOfNewMessage(params: {
   const trimmedText = params.text.length > 120 ? `${params.text.slice(0, 117)}...` : params.text;
   const body = trimmedText ? `${params.externalUserId}: ${trimmedText}` : `${params.externalUserId} sent an attachment`;
 
-  await notifyAdminPush({
-    title: `New message on ${label}`,
-    body,
-    url: inboxPath(params.channel),
-    tag: `chatbot-${params.conversationId}`,
-  });
+  // Total budget for the whole notification attempt, on top of the per-send
+  // timeout inside notifyAdminPush — this also covers the subscription
+  // lookup, so no single piece of the push path can stall a customer reply.
+  // Resolves (never rejects) on timeout: a missed notification is an
+  // acceptable outcome, a missed reply is not.
+  const OVERALL_TIMEOUT_MS = 8000;
+
+  await Promise.race([
+    notifyAdminPush({
+      title: `New message on ${label}`,
+      body,
+      url: inboxPath(params.channel),
+      tag: `chatbot-${params.conversationId}`,
+    }),
+    new Promise<void>((resolve) =>
+      setTimeout(() => {
+        console.error(`[chatbot:push] notification timed out after ${OVERALL_TIMEOUT_MS}ms — continuing with the reply.`);
+        resolve();
+      }, OVERALL_TIMEOUT_MS)
+    ),
+  ]);
 }

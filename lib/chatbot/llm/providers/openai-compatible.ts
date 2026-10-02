@@ -81,6 +81,11 @@ export function createOpenAICompatProvider(config: LlmApiConfig): LLMProvider {
             Authorization: `Bearer ${config.apiKey}`,
           },
           body: JSON.stringify(buildBody(config, toMessages(systemPrompt, history, userMessage), false)),
+          // Node's fetch has no default timeout — a gateway that accepts the
+          // connection and then stalls would otherwise hold the whole
+          // serverless invocation until Vercel kills it at maxDuration, with
+          // no error logged and no fallback provider ever tried.
+          signal: AbortSignal.timeout(30000),
         });
       } catch (err) {
         throw new LLMProviderError(

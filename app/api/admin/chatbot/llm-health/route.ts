@@ -1,6 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getGeminiConfig, getLlmApiConfig, getOllamaConfig } from "@/lib/chatbot/config";
 import { handleWebsiteMessage } from "@/lib/chatbot/website-stream";
+import {
+  appendMessage,
+  findOrCreateActiveConversation,
+  findOrCreateUser,
+  getRecentHistory,
+} from "@/lib/chatbot/conversation-store";
+import { isExcluded } from "@/lib/chatbot/exclusions";
+import { getWatched } from "@/lib/chatbot/watchlist";
+import { notifyAdminOfNewMessage } from "@/lib/chatbot/push-notify";
+import { findRelevantProducts } from "@/lib/chatbot/product-knowledge";
+import { detectBuildIntent } from "@/lib/chatbot/build-recommender";
+import { tryHandleQuotationRequest } from "@/lib/chatbot/quotation-flow";
+
+/**
+ * Runs one pipeline stage with its own hard timeout, so a single hanging
+ * dependency can't take the whole diagnostic down with it (which is exactly
+ * what happened the first time: the endpoint itself hit the 60s function
+ * limit and returned a 504 that said nothing about *which* step was stuck).
+ * Every stage reports, whatever happens.
+ */
+async function stage<T>(
+  name: string,
+  fn: () => Promise<T>,
+  summarize: (value: T) => unknown,
+  timeoutMs = 8000
+): Promise<Record<string, unknown>> {
+  const started = Date.now();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const value = await Promise.race([
+      fn(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`TIMED OUT after ${timeoutMs}ms — this is the blocking step`)), timeoutMs);
+      }),
+    ]);
+    return { stage: name, ms: Date.now() - started, ok: true, result: summarize(value) };
+  } catch (err) {
+    return { stage: name, ms: Date.now() - started, ok: false, error: (err as Error).message };
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -131,6 +173,99 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   //   ...&pipeline=1&message=do%20you%20have%20ryzen%207
   let pipeline: Record<string, unknown> = { skipped: "add &pipeline=1 to run it" };
 
+  // Stage-by-stage mode (&stages=1). Walks the same sequence
+  // handleWebsiteMessage does, but one step at a time with a per-step
+  // timeout, so the output names the exact call that blocks instead of the
+  // whole thing dying at the function limit.
+  const stages: Record<string, unknown>[] = [];
+
+  if (req.nextUrl.searchParams.get("stages")) {
+    const message = req.nextUrl.searchParams.get("message") || "do you have ryzen 7";
+    const visitorId = "health-check-visitor";
+
+    // Held on an object rather than in `let`s so TypeScript keeps the types
+    // straight across the summarise callbacks that assign them.
+    const ctx: { userId?: string; conversationId?: string } = {};
+
+    stages.push(
+      await stage(
+        "findOrCreateUser",
+        () => findOrCreateUser("website", visitorId),
+        (u) => {
+          ctx.userId = u.id;
+          return { id: u.id };
+        }
+      )
+    );
+
+    if (ctx.userId) {
+      const uid = ctx.userId;
+      stages.push(
+        await stage(
+          "findOrCreateActiveConversation",
+          () => findOrCreateActiveConversation(uid, "website"),
+          (c) => {
+            ctx.conversationId = c.id;
+            return { id: c.id, status: c.status };
+          }
+        )
+      );
+    }
+
+    if (ctx.conversationId) {
+      const convId = ctx.conversationId;
+
+      stages.push(
+        await stage("appendMessage(user)", () => appendMessage(convId, "user", message), () => "written")
+      );
+      stages.push(
+        await stage(
+          "notifyAdminOfNewMessage (web-push)",
+          () =>
+            notifyAdminOfNewMessage({
+              channel: "website",
+              externalUserId: visitorId,
+              text: message,
+              conversationId: convId,
+            }),
+          () => "returned"
+        )
+      );
+      stages.push(
+        await stage("getWatched", () => getWatched("website", visitorId), (w) => (w ? "watched" : "not watched"))
+      );
+      stages.push(await stage("isExcluded", () => isExcluded("website", visitorId), (e) => e));
+      stages.push(
+        await stage(
+          "tryHandleQuotationRequest",
+          () => tryHandleQuotationRequest({ channel: "website", externalUserId: visitorId, text: message, timestamp: Date.now() }, convId),
+          (q) => (q ? { handled: true, text: q.text.slice(0, 120) } : "not a quotation request")
+        )
+      );
+      stages.push(
+        await stage("getRecentHistory", () => getRecentHistory(convId), (h) => ({ messages: h.length }))
+      );
+
+      // Empty history is fine here — we're testing whether the call returns
+      // at all, not reproducing a specific conversation.
+      const historyForIntent: Awaited<ReturnType<typeof getRecentHistory>> = [];
+      stages.push(
+        await stage(
+          "findRelevantProducts",
+          () => findRelevantProducts(message),
+          (p) => ({ matched: p.length, names: p.slice(0, 5).map((x) => x.breadcrumb_name?.trim() || x.name) })
+        )
+      );
+      stages.push(
+        await stage(
+          "detectBuildIntent",
+          () => detectBuildIntent(message, historyForIntent),
+          (b) => ({ kind: b.kind })
+        )
+      );
+    }
+  }
+
   if (req.nextUrl.searchParams.get("pipeline")) {
     const message = req.nextUrl.searchParams.get("message") || "do you have ryzen 7";
     // Fixed visitor id so repeated runs land in one conversation instead of
@@ -139,12 +274,30 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const started = Date.now();
 
     try {
-      const stream = await handleWebsiteMessage(visitorId, message);
+      // Hard-capped: without this the whole request hits Vercel's function
+      // limit and returns a 504 that tells you nothing. 30s leaves room to
+      // still serialise and return the report.
+      const stream = await Promise.race([
+        handleWebsiteMessage(visitorId, message),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("handleWebsiteMessage did not return a stream within 30s")), 30000)
+        ),
+      ]);
       const reader = stream.getReader();
       const decoder = new TextDecoder();
       let full = "";
+      const readDeadline = Date.now() + 30000;
       while (true) {
-        const { done, value } = await reader.read();
+        if (Date.now() > readDeadline) {
+          full += "\n[diagnostic: stream never closed within 30s — it is hanging mid-reply]";
+          break;
+        }
+        const { done, value } = await Promise.race([
+          reader.read(),
+          new Promise<{ done: true; value: undefined }>((resolve) =>
+            setTimeout(() => resolve({ done: true, value: undefined }), 15000)
+          ),
+        ]);
         if (done) break;
         full += decoder.decode(value, { stream: true });
       }
@@ -190,6 +343,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       resolved,
       providersConfigured,
       liveCall,
+      stages: stages.length > 0 ? stages : "add &stages=1 to run the pipeline step by step",
       pipeline,
     },
     { status: 200 }
