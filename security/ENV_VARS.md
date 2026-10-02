@@ -49,7 +49,7 @@ switching vendor or model needs no code change.
 | `LLM_MODEL` | llm/providers/openai-compatible | `openai/gpt-oss-120b` |
 | `LLM_LABEL` | llm/providers/openai-compatible | model name after the `/` — stored in `chatbot_messages.provider`, shown in the admin inbox |
 | `LLM_MAX_TOKENS` | llm/providers/openai-compatible | `700` (kept well under WhatsApp's 4096-char body cap) |
-| `LLM_REASONING_EFFORT` | llm/providers/openai-compatible | `low` — set to `none` to omit the parameter entirely for endpoints that reject it |
+| `LLM_REASONING_EFFORT` | llm/providers/openai-compatible | unset — the parameter is omitted entirely. Only set it (e.g. `low`) once you've confirmed your gateway accepts `reasoning_effort`; some return a hard 400 for unknown parameters |
 | `META_VERIFY_TOKEN` | webhook GET handshake, all 3 adapters | disables all 3 channels |
 | `WA_PHONE_ID` | adapters/whatsapp | disables WhatsApp |
 | `WHATSAPP_ACCESS_TOKEN` | adapters/whatsapp | disables WhatsApp |

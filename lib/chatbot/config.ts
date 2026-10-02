@@ -84,9 +84,14 @@ export function getLlmApiConfig(): LlmApiConfig | null {
   // long one.
   const maxTokens = Number.isFinite(maxTokensRaw) && maxTokensRaw > 0 ? maxTokensRaw : 700;
 
-  // "none" explicitly disables the parameter for endpoints that reject it.
-  const effort = optional("LLM_REASONING_EFFORT", "low");
-  const reasoningEffort = effort.toLowerCase() === "none" ? null : effort;
+  // Not sent unless explicitly asked for. Gateways differ on how (or whether)
+  // they accept this — OpenRouter-style ones want `reasoning: {effort}`, not
+  // `reasoning_effort` — and an unrecognised parameter is a hard 400 on some
+  // of them, which would take down every reply rather than just making them
+  // slower. Opt in with LLM_REASONING_EFFORT=low once you've confirmed your
+  // endpoint accepts it.
+  const effort = raw("LLM_REASONING_EFFORT");
+  const reasoningEffort = !effort || effort.toLowerCase() === "none" ? null : effort;
 
   return { apiKey, model, baseUrl, label, maxTokens, reasoningEffort };
 }
