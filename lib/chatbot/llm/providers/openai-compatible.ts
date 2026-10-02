@@ -207,36 +207,52 @@ export async function streamOpenAICompatReply(
   let buffer = "";
   let fullText = "";
 
+  // `data: [DONE]` is the protocol's end-of-stream marker. Treating it as
+  // just another line to skip — and waiting for the HTTP body to close
+  // instead — is what hung the website widget for a full 60 seconds until
+  // Vercel killed the function: some gateways (aicredits among them) send
+  // [DONE] and then hold the connection open, so `read()` never resolves
+  // `done` and the reply never arrives. [DONE] is terminal; act on it.
+  let sawDone = false;
+
+  async function finish(controller: ReadableStreamDefaultController<Uint8Array>) {
+    const finalText = stripReasoning(fullText).trim();
+
+    // Nothing usable came back — same reasoning-model-ran-out-of-tokens
+    // failure described in generate() above, except here the HTTP response is
+    // already streaming, so throwing can't fall through to the next provider.
+    // Without this the visitor is left staring at an empty chat bubble
+    // forever, which reads as the site being broken.
+    if (!finalText) {
+      console.error(
+        `[chatbot:llm-stream] stream produced no content (raw chars: ${fullText.length}) — ` +
+          "likely the token budget was spent on reasoning; raise LLM_MAX_TOKENS."
+      );
+      controller.enqueue(
+        encoder.encode(
+          "Sorry, I'm having trouble getting you an answer right now. A member of the Rig Builders team will follow up with you shortly."
+        )
+      );
+    }
+
+    try {
+      await onComplete(finalText);
+    } catch (err) {
+      console.error(`[chatbot:llm-stream] onComplete failed: ${(err as Error).message}`);
+    }
+    // Stop pulling from upstream explicitly: after [DONE] the connection may
+    // still be open, and leaving it dangling keeps the serverless invocation
+    // alive past the point where we've already answered.
+    await upstreamReader.cancel().catch(() => {});
+    controller.close();
+  }
+
   return new ReadableStream<Uint8Array>({
     async pull(controller) {
       const { done, value } = await upstreamReader.read();
 
       if (done) {
-        const finalText = stripReasoning(fullText).trim();
-
-        // Nothing usable came back — same reasoning-model-ran-out-of-tokens
-        // failure described in generate() above, except here the HTTP
-        // response is already streaming, so throwing can't fall through to
-        // the next provider. Without this the visitor is left staring at an
-        // empty chat bubble forever, which reads as the site being broken.
-        if (!finalText) {
-          console.error(
-            `[chatbot:llm-stream] stream produced no content (raw chars: ${fullText.length}) — ` +
-              "likely the token budget was spent on reasoning; raise LLM_MAX_TOKENS."
-          );
-          controller.enqueue(
-            encoder.encode(
-              "Sorry, I'm having trouble getting you an answer right now. A member of the Rig Builders team will follow up with you shortly."
-            )
-          );
-        }
-
-        try {
-          await onComplete(finalText);
-        } catch (err) {
-          console.error(`[chatbot:llm-stream] onComplete failed: ${(err as Error).message}`);
-        }
-        controller.close();
+        await finish(controller);
         return;
       }
 
@@ -248,7 +264,11 @@ export async function streamOpenAICompatReply(
         const trimmed = line.trim();
         if (!trimmed.startsWith("data:")) continue;
         const payload = trimmed.slice("data:".length).trim();
-        if (!payload || payload === "[DONE]") continue;
+        if (!payload) continue;
+        if (payload === "[DONE]") {
+          sawDone = true;
+          break;
+        }
 
         try {
           const json = JSON.parse(payload) as {
@@ -264,6 +284,8 @@ export async function streamOpenAICompatReply(
           // across chunk boundaries; the next pull's buffer concat recovers it.
         }
       }
+
+      if (sawDone) await finish(controller);
     },
     async cancel() {
       // Visitor closed the tab/widget mid-stream — stop pulling upstream.

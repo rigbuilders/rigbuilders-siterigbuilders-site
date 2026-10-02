@@ -13,6 +13,7 @@ import { notifyAdminOfNewMessage } from "@/lib/chatbot/push-notify";
 import { findRelevantProducts } from "@/lib/chatbot/product-knowledge";
 import { detectBuildIntent } from "@/lib/chatbot/build-recommender";
 import { tryHandleQuotationRequest } from "@/lib/chatbot/quotation-flow";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 /**
  * Runs one pipeline stage with its own hard timeout, so a single hanging
@@ -266,6 +267,63 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }
   }
 
+  // Product-lookup probe (&products=1&term=ryzen). findRelevantProducts
+  // coming back empty has exactly two possible causes and they need opposite
+  // fixes: the rows don't exist with that text, or they exist but aren't
+  // listing_status='published' (which the lookup filters on strictly, making
+  // a draft product invisible to the bot as though it weren't in the catalog
+  // at all). This queries both ways and prints the difference.
+  let products: Record<string, unknown> = { skipped: "add &products=1 to run it" };
+
+  if (req.nextUrl.searchParams.get("products")) {
+    const term = req.nextUrl.searchParams.get("term") || "ryzen";
+    const fields = ["name", "breadcrumb_name", "configurator_name", "nickname", "brand"];
+    const orFilter = fields.map((f) => `${f}.ilike.%${term}%`).join(",");
+
+    try {
+      const [total, published, matchAny, matchPublished, statuses] = await Promise.all([
+        supabaseAdmin.from("products").select("id", { count: "exact", head: true }),
+        supabaseAdmin.from("products").select("id", { count: "exact", head: true }).eq("listing_status", "published"),
+        supabaseAdmin.from("products").select("id, name, breadcrumb_name, brand, listing_status").or(orFilter).limit(10),
+        supabaseAdmin
+          .from("products")
+          .select("id, name, listing_status")
+          .eq("listing_status", "published")
+          .or(orFilter)
+          .limit(10),
+        supabaseAdmin.from("products").select("listing_status").limit(1000),
+      ]);
+
+      // Distinct listing_status values actually present, with counts — the
+      // fastest way to spot a casing/naming mismatch ("Published" vs
+      // "published", "active" vs "published").
+      const statusCounts: Record<string, number> = {};
+      for (const row of (statuses.data ?? []) as { listing_status: string | null }[]) {
+        const key = row.listing_status === null ? "(null)" : `"${row.listing_status}"`;
+        statusCounts[key] = (statusCounts[key] ?? 0) + 1;
+      }
+
+      products = {
+        searchTerm: term,
+        totalProducts: total.count ?? `error: ${total.error?.message}`,
+        publishedProducts: published.count ?? `error: ${published.error?.message}`,
+        listingStatusValues: statusCounts,
+        matchesIgnoringStatus: matchAny.error
+          ? `error: ${matchAny.error.message}`
+          : (matchAny.data ?? []).map((p) => ({
+              name: (p as { breadcrumb_name?: string; name: string }).breadcrumb_name?.trim() || (p as { name: string }).name,
+              brand: (p as { brand?: string }).brand,
+              listing_status: (p as { listing_status?: string }).listing_status,
+            })),
+        matchesPublishedOnly: matchPublished.error
+          ? `error: ${matchPublished.error.message}`
+          : (matchPublished.data ?? []).length,
+      };
+    } catch (err) {
+      products = { searchTerm: term, threw: (err as Error).message };
+    }
+  }
+
   if (req.nextUrl.searchParams.get("pipeline")) {
     const message = req.nextUrl.searchParams.get("message") || "do you have ryzen 7";
     // Fixed visitor id so repeated runs land in one conversation instead of
@@ -344,6 +402,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       providersConfigured,
       liveCall,
       stages: stages.length > 0 ? stages : "add &stages=1 to run the pipeline step by step",
+      products,
       pipeline,
     },
     { status: 200 }
