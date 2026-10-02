@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getGeminiConfig, getLlmApiConfig, getOllamaConfig } from "@/lib/chatbot/config";
+import { handleWebsiteMessage } from "@/lib/chatbot/website-stream";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -120,6 +121,66 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }
   }
 
+  // Optional second stage: run the REAL website pipeline end to end, exactly
+  // as a visitor's message would, and report what came back. A clean
+  // liveCall above proves the LLM endpoint works; this proves (or disproves)
+  // everything between the request arriving and the reply being produced —
+  // Supabase reads/writes, exclusions, handoff detection, the quotation flow,
+  // product lookup, build intent, then the provider chain.
+  //
+  //   ...&pipeline=1&message=do%20you%20have%20ryzen%207
+  let pipeline: Record<string, unknown> = { skipped: "add &pipeline=1 to run it" };
+
+  if (req.nextUrl.searchParams.get("pipeline")) {
+    const message = req.nextUrl.searchParams.get("message") || "do you have ryzen 7";
+    // Fixed visitor id so repeated runs land in one conversation instead of
+    // littering the admin inbox with a new thread per check.
+    const visitorId = req.nextUrl.searchParams.get("visitorId") || "health-check-visitor";
+    const started = Date.now();
+
+    try {
+      const stream = await handleWebsiteMessage(visitorId, message);
+      const reader = stream.getReader();
+      const decoder = new TextDecoder();
+      let full = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        full += decoder.decode(value, { stream: true });
+      }
+
+      // The widget protocol is one JSON header line, then the reply text —
+      // split them so the product cards are visible separately from the prose
+      // (an empty items array here is the "no product cards" symptom).
+      const newlineIndex = full.indexOf("\n");
+      const headerLine = newlineIndex >= 0 ? full.slice(0, newlineIndex) : "";
+      const replyText = newlineIndex >= 0 ? full.slice(newlineIndex + 1) : full;
+
+      let header: { items?: unknown[]; build?: unknown } | null = null;
+      try {
+        header = JSON.parse(headerLine);
+      } catch {
+        // Header missing or malformed — reported as-is below.
+      }
+
+      pipeline = {
+        sentMessage: message,
+        elapsedMs: Date.now() - started,
+        productCardCount: Array.isArray(header?.items) ? header.items.length : "(no valid header)",
+        hasBuildQuote: Boolean(header?.build),
+        replyText,
+        replyLength: replyText.length,
+      };
+    } catch (err) {
+      pipeline = {
+        sentMessage: message,
+        elapsedMs: Date.now() - started,
+        threw: (err as Error).message,
+        stack: (err as Error).stack?.split("\n").slice(0, 6).join("\n"),
+      };
+    }
+  }
+
   return NextResponse.json(
     {
       checkedAt: new Date().toISOString(),
@@ -129,6 +190,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       resolved,
       providersConfigured,
       liveCall,
+      pipeline,
     },
     { status: 200 }
   );
