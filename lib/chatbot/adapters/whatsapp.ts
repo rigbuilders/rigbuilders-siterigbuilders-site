@@ -248,13 +248,19 @@ export const whatsappAdapter: ChannelAdapter = {
       return;
     }
 
+    // WhatsApp hard-rejects a text body over 4096 characters, so an unusually
+    // long reply would fail the send entirely rather than arriving truncated.
+    // Reply length is meant to be governed by the system prompt, not by the
+    // token budget (see getLlmApiConfig's max_tokens note), which leaves this
+    // as the last line of defence.
+    const body = reply.length > 4096 ? `${reply.slice(0, 4093)}...` : reply;
     await postToGraphApi(
       url,
       {
         messaging_product: "whatsapp",
         to: externalUserId,
         type: "text",
-        text: { body: reply },
+        text: { body },
       },
       { Authorization: `Bearer ${config.accessToken}` }
     );

@@ -17,7 +17,11 @@ import { LLMProviderError, type LLMProvider } from "../types";
  */
 
 interface ChatCompletionResponse {
-  choices?: { message?: { content?: string; reasoning?: string; reasoning_content?: string } }[];
+  choices?: {
+    message?: { content?: string; reasoning?: string; reasoning_content?: string };
+    finish_reason?: string;
+  }[];
+  usage?: { completion_tokens?: number; prompt_tokens?: number };
   error?: { message?: string };
 }
 
@@ -97,13 +101,31 @@ export function createOpenAICompatProvider(config: LlmApiConfig): LLMProvider {
       }
 
       const data = (await response.json()) as ChatCompletionResponse;
-      const raw = data.choices?.[0]?.message?.content;
+      const choice = data.choices?.[0];
+      const raw = choice?.message?.content;
 
       if (!raw) {
+        // Empty content on an otherwise-successful (and billed) call is the
+        // signature failure of a reasoning model whose max_tokens ran out
+        // during the thinking phase. Spell that out rather than logging a
+        // bare "no usable text", because the symptom — credits deducted,
+        // customer sees nothing — otherwise looks like a billing or auth
+        // problem and sends you looking in completely the wrong place.
+        const reasoningLength =
+          (choice?.message?.reasoning ?? choice?.message?.reasoning_content ?? "").length;
+        console.error(
+          `[chatbot:llm] ${config.label} returned empty content. ` +
+            `finish_reason=${choice?.finish_reason ?? "?"}, ` +
+            `completion_tokens=${data.usage?.completion_tokens ?? "?"}, ` +
+            `max_tokens=${config.maxTokens}, reasoning_chars=${reasoningLength}` +
+            (choice?.finish_reason === "length"
+              ? " — the token budget was consumed before the reply was written; raise LLM_MAX_TOKENS."
+              : "")
+        );
         throw new LLMProviderError(
           config.label,
           true,
-          `${config.label} returned no usable text: ${data.error?.message ?? "unknown"}`
+          `${config.label} returned no usable text: ${data.error?.message ?? `finish_reason=${choice?.finish_reason ?? "unknown"}`}`
         );
       }
 
@@ -185,8 +207,27 @@ export async function streamOpenAICompatReply(
       const { done, value } = await upstreamReader.read();
 
       if (done) {
+        const finalText = stripReasoning(fullText).trim();
+
+        // Nothing usable came back — same reasoning-model-ran-out-of-tokens
+        // failure described in generate() above, except here the HTTP
+        // response is already streaming, so throwing can't fall through to
+        // the next provider. Without this the visitor is left staring at an
+        // empty chat bubble forever, which reads as the site being broken.
+        if (!finalText) {
+          console.error(
+            `[chatbot:llm-stream] stream produced no content (raw chars: ${fullText.length}) — ` +
+              "likely the token budget was spent on reasoning; raise LLM_MAX_TOKENS."
+          );
+          controller.enqueue(
+            encoder.encode(
+              "Sorry, I'm having trouble getting you an answer right now. A member of the Rig Builders team will follow up with you shortly."
+            )
+          );
+        }
+
         try {
-          await onComplete(stripReasoning(fullText).trim());
+          await onComplete(finalText);
         } catch (err) {
           console.error(`[chatbot:llm-stream] onComplete failed: ${(err as Error).message}`);
         }

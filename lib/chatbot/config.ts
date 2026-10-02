@@ -79,10 +79,18 @@ export function getLlmApiConfig(): LlmApiConfig | null {
   const label = raw("LLM_LABEL") ?? model.split("/").pop() ?? model;
 
   const maxTokensRaw = Number(raw("LLM_MAX_TOKENS"));
-  // Deliberately well under WhatsApp's 4096-character body cap: a reasoning
-  // model that rambles would otherwise turn into a failed send rather than a
-  // long one.
-  const maxTokens = Number.isFinite(maxTokensRaw) && maxTokensRaw > 0 ? maxTokensRaw : 700;
+  // MUST be generous, counter-intuitively. On a reasoning model (gpt-oss,
+  // Qwen3, DeepSeek-R1) the thinking tokens are billed and counted against
+  // max_tokens BEFORE a single character of the actual answer is produced —
+  // so a tight cap doesn't give you a short reply, it gives you an EMPTY one:
+  // the model is cut off mid-thought, `content` comes back blank, and you're
+  // charged for it. That exact failure (credits deducted, customer sees
+  // nothing) is why this is 2500 and not the 700 it started as.
+  //
+  // Reply *length* is controlled by the system prompt asking for concise
+  // answers, plus the defensive truncation in the WhatsApp adapter — not by
+  // starving the token budget.
+  const maxTokens = Number.isFinite(maxTokensRaw) && maxTokensRaw > 0 ? maxTokensRaw : 2500;
 
   // Not sent unless explicitly asked for. Gateways differ on how (or whether)
   // they accept this — OpenRouter-style ones want `reasoning: {effort}`, not
