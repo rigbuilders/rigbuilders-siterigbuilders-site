@@ -51,23 +51,39 @@ export const messengerAdapter: ChannelAdapter = {
     if (!event?.sender?.id) return null;
 
     // Skip echoes of our own outbound messages, postbacks, read receipts,
-    // etc. — but NOT an image-only message with no text, which used to be
-    // (incorrectly) dropped here entirely: this "no text -> return null"
+    // etc. — but NOT an attachment-only message with no text, which used to
+    // be (incorrectly) dropped here entirely: this "no text -> return null"
     // check ran before attachments were ever looked at, so a customer
     // sending just a photo silently vanished instead of even getting a
     // placeholder.
-    const imageAttachment = event.message?.attachments?.find((a) => a.type === "image" && a.payload?.url);
-    if (!event.message || event.message.is_echo || (!event.message.text && !imageAttachment)) {
+    //
+    // Any attachment carrying a URL counts, not just images: Messenger's
+    // types are image / video / audio / file, and a customer sending a PDF
+    // quote or a video of a faulty machine matters at least as much as a
+    // photo. `fallback` (link shares) is excluded — it has no real file
+    // behind it, just a URL preview.
+    const mediaAttachment = event.message?.attachments?.find(
+      (a) => a.payload?.url && a.type !== "fallback" && a.type !== "template"
+    );
+    if (!event.message || event.message.is_echo || (!event.message.text && !mediaAttachment)) {
       return null;
     }
 
     let attachments: { type: string; url: string }[] | undefined;
     let text = event.message.text ?? "";
 
-    if (imageAttachment?.payload?.url) {
-      const media = await rehostInboundMedia(imageAttachment.payload.url, "messenger");
+    if (mediaAttachment?.payload?.url) {
+      const media = await rehostInboundMedia(mediaAttachment.payload.url, "messenger");
       if (media) attachments = [{ type: media.type, url: media.url }];
-      if (!text) text = "[Customer sent an image]";
+      if (!text) {
+        const PLACEHOLDER: Record<string, string> = {
+          image: "[Customer sent an image]",
+          video: "[Customer sent a video]",
+          audio: "[Customer sent a voice message]",
+          file: "[Customer sent a file]",
+        };
+        text = PLACEHOLDER[mediaAttachment.type ?? ""] ?? "[Customer sent an attachment]";
+      }
     }
 
     return {

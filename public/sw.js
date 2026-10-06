@@ -6,6 +6,28 @@
 // so it never controls or intercepts requests outside /admin — the rest of
 // the site (customer-facing pages, the website chat widget) is untouched.
 
+// Take control immediately rather than waiting for every existing tab to
+// close — otherwise a service worker update sits "waiting" indefinitely and
+// push changes don't take effect until the admin happens to close all tabs.
+self.addEventListener("install", () => {
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
+// Chrome will not offer "Install app" / "Add to Home Screen" unless the
+// registered service worker has a fetch handler — that's part of its
+// installability criteria, regardless of whether the worker actually does
+// anything offline. This is a deliberate pass-through: no caching, no
+// interception, the request goes to the network exactly as it would without
+// a service worker. It exists purely so the install prompt appears.
+self.addEventListener("fetch", () => {
+  // Intentionally empty: not calling event.respondWith() lets the browser
+  // handle the request normally.
+});
+
 self.addEventListener("push", (event) => {
   let data = {};
   try {

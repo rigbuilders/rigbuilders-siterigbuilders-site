@@ -106,6 +106,27 @@ export async function notifyAdminPush(payload: PushPayload): Promise<void> {
   }
 }
 
+/**
+ * Which channels are allowed to raise a push notification. Unset = all of
+ * them (the original behaviour). Set to a comma-separated list to narrow it,
+ * e.g. PUSH_CHANNELS=website.
+ *
+ * The reason to narrow it: WhatsApp, Messenger and Instagram all have their
+ * own apps that already notify on a phone, so pushing those again is pure
+ * duplicate buzzing. The website widget has no app behind it, which makes it
+ * the one channel where a missed message is genuinely invisible until someone
+ * thinks to open the dashboard.
+ */
+const PUSH_CHANNELS = process.env.PUSH_CHANNELS;
+
+function channelAllowsPush(channel: string): boolean {
+  if (!PUSH_CHANNELS || PUSH_CHANNELS.trim() === "") return true;
+  return PUSH_CHANNELS.split(",")
+    .map((c) => c.trim().toLowerCase())
+    .filter(Boolean)
+    .includes(channel.toLowerCase());
+}
+
 const CHANNEL_LABEL: Record<string, string> = {
   whatsapp: "WhatsApp",
   messenger: "Messenger",
@@ -124,6 +145,10 @@ export async function notifyAdminOfNewMessage(params: {
   text: string;
   conversationId: string;
 }): Promise<void> {
+  // Checked before any work happens — a filtered-out channel shouldn't even
+  // pay for the subscription lookup.
+  if (!channelAllowsPush(params.channel)) return;
+
   const label = CHANNEL_LABEL[params.channel] || params.channel;
   const trimmedText = params.text.length > 120 ? `${params.text.slice(0, 117)}...` : params.text;
   const body = trimmedText ? `${params.externalUserId}: ${trimmedText}` : `${params.externalUserId} sent an attachment`;

@@ -57,6 +57,10 @@ switching vendor or model needs no code change.
 | `INSTAGRAM_BUSINESS_ID` | adapters/instagram | falls back to `/me/messages` endpoint |
 | `MESSENGER_ACCESS_TOKEN` | adapters/messenger | disables Messenger |
 | `META_GRAPH_API_VERSION` | adapters/meta-graph-client | `v21.0` |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | push-notify + PushNotificationSetup | disables push (public by design — must be a Config var, not a Secret, since the browser needs it) |
+| `VAPID_PRIVATE_KEY` | push-notify | disables push (server-only secret) |
+| `VAPID_SUBJECT` | push-notify | `mailto:rigbuilders123@gmail.com` |
+| `PUSH_CHANNELS` | push-notify | unset = push for every channel. Comma-separated list to narrow, e.g. `website` — the other channels have their own apps that already notify |
 | `OLLAMA_BASE_URL` | llm/providers/ollama | **TEMPORARY** — unset means "use Together"; set to `http://localhost:11434` for local Ollama testing only, delete when done |
 | `OLLAMA_MODEL` | llm/providers/ollama | `llama3:latest ` (only read if `OLLAMA_BASE_URL` is set) |
 

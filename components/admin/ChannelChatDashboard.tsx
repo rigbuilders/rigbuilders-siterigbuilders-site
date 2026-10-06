@@ -91,13 +91,30 @@ function formatTimestamp(iso: string): string {
  * tab if the fetch fails (e.g. a CORS hiccup) — the browser's own "save
  * image/link as" still works fine from there.
  */
+/**
+ * The customer's original filename is the last segment of the stored URL —
+ * inbound media is deliberately re-hosted as
+ * `inbound/<channel>/<timestamp>-<uuid>/<original-name.ext>` (see
+ * lib/chatbot/inbound-media.ts) precisely so it survives all the way to this
+ * download, rather than saving as a bare UUID the OS can't open.
+ */
+function fileNameFromUrl(url: string): string {
+  const last = url.split("/").pop()?.split("?")[0] ?? "";
+  if (!last) return "download";
+  try {
+    return decodeURIComponent(last);
+  } catch {
+    return last; // malformed percent-encoding — the raw segment is still better than nothing
+  }
+}
+
 async function downloadMedia(url: string) {
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`fetch failed (${res.status})`);
     const blob = await res.blob();
     const blobUrl = URL.createObjectURL(blob);
-    const filename = url.split("/").pop()?.split("?")[0] || "download";
+    const filename = fileNameFromUrl(url);
     const a = document.createElement("a");
     a.href = blobUrl;
     a.download = filename;
@@ -746,9 +763,15 @@ export default function ChannelChatDashboard({ channel, theme }: { channel: stri
                               href={m.media_url}
                               target="_blank"
                               rel="noreferrer"
-                              className="flex items-center gap-2 underline"
+                              title={fileNameFromUrl(m.media_url)}
+                              className="flex items-center gap-2 underline max-w-[220px] truncate"
                             >
-                              <FaPaperclip /> Attached file
+                              {/* Real filename rather than a generic label — for a
+                                  thread full of attachments, "purchase-order.pdf"
+                                  and "rig-photo.mp4" are the difference between
+                                  finding the right one and opening all of them. */}
+                              <FaPaperclip className="shrink-0" />
+                              <span className="truncate">{fileNameFromUrl(m.media_url)}</span>
                             </a>
                             <button
                               onClick={() => downloadMedia(m.media_url!)}

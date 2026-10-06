@@ -46,21 +46,34 @@ export const instagramAdapter: ChannelAdapter = {
     const event = extractFirstMessagingEvent(rawPayload);
     if (!event?.sender?.id) return null;
 
-    // Same fix as the Messenger adapter: don't drop an image-only DM just
-    // because there's no text — that used to make a customer's photo
-    // vanish entirely instead of even showing a placeholder.
-    const imageAttachment = event.message?.attachments?.find((a) => a.type === "image" && a.payload?.url);
-    if (!event.message || event.message.is_echo || (!event.message.text && !imageAttachment)) {
+    // Same handling as the Messenger adapter (identical webhook shape): don't
+    // drop an attachment-only DM just because there's no text, and accept any
+    // attachment carrying a URL rather than images alone — Instagram DMs also
+    // carry video, voice clips, and shared reels/stories.
+    const mediaAttachment = event.message?.attachments?.find(
+      (a) => a.payload?.url && a.type !== "fallback" && a.type !== "template"
+    );
+    if (!event.message || event.message.is_echo || (!event.message.text && !mediaAttachment)) {
       return null;
     }
 
     let attachments: { type: string; url: string }[] | undefined;
     let text = event.message.text ?? "";
 
-    if (imageAttachment?.payload?.url) {
-      const media = await rehostInboundMedia(imageAttachment.payload.url, "instagram");
+    if (mediaAttachment?.payload?.url) {
+      const media = await rehostInboundMedia(mediaAttachment.payload.url, "instagram");
       if (media) attachments = [{ type: media.type, url: media.url }];
-      if (!text) text = "[Customer sent an image]";
+      if (!text) {
+        const PLACEHOLDER: Record<string, string> = {
+          image: "[Customer sent an image]",
+          video: "[Customer sent a video]",
+          audio: "[Customer sent a voice message]",
+          file: "[Customer sent a file]",
+          share: "[Customer shared a post or reel]",
+          story_mention: "[Customer mentioned you in a story]",
+        };
+        text = PLACEHOLDER[mediaAttachment.type ?? ""] ?? "[Customer sent an attachment]";
+      }
     }
 
     return {

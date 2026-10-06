@@ -9,7 +9,7 @@ import {
 } from "@/lib/chatbot/conversation-store";
 import { isExcluded } from "@/lib/chatbot/exclusions";
 import { getWatched } from "@/lib/chatbot/watchlist";
-import { notifyAdminOfNewMessage } from "@/lib/chatbot/push-notify";
+import { notifyAdminOfNewMessage, notifyAdminPush } from "@/lib/chatbot/push-notify";
 import { findRelevantProducts } from "@/lib/chatbot/product-knowledge";
 import { detectBuildIntent } from "@/lib/chatbot/build-recommender";
 import { tryHandleQuotationRequest } from "@/lib/chatbot/quotation-flow";
@@ -87,6 +87,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     TOGETHER_API_KEY: present("TOGETHER_API_KEY"),
     GEMINI_API_KEY: present("GEMINI_API_KEY"),
     OLLAMA_BASE_URL: present("OLLAMA_BASE_URL"),
+    NEXT_PUBLIC_VAPID_PUBLIC_KEY: present("NEXT_PUBLIC_VAPID_PUBLIC_KEY"),
+    VAPID_PRIVATE_KEY: present("VAPID_PRIVATE_KEY"),
+    VAPID_SUBJECT: present("VAPID_SUBJECT"),
   };
 
   const llmConfig = getLlmApiConfig();
@@ -324,6 +327,150 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }
   }
 
+  // Inbox tail (&inbox=1) — the decisive WhatsApp test, and it needs no logs.
+  // Every inbound message is persisted BEFORE anything else happens (see
+  // orchestrator.ts), so if a customer's "hi" is in here, Meta's webhook is
+  // reaching us and the fault is downstream (LLM or the Graph API send). If
+  // it is NOT in here, nothing we deploy can help: Meta isn't delivering, and
+  // the problem is the webhook subscription, app mode, or token.
+  let inbox: Record<string, unknown> = { skipped: "add &inbox=1 to run it" };
+
+  if (req.nextUrl.searchParams.get("inbox")) {
+    try {
+      const { data: msgs, error } = await supabaseAdmin
+        .from("chatbot_messages")
+        .select("conversation_id, role, content, provider, created_at")
+        .order("created_at", { ascending: false })
+        .limit(15);
+
+      if (error) throw new Error(error.message);
+
+      const convIds = [...new Set((msgs ?? []).map((m) => (m as { conversation_id: string }).conversation_id))];
+      const { data: convs } = await supabaseAdmin
+        .from("chatbot_conversations")
+        .select("id, channel, status")
+        .in("id", convIds);
+
+      const channelById = new Map(
+        ((convs ?? []) as { id: string; channel: string; status: string }[]).map((c) => [c.id, c])
+      );
+
+      inbox = {
+        recentMessages: (msgs ?? []).map((m) => {
+          const row = m as { conversation_id: string; role: string; content: string; provider: string | null; created_at: string };
+          const conv = channelById.get(row.conversation_id);
+          return {
+            at: row.created_at,
+            channel: conv?.channel ?? "?",
+            conversationStatus: conv?.status ?? "?",
+            role: row.role,
+            provider: row.provider,
+            text: row.content.slice(0, 100),
+          };
+        }),
+      };
+    } catch (err) {
+      inbox = { threw: (err as Error).message };
+    }
+  }
+
+  // WhatsApp send-path check (&whatsapp=1). Validates the access token
+  // against the Graph API without messaging anyone — a GET on the phone
+  // number id. An expired or revoked WHATSAPP_ACCESS_TOKEN fails here with
+  // the exact Meta error, which is otherwise only visible in function logs
+  // at the moment a reply is attempted.
+  let whatsapp: Record<string, unknown> = { skipped: "add &whatsapp=1 to run it" };
+
+  if (req.nextUrl.searchParams.get("whatsapp")) {
+    const phoneId = process.env.WA_PHONE_ID;
+    const token = process.env.WHATSAPP_ACCESS_TOKEN;
+    const version = process.env.META_GRAPH_API_VERSION?.trim() || "v21.0";
+
+    if (!phoneId || !token) {
+      whatsapp = {
+        WA_PHONE_ID: phoneId ? "set" : "MISSING",
+        WHATSAPP_ACCESS_TOKEN: token ? "set" : "MISSING",
+        META_VERIFY_TOKEN: expected ? "set" : "MISSING",
+      };
+    } else {
+      try {
+        const res = await fetch(
+          `https://graph.facebook.com/${version}/${phoneId}?fields=display_phone_number,verified_name,quality_rating`,
+          { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15000) }
+        );
+        const bodyText = await res.text().catch(() => "");
+        whatsapp = {
+          graphApiVersion: version,
+          httpStatus: res.status,
+          tokenValid: res.ok,
+          // Includes quality_rating — if Meta has throttled the number for
+          // quality, sends fail even with a perfectly valid token.
+          body: bodyText.slice(0, 500),
+        };
+      } catch (err) {
+        whatsapp = { networkError: (err as Error).message };
+      }
+    }
+  }
+
+  // Push diagnostics (&push=1 reports state, &testpush=1 also fires a real
+  // notification to every subscribed device). Lets the whole chain —
+  // migration, VAPID keys, subscription, service worker — be verified in one
+  // click instead of waiting for a real customer to message.
+  let push: Record<string, unknown> = { skipped: "add &push=1 (or &testpush=1) to run it" };
+
+  if (req.nextUrl.searchParams.get("push") || req.nextUrl.searchParams.get("testpush")) {
+    try {
+      const { data, error, count } = await supabaseAdmin
+        .from("admin_push_subscriptions")
+        .select("id, endpoint, created_at", { count: "exact" });
+
+      if (error) {
+        // The most common cause by far is the migration never having been
+        // run, so say that rather than just echoing a Postgres error.
+        push = {
+          tableError: error.message,
+          hint: error.message.includes("does not exist")
+            ? "Run security/chatbot_push_subscriptions.sql in the Supabase SQL editor."
+            : undefined,
+        };
+      } else {
+        const rows = (data ?? []) as { id: string; endpoint: string; created_at: string }[];
+        push = {
+          vapidConfigured: Boolean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY),
+          subscriptionCount: count ?? rows.length,
+          // Endpoint host only — the full URL is a capability that can send
+          // this device notifications, so it isn't printed.
+          devices: rows.map((r) => {
+            let host = "(unparseable)";
+            try {
+              host = new URL(r.endpoint).host;
+            } catch {
+              /* malformed endpoint — reported as-is */
+            }
+            return { pushService: host, subscribedAt: r.created_at };
+          }),
+        };
+
+        if (req.nextUrl.searchParams.get("testpush")) {
+          if (rows.length === 0) {
+            push.testPush = "No subscriptions yet — open /admin/chatbot on the phone and tap Enable Notifications first.";
+          } else {
+            await notifyAdminPush({
+              title: "Rig Builders — test notification",
+              body: "If you can see this, push notifications are working end to end.",
+              url: "/admin/chatbot",
+              tag: "rb-test-push",
+            });
+            push.testPush = `Attempted send to ${rows.length} device(s). Check the phone. If nothing arrives, see the function logs for [chatbot:push] lines.`;
+          }
+        }
+      }
+    } catch (err) {
+      push = { threw: (err as Error).message };
+    }
+  }
+
   if (req.nextUrl.searchParams.get("pipeline")) {
     const message = req.nextUrl.searchParams.get("message") || "do you have ryzen 7";
     // Fixed visitor id so repeated runs land in one conversation instead of
@@ -403,6 +550,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       liveCall,
       stages: stages.length > 0 ? stages : "add &stages=1 to run the pipeline step by step",
       products,
+      inbox,
+      whatsapp,
+      push,
       pipeline,
     },
     { status: 200 }

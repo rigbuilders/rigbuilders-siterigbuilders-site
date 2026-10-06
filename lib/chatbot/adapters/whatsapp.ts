@@ -75,18 +75,31 @@ function extractFirstMessage(rawPayload: unknown) {
  * if this fails, so a customer's message is never dropped over an image
  * re-hosting hiccup.
  */
-async function downloadWhatsAppImage(mediaId: string, accessToken: string) {
+async function downloadWhatsAppMedia(mediaId: string, accessToken: string, filename?: string) {
   try {
     const lookup = (await getFromGraphApi(graphApiUrl(mediaId), {
       Authorization: `Bearer ${accessToken}`,
-    })) as { url?: string };
+    })) as { url?: string; mime_type?: string; file_size?: number };
     if (!lookup.url) return null;
-    return await rehostInboundMedia(lookup.url, "whatsapp", { authHeader: `Bearer ${accessToken}` });
+    return await rehostInboundMedia(lookup.url, "whatsapp", {
+      authHeader: `Bearer ${accessToken}`,
+      filename,
+    });
   } catch (err) {
     console.error(`[adapter:whatsapp] inbound media lookup failed: ${(err as Error).message}`);
     return null;
   }
 }
+
+/**
+ * Every inbound WhatsApp media type carries its payload the same way — an
+ * object with an `id` (and, for documents, a `filename`) — so one table
+ * covers them all rather than a branch per type. Previously only `image` was
+ * wired up, which meant a customer sending a PDF purchase order, a video of
+ * a faulty rig, or a voice note left the admin with placeholder text and no
+ * actual file to open.
+ */
+const MEDIA_MESSAGE_TYPES = ["image", "document", "video", "audio", "sticker"] as const;
 
 export const whatsappAdapter: ChannelAdapter = {
   channelId: "whatsapp",
@@ -95,30 +108,40 @@ export const whatsappAdapter: ChannelAdapter = {
     const message = extractFirstMessage(rawPayload);
     if (!message) return null;
 
-    // Document downloading isn't wired up yet (same two-step id->url->bytes
-    // dance as images below, just not built for this type yet) — still just
-    // a readable placeholder in the admin thread for now.
+    // Every media type (image, document, video, audio/voice note, sticker)
+    // goes through the same id -> url -> bytes -> re-host path below and ends
+    // up as a downloadable file in the admin inbox. Non-media types fall
+    // through to descriptive placeholder text.
     let text: string;
     let attachments: { type: string; url: string }[] | undefined;
 
     if (message.type === "text" && message.text?.body) {
       text = message.text.body;
-    } else if (message.type === "image") {
-      text = message.image?.caption ? `[Image] ${message.image.caption}` : "[Customer sent an image]";
+    } else if ((MEDIA_MESSAGE_TYPES as readonly string[]).includes(message.type)) {
+      // Readable placeholder first, so the message is never lost even if the
+      // download below fails (expired media id, oversized file, storage
+      // hiccup) — the admin still sees that something was sent and what kind.
+      if (message.type === "image") {
+        text = message.image?.caption ? `[Image] ${message.image.caption}` : "[Customer sent an image]";
+      } else if (message.type === "document") {
+        text = `[Customer sent a file${message.document?.filename ? `: ${message.document.filename}` : ""}]`;
+      } else if (message.type === "video") {
+        text = message.video?.caption ? `[Video] ${message.video.caption}` : "[Customer sent a video]";
+      } else if (message.type === "audio") {
+        text = message.audio?.voice ? "[Customer sent a voice message]" : "[Customer sent an audio file]";
+      } else {
+        text = "[Customer sent a sticker]";
+      }
 
       const config = getWhatsAppConfig();
-      if (message.image?.id && config) {
-        const media = await downloadWhatsAppImage(message.image.id, config.accessToken);
+      const payload = (message as unknown as Record<string, { id?: string; filename?: string } | undefined>)[
+        message.type
+      ];
+
+      if (payload?.id && config) {
+        const media = await downloadWhatsAppMedia(payload.id, config.accessToken, payload.filename);
         if (media) attachments = [{ type: media.type, url: media.url }];
       }
-    } else if (message.type === "document") {
-      text = `[Customer sent a file${message.document?.filename ? `: ${message.document.filename}` : ""}]`;
-    } else if (message.type === "video") {
-      text = message.video?.caption ? `[Video] ${message.video.caption}` : "[Customer sent a video]";
-    } else if (message.type === "audio") {
-      text = message.audio?.voice ? "[Customer sent a voice message]" : "[Customer sent an audio file]";
-    } else if (message.type === "sticker") {
-      text = "[Customer sent a sticker]";
     } else if (message.type === "location") {
       const loc = message.location;
       text = loc

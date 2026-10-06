@@ -7,12 +7,74 @@ import type { MediaType } from "./types";
 const MAX_INBOUND_MEDIA_BYTES = 16 * 1024 * 1024;
 
 const EXT_BY_MIME: Record<string, string> = {
+  // Images
   "image/jpeg": ".jpg",
   "image/png": ".png",
   "image/webp": ".webp",
   "image/gif": ".gif",
+  "image/heic": ".heic",
+  "image/bmp": ".bmp",
+  "image/tiff": ".tiff",
+  "image/svg+xml": ".svg",
+  // Documents
   "application/pdf": ".pdf",
+  "application/msword": ".doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+  "application/vnd.ms-excel": ".xls",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+  "application/vnd.ms-powerpoint": ".ppt",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
+  "text/plain": ".txt",
+  "text/csv": ".csv",
+  "application/rtf": ".rtf",
+  "application/zip": ".zip",
+  "application/x-rar-compressed": ".rar",
+  "application/x-7z-compressed": ".7z",
+  "application/json": ".json",
+  // Video
+  "video/mp4": ".mp4",
+  "video/3gpp": ".3gp",
+  "video/quicktime": ".mov",
+  "video/webm": ".webm",
+  "video/x-matroska": ".mkv",
+  // Audio / voice notes
+  "audio/mpeg": ".mp3",
+  "audio/mp4": ".m4a",
+  "audio/ogg": ".ogg",
+  "audio/opus": ".opus",
+  "audio/amr": ".amr",
+  "audio/wav": ".wav",
+  "audio/aac": ".aac",
 };
+
+/**
+ * Keeps the customer's original filename as the LAST path segment, so the
+ * public URL ends in e.g. ".../purchase-order.pdf". That matters because the
+ * admin inbox's download button and every browser's own "Save link as" both
+ * take the filename from the URL — without this a customer's invoice saves
+ * as a bare UUID with no extension, which Windows and Android then refuse to
+ * open with anything sensible.
+ *
+ * Uniqueness comes from the timestamp+uuid directory above it, so two people
+ * sending "invoice.pdf" never collide despite sharing a filename.
+ */
+function safeFileName(filename: string | undefined, fallbackExt: string): string {
+  const fallback = `file${fallbackExt}`;
+  if (!filename) return fallback;
+
+  // Strip any directory components a platform might include, then reduce to
+  // characters that are safe in both a storage key and a URL.
+  const base = filename.split(/[/\\]/).pop() ?? "";
+  const cleaned = base
+    .replace(/[^a-zA-Z0-9._-]/g, "_")
+    .replace(/_{2,}/g, "_")
+    .replace(/^[._]+/, "")
+    .slice(0, 100);
+
+  if (!cleaned || cleaned === "." || !/[a-zA-Z0-9]/.test(cleaned)) return fallback;
+  // Append the content-type's extension when the supplied name has none.
+  return /\.[a-zA-Z0-9]{1,8}$/.test(cleaned) ? cleaned : `${cleaned}${fallbackExt}`;
+}
 
 /**
  * Downloads a piece of inbound customer media (from a WhatsApp/Messenger/
@@ -38,7 +100,7 @@ const EXT_BY_MIME: Record<string, string> = {
 export async function rehostInboundMedia(
   sourceUrl: string,
   channel: string,
-  opts: { authHeader?: string } = {}
+  opts: { authHeader?: string; filename?: string } = {}
 ): Promise<{ url: string; type: MediaType } | null> {
   try {
     const response = await fetch(
@@ -63,9 +125,13 @@ export async function rehostInboundMedia(
       return null;
     }
 
+    // Only true images render inline in the admin thread; everything else —
+    // PDFs, Office files, video, voice notes, archives — is a "document",
+    // which the inbox shows as a named, downloadable file.
     const mediaType: MediaType = contentType.startsWith("image/") ? "image" : "document";
     const ext = EXT_BY_MIME[contentType] ?? "";
-    const path = `inbound/${channel}/${Date.now()}-${randomUUID()}${ext}`;
+    // Unique directory, human-readable filename — see safeFileName above.
+    const path = `inbound/${channel}/${Date.now()}-${randomUUID()}/${safeFileName(opts.filename, ext)}`;
 
     const { error: uploadError } = await supabaseAdmin.storage
       .from("chatbot-media")
