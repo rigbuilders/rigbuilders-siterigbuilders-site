@@ -17,6 +17,7 @@ import { buildProductContext, findRelevantProducts, toProductCards, type Product
 import { detectBuildIntent, buildQuoteContext, type BuildQuote } from "./build-recommender";
 import { tryHandleQuotationRequest } from "./quotation-flow";
 import { SYSTEM_PROMPT } from "./system-prompt";
+import { menuIntro, modelGaveUp, preLlmMenuTrigger } from "./menu-trigger";
 import { stripFormatting, createSanitizingTransform } from "./text-sanitizer";
 import type { NormalizedMessage } from "./types";
 
@@ -34,10 +35,11 @@ const HANDED_OFF_NOTICE =
 function withProductsHeader(
   cards: ProductCard[],
   build: BuildQuote | null,
-  inner: ReadableStream<Uint8Array>
+  inner: ReadableStream<Uint8Array>,
+  opts: { openMenu?: boolean } = {}
 ): ReadableStream<Uint8Array> {
   const headerBytes = new TextEncoder().encode(
-    JSON.stringify({ type: "products", items: cards, build }) + "\n"
+    JSON.stringify({ type: "products", items: cards, build, openMenu: opts.openMenu ?? false }) + "\n"
   );
   const innerReader = inner.getReader();
   let headerSent = false;
@@ -144,6 +146,23 @@ export async function handleWebsiteMessage(
       await appendMessage(conversation.id, "assistant", HANDOFF_ACK_MESSAGE, "handoff");
       await notifyAdminOfHandoff({ channel: "website", externalUserId: visitorId, message: text });
       return withProductsHeader([], null, staticStream(HANDOFF_ACK_MESSAGE));
+    }
+
+    // Tiers 1 and 2 of the menu fallback, shared with the other channels (see
+    // menu-trigger.ts). The widget renders the menu itself in React, so the
+    // server's job here is only to say "open it" — hence the sentinel in the
+    // products header rather than a rendered menu payload.
+    //
+    // Note the asymmetry with WhatsApp, which is deliberate: there, the menu
+    // waits to see what the customer sent first. Here the visitor clicked a
+    // bubble and faces an empty box, so the widget opens the menu on launch —
+    // there's no first message to read. Same rules, different opening move,
+    // because the medium differs.
+    const preTrigger = preLlmMenuTrigger(text);
+    if (preTrigger) {
+      const intro = menuIntro(preTrigger, false);
+      await appendMessage(conversation.id, "assistant", intro, "menu");
+      return withProductsHeader([], null, staticStream(intro), { openMenu: true });
     }
 
     // Multi-product quotation request ("quote me a 7800X3D, an RTX 5060, and
@@ -273,6 +292,18 @@ export async function handleWebsiteMessage(
         throw new Error("Gemini not configured and the primary LLM endpoint failed or was unavailable.");
       }
       const fullText = await createGeminiProvider(geminiConfig).generate(systemPrompt, history, text);
+
+      // Tier 3 — same sentinel contract as the other channels. Only checkable
+      // on this non-streaming path: by the time a streamed reply reveals
+      // itself the first tokens are already on the visitor's screen, so the
+      // streaming provider instead relies on the model rarely emitting it
+      // (and the sanitizer stripping it if it does).
+      if (modelGaveUp(fullText)) {
+        const intro = menuIntro("model-gave-up", false);
+        await appendMessage(conversation.id, "assistant", intro, "menu");
+        return withProductsHeader([], null, staticStream(intro), { openMenu: true });
+      }
+
       await persist("gemini")(fullText);
       return withProductsHeader(cards, buildQuote, staticStream(stripFormatting(fullText)));
     } catch (err) {

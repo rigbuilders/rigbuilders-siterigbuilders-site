@@ -3,7 +3,6 @@
 import Navbar from "@/components/Navbar";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { computeListingCreated, missingListingFields } from "@/lib/listingCompleteness";
 import { useRouter } from "next/navigation";
 import { FaBoxOpen } from "react-icons/fa"; // Icon
 
@@ -280,28 +279,21 @@ export default function ProductManager() {
         gallery_urls: formData.gallery_urls.map(cleanPath).filter(url => url !== "" && url !== "/"),
       };
 
-      // listing_created is DERIVED completeness — compute it on every save so a
-      // product an admin fills in completely becomes visible (and one with gaps
-      // stays hidden). A product is only live when this is 'true' AND published.
-      payload.listing_created = computeListingCreated(payload);
-      const missing = missingListingFields(payload);
-
+      // CONTENT ONLY. This form owns the product's content — never its
+      // visibility. Do NOT set listing_created or listing_status here: both are
+      // owned and written solely by the listing-pipeline-app (listing_created
+      // is derived completeness recomputed there; listing_status is set by its
+      // Publish step). The website only READS them (see lib/productVisibility).
       const { error } = activeTab === "edit" && formData.id
         ? await supabase.from('products').update(payload).eq('id', formData.id)
         : await supabase.from('products').insert(payload);
 
       if (error) throw error;
-
-      const savedWord = activeTab === "edit" ? "Updated" : "Created";
-      if (payload.listing_created === "true") {
-        alert(`${savedWord}! This product is complete and will appear on the website (once published).`);
-      } else {
-        alert(
-          `${savedWord}, but NOT visible on the website yet — these required fields are still empty:\n\n` +
-          missing.join(", ") +
-          `\n\nFill them in and save again to make it live.`
-        );
-      }
+      alert(
+        (activeTab === "edit" ? "Updated! " : "Created! ") +
+        "Visibility is managed in the listing pipeline app — check its Listings tab " +
+        "(Missing Fields column) to see if this product is complete, then Publish it there."
+      );
       resetForm();
       fetchProducts();
     } catch (err: any) {

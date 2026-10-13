@@ -4,6 +4,13 @@ export interface NormalizedMessage {
   text: string;
   timestamp: number;
   attachments?: { type: string; url: string }[];
+  /**
+   * Set when the customer tapped a guided-menu button or list row rather than
+   * typing. Carries the encoded node + option id (see whatsapp-menu.ts), which
+   * is what distinguishes a current selection from a tap on a menu that
+   * scrolled off five messages ago — the visible title alone can't.
+   */
+  replyId?: string;
   // Platform-native message id, when the adapter has one — currently only
   // set by the WhatsApp adapter, so it can mark the inbound message as read
   // (blue ticks) via the Graph API. Optional because not every channel's
@@ -106,4 +113,11 @@ export interface ChannelAdapter {
   // needed). Currently implemented by all three Meta adapters, not the
   // website channel (which has no Graph API to call).
   sendMedia?(externalUserId: string, mediaUrl: string, mediaType: MediaType, caption?: string): Promise<void>;
+  /**
+   * Optional: send a guided-menu step as native interactive UI (reply buttons
+   * or a list). Currently only WhatsApp — Messenger and Instagram have their
+   * own quick-reply formats that aren't wired up yet, and the website widget
+   * renders the menu itself in React rather than receiving it from here.
+   */
+  sendMenu?(externalUserId: string, menu: import("./whatsapp-menu").MenuRender): Promise<void>;
 }

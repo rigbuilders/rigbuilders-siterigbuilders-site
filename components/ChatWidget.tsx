@@ -378,6 +378,13 @@ export default function ChatWidget({ children }: { children: React.ReactNode }) 
 
           try {
             const header = JSON.parse(headerLine);
+            // The server decided this message needs the menu rather than an
+            // answer — a greeting, something unreadable, or the model
+            // signalling it couldn't help (see menu-trigger.ts). Reopening at
+            // the root is deliberate: these are all "I don't know what you
+            // want" cases, so resuming a half-finished drill-down would be
+            // answering a question they didn't ask.
+            if (header?.openMenu) openMenu();
             if (header?.type === "products") {
               setMessages((current) =>
                 current.map((m) =>

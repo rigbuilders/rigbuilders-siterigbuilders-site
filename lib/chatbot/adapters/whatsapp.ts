@@ -1,5 +1,6 @@
 import { getWhatsAppConfig } from "../config";
 import type { ChannelAdapter, MediaType, NormalizedMessage, ReplyMeta } from "../types";
+import type { MenuRender } from "../whatsapp-menu";
 import { getFromGraphApi, graphApiUrl, postToGraphApi } from "./meta-graph-client";
 import { rehostInboundMedia } from "../inbound-media";
 
@@ -114,6 +115,8 @@ export const whatsappAdapter: ChannelAdapter = {
     // through to descriptive placeholder text.
     let text: string;
     let attachments: { type: string; url: string }[] | undefined;
+    /** Set only for interactive replies — drives the guided menu. */
+    let replyId: string | undefined;
 
     if (message.type === "text" && message.text?.body) {
       text = message.text.body;
@@ -159,8 +162,14 @@ export const whatsappAdapter: ChannelAdapter = {
     } else if (message.type === "button") {
       text = message.button?.text ? `[Customer tapped: ${message.button.text}]` : "[Customer tapped a button]";
     } else if (message.type === "interactive") {
-      const choice = message.interactive?.button_reply?.title ?? message.interactive?.list_reply?.title;
-      text = choice ? `[Customer selected: ${choice}]` : "[Customer made an interactive selection]";
+      // The TITLE is what we show in the transcript, but the ID is what the
+      // menu engine needs — it encodes which node the tap came from, which is
+      // the only way to tell a current selection from someone scrolling up and
+      // tapping a menu from five messages ago. Capturing only the title (as
+      // this did originally) makes a guided menu impossible to drive.
+      const reply = message.interactive?.button_reply ?? message.interactive?.list_reply;
+      replyId = reply?.id;
+      text = reply?.title ? `[Customer selected: ${reply.title}]` : "[Customer made an interactive selection]";
     } else if (message.type === "unsupported") {
       // Meta never sends content for these regardless of integration — most
       // often a poll or a deleted message. code 131051 is the generic
@@ -187,7 +196,51 @@ export const whatsappAdapter: ChannelAdapter = {
       timestamp: Number(message.timestamp) * 1000, // WhatsApp sends seconds, not ms
       messageId: message.id,
       ...(attachments ? { attachments } : {}),
+      ...(replyId ? { replyId } : {}),
     };
+  },
+
+  /**
+   * Sends a guided-menu step. Reply buttons for three options or fewer, an
+   * interactive list beyond that — WhatsApp's own split, since buttons cap at
+   * 3 and lists at 10 rows (enforced in whatsapp-menu.ts, because exceeding
+   * either is a rejected send rather than a trimmed one).
+   *
+   * Free to send: these only ever go out as a reply to an inbound message, so
+   * they're always inside the 24-hour customer service window.
+   */
+  async sendMenu(externalUserId: string, menu: MenuRender): Promise<void> {
+    const config = getWhatsAppConfig();
+    if (!config) throw new Error("WhatsApp is not configured.");
+
+    const url = graphApiUrl(`${config.phoneId}/messages`);
+
+    const interactive =
+      menu.kind === "buttons"
+        ? {
+            type: "button",
+            body: { text: menu.body },
+            action: {
+              buttons: (menu.buttons ?? []).map((b) => ({
+                type: "reply",
+                reply: { id: b.id, title: b.title },
+              })),
+            },
+          }
+        : {
+            type: "list",
+            body: { text: menu.body },
+            action: {
+              button: menu.listButtonText ?? "Choose",
+              sections: [{ title: "Options", rows: menu.rows ?? [] }],
+            },
+          };
+
+    await postToGraphApi(
+      url,
+      { messaging_product: "whatsapp", to: externalUserId, type: "interactive", interactive },
+      { Authorization: `Bearer ${config.accessToken}` }
+    );
   },
 
   async sendReply(externalUserId: string, reply: string, meta?: ReplyMeta): Promise<void> {

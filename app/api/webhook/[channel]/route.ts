@@ -127,6 +127,25 @@ async function processInbound(adapter: ChannelAdapter, rawPayload: unknown): Pro
     // null means: excluded number, or a human already has this conversation
     // handed off — stay silent, the message is already saved for the admin inbox.
     if (reply) {
+      // A guided-menu step goes out as native interactive UI when the channel
+      // supports it. The menu body already contains the prompt, so sending
+      // reply.text as well would duplicate it — reply.text exists only as the
+      // fallback for a channel without sendMenu (Messenger and Instagram
+      // today), where a plain list of options is still perfectly usable.
+      if (reply.menu && adapter.sendMenu) {
+        try {
+          await adapter.sendMenu(message.externalUserId, reply.menu);
+          console.log(`[webhook:${adapter.channelId}] menu sent to ${message.externalUserId}`);
+          return;
+        } catch (err) {
+          console.error(
+            `[webhook:${adapter.channelId}] sendMenu failed for ${message.externalUserId}, falling back to text: ${(err as Error).message}`
+          );
+          // Falls through to the plain-text send below rather than leaving
+          // the customer with nothing.
+        }
+      }
+
       // Meta rejects an empty/whitespace-only message body outright (and for
       // an interactive cta_url message it's a hard 400), so an LLM that
       // returned nothing usable would turn into a send error and total
