@@ -1,5 +1,6 @@
 // app/product/[id]/page.tsx
 import { supabase } from "@/lib/supabaseClient";
+import { onlyVisible } from "@/lib/productVisibility";
 import ProductClient from "./ProductClient";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -8,11 +9,12 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   
   // Fetch full product for dynamic metadata injection
-  const { data: product } = await supabase
-    .from('products')
-    .select('*')
-    .eq('id', id)
-    .single();
+  const { data: product } = await onlyVisible(
+    supabase
+      .from('products')
+      .select('*')
+      .eq('id', id)
+  ).single();
 
   if (!product) {
     return { title: "Product Not Found" };
@@ -46,11 +48,12 @@ type Props = {
 // Fetch data helper
 async function getProduct(id: string) {
   // FIX: Explicitly select 'cod_policy' to ensure it passes to the Cart
-  const { data } = await supabase
-    .from('products')
-    .select('*, cod_policy') 
-    .eq('id', id)
-    .single();
+  const { data } = await onlyVisible(
+    supabase
+      .from('products')
+      .select('*, cod_policy')
+      .eq('id', id)
+  ).single();
   return data;
 }
 

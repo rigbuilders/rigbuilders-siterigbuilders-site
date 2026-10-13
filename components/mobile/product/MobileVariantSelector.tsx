@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { onlyVisible } from "@/lib/productVisibility";
 import { useRouter } from "next/navigation";
 
 export default function MobileVariantSelector({ currentProductId, variantGroupId, currentSpecs }: any) {
@@ -7,7 +8,7 @@ export default function MobileVariantSelector({ currentProductId, variantGroupId
     const [siblings, setSiblings] = useState<any[]>([]);
 
     useEffect(() => {
-        if (variantGroupId) supabase.from('products').select('id, specs, in_stock').eq('variant_group_id', variantGroupId).then(({ data }) => { if (data) setSiblings(data); });
+        if (variantGroupId) onlyVisible(supabase.from('products').select('id, specs, in_stock').eq('variant_group_id', variantGroupId)).then(({ data }) => { if (data) setSiblings(data); });
     }, [variantGroupId]);
 
     if (!variantGroupId || siblings.length <= 1) return null;

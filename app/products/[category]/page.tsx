@@ -2,6 +2,7 @@ import { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { onlyVisible } from '@/lib/productVisibility';
 import CategoryClient from './CategoryClient';
 import { getCategoryBySlug, getCanonicalRedirectDB } from '@/lib/categories.server';
 
@@ -74,12 +75,12 @@ export default async function Page(
   if (!cat) notFound();
 
   // Fetch + normalise products on the server (dedupe variant groups).
-  const { data } = await supabase
-    .from('products')
-    .select('*')
-    .eq('category', cat!.db)
-    .eq('listing_status', 'published')
-    .order('created_at', { ascending: true });
+  const { data } = await onlyVisible(
+    supabase
+      .from('products')
+      .select('*')
+      .eq('category', cat!.db)
+  ).order('created_at', { ascending: true });
 
   const seenGroups = new Set<string>();
   const initialProducts = (data || []).reduce((acc: any[], p: any) => {

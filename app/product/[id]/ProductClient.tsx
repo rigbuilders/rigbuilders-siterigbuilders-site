@@ -15,6 +15,7 @@ import { Reveal } from "@/components/ui/MotionWrappers";
 import { toast } from "sonner"; 
 import ProductBreadcrumb from "@/components/ProductBreadcrumb";
 import { addRecentView } from "@/lib/recentViews";
+import { onlyVisible } from "@/lib/productVisibility";
 
 // --- IMPORT THE NEW VARIANT SELECTOR ---
 import VariantSelector from "./components/VariantSelector"; 
@@ -44,7 +45,7 @@ export default function ProductClient({ initialProduct, id }: ProductClientProps
       const [userRes, reviewsRes, relatedRes] = await Promise.all([
         supabase.auth.getUser(),
         supabase.from('reviews').select('*').eq('product_id', id).order('created_at', { ascending: false }),
-        supabase.from('products').select('id, name, price, image_url, category, brand').eq('category', initialProduct.category).neq('id', id).limit(4)
+        onlyVisible(supabase.from('products').select('id, name, price, image_url, category, brand').eq('category', initialProduct.category).neq('id', id)).limit(4)
       ]);
 
       if (userRes.data.user) setUser(userRes.data.user);

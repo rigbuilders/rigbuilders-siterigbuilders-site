@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { onlyVisible } from "@/lib/productVisibility";
 import { useRouter } from "next/navigation";
 import { FaCheck } from "react-icons/fa";
 
@@ -23,10 +24,12 @@ export default function VariantSelector({ currentProductId, variantGroupId, curr
         }
 
         const fetchSiblings = async () => {
-            const { data } = await supabase
-                .from('products')
-                .select('id, specs, in_stock')
-                .eq('variant_group_id', variantGroupId);
+            const { data } = await onlyVisible(
+                supabase
+                    .from('products')
+                    .select('id, specs, in_stock')
+                    .eq('variant_group_id', variantGroupId)
+            );
             
             if (data) setSiblings(data);
             setLoading(false);

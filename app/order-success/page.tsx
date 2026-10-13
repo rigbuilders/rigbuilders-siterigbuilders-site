@@ -5,6 +5,7 @@ import Footer from "@/components/Footer";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { onlyVisible } from "@/lib/productVisibility";
 import Link from "next/link";
 import { Reveal, StaggerGrid, StaggerItem } from "@/components/ui/MotionWrappers";
 import { FaCheckCircle, FaArrowRight } from "react-icons/fa";
@@ -25,10 +26,11 @@ function OrderSuccessContent() {
     const fetchRecommendations = async () => {
       // Simple fetch for random products to show "Complete the Setup"
       // This is public data, so it will ALWAYS work (Guest or User)
-      const { data: products } = await supabase
-        .from('products')
-        .select('id, name, price, image_url, category, brand')
-        .limit(4);
+      const { data: products } = await onlyVisible(
+        supabase
+          .from('products')
+          .select('id, name, price, image_url, category, brand')
+      ).limit(4);
       
       if (products) setRecommendations(products);
     };

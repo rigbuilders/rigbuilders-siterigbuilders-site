@@ -2,9 +2,44 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { usePathname } from "next/navigation";
-import { Bot, X, Send, Loader2 } from "lucide-react";
+import { Bot, X, Send, Loader2, ChevronLeft, Phone, MessageCircle, Sparkles, LayoutGrid } from "lucide-react";
 import ChatProductCard, { type ChatProductCardData } from "@/components/ChatProductCard";
 import ChatBuildQuoteCard, { type ChatBuildQuoteData } from "@/components/ChatBuildQuoteCard";
+import {
+  MENU_NODES,
+  MENU_ROOT,
+  dynamicNotSure,
+  getNode,
+  type MenuFilters,
+  type MenuOption,
+} from "@/lib/chatbot/guided-menu";
+
+const SUPPORT_PHONE = "+917707801014";
+const SUPPORT_WHATSAPP = "917707801014";
+// Support window, in the shop's own timezone — a visitor in another timezone
+// must still see "we're open" based on when Delhi is open, not when they are.
+const SUPPORT_OPEN_HOUR = 9;
+const SUPPORT_CLOSE_HOUR = 17;
+
+function isWithinSupportHours(): boolean {
+  try {
+    const hour = Number(
+      new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "numeric", hour12: false }).format(new Date())
+    );
+    return hour >= SUPPORT_OPEN_HOUR && hour < SUPPORT_CLOSE_HOUR;
+  } catch {
+    // Intl without tz data (very old browsers) — assume open rather than
+    // hiding the call button from someone who could have used it.
+    return true;
+  }
+}
+
+/** Trail entry — what was chosen, and the state to restore when going back. */
+interface MenuCrumb {
+  nodeId: string;
+  filters: MenuFilters;
+  label: string;
+}
 
 const VISITOR_ID_KEY = "rb_chat_visitor_id";
 const PRODUCTS_CACHE_KEY = "rb_chat_products_v1";
@@ -143,6 +178,20 @@ export default function ChatWidget({ children }: { children: React.ReactNode }) 
   const [status, setStatus] = useState<"active" | "handed_off" | null>(null);
   const [unread, setUnread] = useState(0);
 
+  // ---- Guided menu state ----
+  // null = menu hidden, visitor is in free-text mode. Starts at the root so a
+  // first-time visitor sees options rather than an empty box they have to
+  // think of a question for.
+  const [menuNodeId, setMenuNodeId] = useState<string | null>(MENU_ROOT);
+  const [menuFilters, setMenuFilters] = useState<MenuFilters>({});
+  const [menuTrail, setMenuTrail] = useState<MenuCrumb[]>([]);
+  const [menuChoices, setMenuChoices] = useState<MenuOption[] | null>(null);
+  const [menuProducts, setMenuProducts] = useState<ChatProductCardData[] | null>(null);
+  const [menuLoading, setMenuLoading] = useState(false);
+  // Computed once on mount rather than per render — the window only matters
+  // for which button to show, and re-checking on every keystroke is pointless.
+  const [withinHours, setWithinHours] = useState(true);
+
   const visitorIdRef = useRef<string>("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const isSendingRef = useRef(false);
@@ -150,6 +199,7 @@ export default function ChatWidget({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     visitorIdRef.current = getVisitorId();
     setHasHydrated(true);
+    setWithinHours(isWithinSupportHours());
   }, []);
 
   const scrollToBottom = useCallback(() => {
@@ -267,8 +317,16 @@ export default function ChatWidget({ children }: { children: React.ReactNode }) 
     e.preventDefault();
     const text = input.trim();
     if (!text || isSending) return;
-
     setInput("");
+    // Typing is an explicit choice to leave the menu — don't leave a stale
+    // panel sitting under the reply.
+    setMenuNodeId(null);
+    await sendMessage(text);
+  }
+
+  async function sendMessage(text: string) {
+    if (!text || isSendingRef.current) return;
+
     setIsSending(true);
     isSendingRef.current = true;
 
@@ -368,6 +426,159 @@ export default function ChatWidget({ children }: { children: React.ReactNode }) 
     }
   }
 
+  // ---- Guided menu ----------------------------------------------------
+
+  /**
+   * Loads a data-driven step. Returns true when the step has something worth
+   * showing; false means "skip me" — too few distinct values to be a real
+   * choice, or the attribute isn't populated on these rows at all. The caller
+   * advances past a skipped step rather than rendering an empty screen, which
+   * is what stops a half-filled spec field (socket, say) from dead-ending the
+   * whole branch.
+   */
+  const loadDynamicStep = useCallback(
+    async (nodeId: string, filters: MenuFilters): Promise<boolean> => {
+      const node = getNode(nodeId);
+      if (!node?.dynamic) return true;
+      // Held in a local const so the narrowing below survives — narrowing on
+      // a property access through an optional chain is fragile across TS
+      // versions, and this file failing to compile takes the whole site down.
+      const kind = node.dynamic;
+
+      setMenuLoading(true);
+      setMenuChoices(null);
+      setMenuProducts(null);
+      try {
+        const params = new URLSearchParams({ step: kind });
+        for (const [k, v] of Object.entries(filters)) if (v) params.set(k, String(v));
+
+        const res = await fetch(`/api/chatbot/menu?${params.toString()}`);
+        if (!res.ok) return false;
+        const data = await res.json();
+
+        if (kind === "products") {
+          setMenuProducts(Array.isArray(data.items) ? data.items : []);
+          return true; // always render — "nothing in stock" is a real answer
+        }
+
+        const choices: { id: string; label: string; hint?: string }[] = Array.isArray(data.choices) ? data.choices : [];
+        if (choices.length === 0) return false;
+
+        const next = kind === "brands" ? "parts-socket" : "parts-list";
+        const filterKey = kind === "brands" ? "brand" : "socket";
+        setMenuChoices([
+          ...choices.map((c) => ({
+            id: c.id,
+            label: c.label,
+            hint: c.hint,
+            next,
+            setFilters: { [filterKey]: c.id } as MenuFilters,
+          })),
+          dynamicNotSure(kind, filters),
+        ]);
+        return true;
+      } catch {
+        return false;
+      } finally {
+        setMenuLoading(false);
+      }
+    },
+    []
+  );
+
+  /** Walks forward from `nodeId`, skipping any dynamic step with nothing to offer. */
+  const goToNode = useCallback(
+    async (nodeId: string, filters: MenuFilters) => {
+      let currentId: string | undefined = nodeId;
+      // Bounded rather than while(true): a malformed tree should degrade to
+      // the product list, not spin.
+      for (let hops = 0; hops < 6 && currentId; hops++) {
+        const node = getNode(currentId);
+        if (!node) break;
+
+        if (!node.dynamic) {
+          setMenuChoices(null);
+          setMenuProducts(null);
+          setMenuNodeId(currentId);
+          return;
+        }
+
+        const usable = await loadDynamicStep(currentId, filters);
+        if (usable) {
+          setMenuNodeId(currentId);
+          return;
+        }
+        currentId = currentId === "parts-brand" ? "parts-socket" : "parts-list";
+      }
+      setMenuNodeId("parts-list");
+    },
+    [loadDynamicStep]
+  );
+
+  async function handleMenuSelect(option: MenuOption) {
+    const nextFilters = { ...menuFilters, ...(option.setFilters ?? {}) };
+
+    // Echo the choice as a user bubble so the thread reads as a conversation
+    // rather than the panel silently mutating — and so the transcript the
+    // admin sees in the inbox makes sense.
+    setMessages((current) => [
+      ...current,
+      { id: `local-menu-${Date.now()}`, role: "user", content: option.label },
+    ]);
+    scrollToBottom();
+
+    if (option.action === "ai") {
+      setMenuNodeId(null);
+      if (option.payload) await sendMessage(option.payload);
+      return;
+    }
+
+    if (option.action === "build") {
+      setMenuNodeId(null);
+      const useCase = menuTrail[menuTrail.length - 1]?.label ?? "general use";
+      await sendMessage(`I'd like a custom PC for ${useCase.toLowerCase()}, budget ${option.label}.`);
+      return;
+    }
+
+    if (option.action === "link" && option.payload) {
+      window.location.href = option.payload;
+      return;
+    }
+
+    if (!option.next) return;
+
+    if (menuNodeId) {
+      setMenuTrail((t) => [...t, { nodeId: menuNodeId, filters: menuFilters, label: option.label }]);
+    }
+    setMenuFilters(nextFilters);
+    await goToNode(option.next, nextFilters);
+  }
+
+  async function handleMenuBack() {
+    const previous = menuTrail[menuTrail.length - 1];
+    if (!previous) return;
+    setMenuTrail((t) => t.slice(0, -1));
+    setMenuFilters(previous.filters);
+    await goToNode(previous.nodeId, previous.filters);
+  }
+
+  function openMenu() {
+    setMenuTrail([]);
+    setMenuFilters({});
+    setMenuChoices(null);
+    setMenuProducts(null);
+    setMenuNodeId(MENU_ROOT);
+    scrollToBottom();
+  }
+
+  const activeNode = menuNodeId ? MENU_NODES[menuNodeId] : undefined;
+  const visibleOptions = activeNode?.dynamic ? menuChoices : activeNode?.options;
+  const whatsappHref = `https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(
+    menuTrail.length > 0
+      ? `Hi, I was looking at ${menuTrail.map((c) => c.label).join(" > ")} on your site.`
+      : "Hi, I have a question about Rig Builders."
+  )}`;
+
   // Staff-only area — never show the widget there.
   const hideWidget = pathname?.startsWith("/admin") ?? false;
 
@@ -446,7 +657,7 @@ export default function ChatWidget({ children }: { children: React.ReactNode }) 
 
           {/* Messages */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-            {messages.length === 0 && (
+            {messages.length === 0 && !activeNode && (
               <p className="text-xs text-rb-silver/70 text-center mt-8">
                 Ask about CPUs, GPUs, prebuilt tiers, pricing, or anything else — we&apos;re here to help.
               </p>
@@ -478,6 +689,103 @@ export default function ChatWidget({ children }: { children: React.ReactNode }) 
                 )}
               </div>
             ))}
+
+            {/* Guided menu panel — rendered inline at the end of the thread so
+                tapping through reads as part of the conversation rather than a
+                separate mode. Hidden the moment the visitor types instead. */}
+            {activeNode && (
+              <div className="flex flex-col items-start gap-2">
+                {menuTrail.length > 0 && (
+                  <button
+                    onClick={handleMenuBack}
+                    className="flex items-center gap-1 text-[11px] text-rb-silver hover:text-white transition-colors"
+                  >
+                    <ChevronLeft className="w-3 h-3" />
+                    {menuTrail.map((c) => c.label).join(" / ")}
+                  </button>
+                )}
+
+                <div className="max-w-[85%] rounded-2xl rounded-bl-sm px-3 py-2 text-sm bg-rb-black/70 border border-white/10 text-rb-mist">
+                  {activeNode.prompt}
+                </div>
+
+                {menuLoading && (
+                  <div className="flex items-center gap-2 text-xs text-rb-silver px-1">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Checking stock…
+                  </div>
+                )}
+
+                {!menuLoading && visibleOptions && visibleOptions.length > 0 && (
+                  <div className="w-full flex flex-col gap-1.5">
+                    {visibleOptions.map((option) => (
+                      <button
+                        key={option.id}
+                        onClick={() => handleMenuSelect(option)}
+                        disabled={isSending}
+                        className="text-left text-sm px-3 py-2 rounded-xl border border-white/10 bg-rb-black/40 text-rb-mist hover:border-rb-orange/50 hover:text-white disabled:opacity-50 transition-colors"
+                      >
+                        {option.label}
+                        {option.hint && <span className="text-rb-silver/70 text-xs"> · {option.hint}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {!menuLoading && menuProducts && (
+                  <div className="w-full max-w-[95%] flex flex-col gap-2">
+                    {menuProducts.length === 0 ? (
+                      <p className="text-xs text-rb-silver px-1">
+                        Nothing in stock matching that right now — ask me and I&apos;ll suggest the closest alternative.
+                      </p>
+                    ) : (
+                      menuProducts.map((p) => <ChatProductCard key={p.id} product={p} />)
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Escape hatches — present under every step, never buried inside the
+              option list. Call is mobile-only and only during the support
+              window; outside it, or on desktop, WhatsApp takes its place with
+              the breadcrumb prefilled so the team doesn't have to ask what the
+              visitor was looking at. */}
+          <div className="px-3 py-2 border-t border-white/10 flex items-center gap-1.5 shrink-0">
+            {menuNodeId ? (
+              <button
+                onClick={() => setMenuNodeId(null)}
+                className="flex-1 flex items-center justify-center gap-1.5 text-[11px] py-1.5 rounded-lg border border-white/10 text-rb-silver hover:text-white hover:border-white/20 transition-colors"
+              >
+                <Sparkles className="w-3 h-3" /> Ask anything
+              </button>
+            ) : (
+              <button
+                onClick={openMenu}
+                className="flex-1 flex items-center justify-center gap-1.5 text-[11px] py-1.5 rounded-lg border border-white/10 text-rb-silver hover:text-white hover:border-white/20 transition-colors"
+              >
+                <LayoutGrid className="w-3 h-3" /> Browse menu
+              </button>
+            )}
+
+            {withinHours && (
+              <a
+                href={`tel:${SUPPORT_PHONE}`}
+                className="md:hidden flex-1 flex items-center justify-center gap-1.5 text-[11px] py-1.5 rounded-lg border border-white/10 text-rb-silver hover:text-white hover:border-white/20 transition-colors"
+              >
+                <Phone className="w-3 h-3" /> Call us
+              </a>
+            )}
+
+            <a
+              href={whatsappHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={withinHours ? "Chat with us on WhatsApp" : "We're open 9am to 5pm — message us and we'll reply when we open"}
+              className={`${withinHours ? "hidden md:flex" : "flex"} flex-1 items-center justify-center gap-1.5 text-[11px] py-1.5 rounded-lg border border-white/10 text-rb-silver hover:text-white hover:border-white/20 transition-colors`}
+            >
+              <MessageCircle className="w-3 h-3" /> WhatsApp
+            </a>
           </div>
 
           {/* Input */}

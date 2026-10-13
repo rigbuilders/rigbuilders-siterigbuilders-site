@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabaseClient";
+import { onlyVisible } from "@/lib/productVisibility";
 import { useCart } from "@/app/context/CartContext";
 import { getRecentViews } from "@/lib/recentViews";
 import { Reveal } from "@/components/ui/MotionWrappers";
@@ -99,10 +100,12 @@ export default function ComponentsPicker() {
     setHovered(id);
     if (productsByCat[id]) return;
     setLoadingCat(id);
-    supabase
-      .from("products")
-      .select("id, name, breadcrumb_name, price, image_url, in_stock, cod_policy, category, created_at")
-      .eq("category", id)
+    onlyVisible(
+      supabase
+        .from("products")
+        .select("id, name, breadcrumb_name, price, image_url, in_stock, cod_policy, category, created_at")
+        .eq("category", id)
+    )
       .order("created_at", { ascending: false })
       .limit(24)
       .then(({ data }) => {

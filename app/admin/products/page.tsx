@@ -3,6 +3,7 @@
 import Navbar from "@/components/Navbar";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { computeListingCreated, missingListingFields } from "@/lib/listingCompleteness";
 import { useRouter } from "next/navigation";
 import { FaBoxOpen } from "react-icons/fa"; // Icon
 
@@ -279,12 +280,28 @@ export default function ProductManager() {
         gallery_urls: formData.gallery_urls.map(cleanPath).filter(url => url !== "" && url !== "/"),
       };
 
+      // listing_created is DERIVED completeness — compute it on every save so a
+      // product an admin fills in completely becomes visible (and one with gaps
+      // stays hidden). A product is only live when this is 'true' AND published.
+      payload.listing_created = computeListingCreated(payload);
+      const missing = missingListingFields(payload);
+
       const { error } = activeTab === "edit" && formData.id
         ? await supabase.from('products').update(payload).eq('id', formData.id)
         : await supabase.from('products').insert(payload);
 
       if (error) throw error;
-      alert(activeTab === "edit" ? "Updated!" : "Created!");
+
+      const savedWord = activeTab === "edit" ? "Updated" : "Created";
+      if (payload.listing_created === "true") {
+        alert(`${savedWord}! This product is complete and will appear on the website (once published).`);
+      } else {
+        alert(
+          `${savedWord}, but NOT visible on the website yet — these required fields are still empty:\n\n` +
+          missing.join(", ") +
+          `\n\nFill them in and save again to make it live.`
+        );
+      }
       resetForm();
       fetchProducts();
     } catch (err: any) {

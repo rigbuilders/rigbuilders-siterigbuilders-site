@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { onlyVisible } from "@/lib/productVisibility";
 import Image from "next/image";
 import Link from "next/link";
 import { FaSearch, FaSpinner } from "react-icons/fa";
@@ -38,11 +39,12 @@ export default function GlobalSearch({
         // 2. The Query: Use 'ilike' (Case Insensitive) and cleaned query.
         //    Match only on seo_name + breadcrumb_name (public search fields) —
         //    never the internal `nickname` column.
-        const { data, error } = await supabase
-          .from('products')
-          .select('id, name, price, category, image_url, brand')
-          .or(`name.ilike.%${cleanQuery}%,breadcrumb_name.ilike.%${cleanQuery}%`)
-          .limit(6);
+        const { data, error } = await onlyVisible(
+          supabase
+            .from('products')
+            .select('id, name, price, category, image_url, brand')
+            .or(`name.ilike.%${cleanQuery}%,breadcrumb_name.ilike.%${cleanQuery}%`)
+        ).limit(6);
         
         if (error) {
             console.error("Search Error:", error.message);

@@ -7,7 +7,8 @@ export async function GET() {
   const { data: products, error } = await supabase
     .from('products')
     .select('*')
-    .eq('listing_status', 'published');
+    .eq('listing_status', 'published')
+    .eq('listing_created', 'true');
 
   if (error || !products) {
     return new NextResponse('Error fetching products from database', { status: 500 });

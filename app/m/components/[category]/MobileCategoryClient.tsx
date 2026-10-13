@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { onlyVisible } from "@/lib/productVisibility";
 import MobileTopNav from "@/components/mobile/MobileTopNav";
 import MobileBottomNav from "@/components/mobile/MobileBottomNav";
 import MobileMenuDrawer from "@/components/mobile/MobileMenuDrawer";
@@ -34,7 +35,7 @@ export default function MobileCategoryClient({ category }: { category: string })
     
     const fetchProducts = async () => {
       setLoading(true);
-      const { data } = await supabase.from('products').select('*').eq('category', category);
+      const { data } = await onlyVisible(supabase.from('products').select('*').eq('category', category));
       if (data) setProducts(data);
       setLoading(false);
     };

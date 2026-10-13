@@ -176,6 +176,7 @@ async function detectDynamicBrand(text: string, category: string): Promise<strin
     .from("products")
     .select("brand")
     .eq("listing_status", "published")
+    .eq("listing_created", "true")
     .eq("category", category)
     .not("brand", "is", null);
 
@@ -321,6 +322,7 @@ export async function findRelevantProducts(userMessage: string, limit = 8): Prom
       .from("products")
       .select(PRODUCT_SELECT)
       .eq("listing_status", "published")
+      .eq("listing_created", "true")
       .eq("category", category)
       .order("price", { ascending: true })
       .limit(limit);
@@ -361,6 +363,7 @@ export async function findRelevantProducts(userMessage: string, limit = 8): Prom
     .from("products")
     .select(PRODUCT_SELECT)
     .eq("listing_status", "published")
+    .eq("listing_created", "true")
     .or(orFilter)
     .limit(20);
 

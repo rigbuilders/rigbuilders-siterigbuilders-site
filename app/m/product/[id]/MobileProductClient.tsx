@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { onlyVisible } from "@/lib/productVisibility";
 import MobileTopNav from "@/components/mobile/MobileTopNav";
 import MobileBottomNav from "@/components/mobile/MobileBottomNav";
 import MobileFooter from "@/components/mobile/MobileFooter";
@@ -25,7 +26,7 @@ export default function MobileProductClient({ initialProduct, id }: any) {
       const [u, rev, rel] = await Promise.all([
         supabase.auth.getUser(),
         supabase.from('reviews').select('*').eq('product_id', id).order('created_at', { ascending: false }),
-        supabase.from('products').select('id, name, price, image_url').eq('category', initialProduct.category).neq('id', id).limit(4)
+        onlyVisible(supabase.from('products').select('id, name, price, image_url').eq('category', initialProduct.category).neq('id', id)).limit(4)
       ]);
       if (u.data.user) setUser(u.data.user);
       if (rev.data) setReviews(rev.data);

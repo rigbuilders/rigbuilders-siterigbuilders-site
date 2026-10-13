@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCart } from "@/app/context/CartContext";
 import { supabase } from "@/lib/supabaseClient";
+import { onlyVisible } from "@/lib/productVisibility";
 
 /**
  * Bridge route for links that arrive from outside an active browser session
@@ -36,11 +37,12 @@ function ProductActionInner() {
     let cancelled = false;
 
     (async () => {
-      const { data: product, error: fetchError } = await supabase
-        .from("products")
-        .select("id, name, price, image_url, category, cod_policy, in_stock")
-        .eq("id", id)
-        .single();
+      const { data: product, error: fetchError } = await onlyVisible(
+        supabase
+          .from("products")
+          .select("id, name, price, image_url, category, cod_policy, in_stock")
+          .eq("id", id)
+      ).single();
 
       if (cancelled) return;
 
