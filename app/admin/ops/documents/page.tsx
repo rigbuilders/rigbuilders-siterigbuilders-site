@@ -106,6 +106,29 @@ export default function DocumentsPage() {
     }
   };
 
+  // --- BLUE DART: book a pickup slot via the connected API ---
+  const bookPickup = async (order: any) => {
+    const def = new Date(Date.now() + 86400000).toISOString().slice(0, 10); // tomorrow
+    const date = prompt("Blue Dart pickup date (YYYY-MM-DD):", def);
+    if (!date) return;
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) { alert("Your session expired — please sign in again."); return; }
+
+    const res = await fetch("/api/shipping/pickup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ orderId: order.id, date }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) { alert(json.error || "Pickup booking failed."); return; }
+
+    alert(`Blue Dart pickup booked for ${date}.\nToken: ${json.token || "—"}`);
+    setOrders(orders.map(o => o.id === order.id ? { ...o, pickup_token: json.token, pickup_date: date } : o));
+    setSelectedOrder({ ...order, pickup_token: json.token, pickup_date: date });
+  };
+
   if (loading) return <div className="min-h-screen bg-[#121212] text-white flex items-center justify-center">Loading Documents...</div>;
 
   // Filter Logic: Updated to use 'full_name' instead of 'billing_address.fullName'
@@ -166,10 +189,26 @@ export default function DocumentsPage() {
                         </div>
                         
                         <div className="flex gap-3">
+                            {/* BLUE DART PICKUP — book a slot, or show the booked token */}
+                            {selectedOrder.invoice_no && selectedOrder.status !== 'shipped' && (
+                                selectedOrder.pickup_token ? (
+                                    <span className="bg-amber-500/15 text-amber-400 border border-amber-500/30 px-3 py-2 rounded text-xs font-bold flex items-center gap-2">
+                                        <FaTruck /> Pickup {selectedOrder.pickup_date || "booked"}
+                                    </span>
+                                ) : (
+                                    <button
+                                        onClick={() => bookPickup(selectedOrder)}
+                                        className="bg-amber-500 hover:bg-amber-400 text-black px-4 py-2 rounded text-sm font-bold flex items-center gap-2"
+                                    >
+                                        <FaTruck /> Book Pickup
+                                    </button>
+                                )
+                            )}
+
                             {/* DISPATCH BUTTON */}
                             {/* Shows if: 1. Invoice Exists, 2. Not yet shipped */}
                             {selectedOrder.invoice_no && selectedOrder.status !== 'shipped' && (
-                                <button 
+                                <button
                                     onClick={() => markShipped(selectedOrder)}
                                     className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2"
                                 >

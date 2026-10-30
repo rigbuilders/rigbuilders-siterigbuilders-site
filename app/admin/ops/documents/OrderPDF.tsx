@@ -35,8 +35,8 @@ const numToWords = (input: number): string => {
   return parts.join(' ');
 };
 
-const NAVY = '#0b0b0b';
-const STEEL = '#2e4a6b';
+const NAVY = '#121212';    // brand matte black — structure/ink (headers, rules, table head)
+const ORANGE = '#FF5A1F';  // brand accent — used minimally, only at the grand total
 
 const styles = StyleSheet.create({
   page: { paddingHorizontal: 34, paddingVertical: 34, fontFamily: 'Saira', fontSize: 10, color: '#111', lineHeight: 1.4 },
@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
   logo: { width: 120, height: 44, marginBottom: 10, objectFit: "contain" },
   bizMeta: { fontSize: 8.5, color: '#444', lineHeight: 1.6 },
   bizStrong: { color: '#111' },
-  docTitle: { fontSize: 22, fontWeight: 'bold', color: STEEL, marginBottom: 20 },
+  docTitle: { fontSize: 22, fontWeight: 'bold', color: NAVY, marginBottom: 20 },
   metaLine: { fontSize: 9, color: '#333', textAlign: 'right', marginBottom: 5 },
   metaLabel: { color: '#888' },
 
@@ -82,9 +82,9 @@ const styles = StyleSheet.create({
   // Totals
   totals: { width: 250, alignSelf: 'flex-end', marginTop: 18 },
   tLine: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3, fontSize: 9.5, color: '#333' },
-  tGrand: { flexDirection: 'row', justifyContent: 'space-between', borderTop: `2px solid ${NAVY}`, marginTop: 5, paddingTop: 8 },
+  tGrand: { flexDirection: 'row', justifyContent: 'space-between', borderTop: `2px solid ${ORANGE}`, marginTop: 5, paddingTop: 8 },
   tGrandLabel: { fontSize: 12, fontWeight: 'bold', color: NAVY },
-  tGrandVal: { fontSize: 12, fontWeight: 'bold', color: STEEL },
+  tGrandVal: { fontSize: 12, fontWeight: 'bold', color: ORANGE },
   dueLine: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#f2f5f8', paddingVertical: 5, paddingHorizontal: 4, marginTop: 6, fontSize: 9.5, fontWeight: 'bold', color: NAVY },
 
   words: { fontSize: 9, color: '#444', marginTop: 18, borderTop: '1px solid #eeeeee', paddingTop: 10 },

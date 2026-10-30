@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { ADMIN_EMAILS } from "../adminAuth";
+import { areEmailAlertsEnabled } from "./config";
 
 /**
  * Shared admin-notification plumbing for the chatbot — currently email only
@@ -45,6 +46,13 @@ export function inboxPath(channel: string): string {
  * /admin/chatbot without having been emailed about it.
  */
 async function sendAdminEmail(subject: string, html: string): Promise<void> {
+  // Telegram now alerts on every inbound message and can be replied to
+  // directly, which makes these emails redundant noise. Kept behind a flag
+  // rather than deleted so it's one env var to turn back on if Telegram ever
+  // disappoints — a second alert path with a different failure mode is worth
+  // having available.
+  if (!areEmailAlertsEnabled()) return;
+
   if (!resend) {
     console.warn("[chatbot:admin-alerts] RESEND_API_KEY not set — skipping admin alert email.");
     return;

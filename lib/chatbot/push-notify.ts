@@ -1,6 +1,7 @@
 import webpush from "web-push";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { inboxPath } from "./admin-alerts";
+import { notifyTelegramOfMessage } from "./telegram";
 
 // Same public key value on both sides deliberately: NEXT_PUBLIC_ vars are
 // inlined into client bundles AND still readable from process.env
@@ -144,7 +145,21 @@ export async function notifyAdminOfNewMessage(params: {
   externalUserId: string;
   text: string;
   conversationId: string;
+  /** Re-hosted inbound attachment, when the customer sent one. */
+  mediaUrl?: string | null;
 }): Promise<void> {
+  // Telegram first, and unconditionally — it's the primary alert path now
+  // (every message, every channel) because it's the one that can be replied
+  // to from the notification shade. Web push stays as a second, independent
+  // path with a different failure mode; PUSH_CHANNELS still narrows it.
+  await notifyTelegramOfMessage({
+    channel: params.channel,
+    externalUserId: params.externalUserId,
+    text: params.text,
+    conversationId: params.conversationId,
+    mediaUrl: params.mediaUrl ?? null,
+  });
+
   // Checked before any work happens — a filtered-out channel shouldn't even
   // pay for the subscription lookup.
   if (!channelAllowsPush(params.channel)) return;

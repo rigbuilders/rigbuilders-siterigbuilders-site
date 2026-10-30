@@ -123,6 +123,42 @@ export function getOllamaConfig(): OllamaConfig | null {
   return { baseUrl, model: optional("OLLAMA_MODEL", "qwen3.5:2b-q4_K_M") };
 }
 
+/**
+ * Telegram is the ops alert + reply channel, not a customer channel: the team
+ * gets every inbound customer message as a Telegram message and replies to it
+ * from the notification shade, which relays back out on whatever channel the
+ * customer actually used (see lib/chatbot/telegram.ts).
+ *
+ * `chatId` is where alerts go — a private chat for one person, or a group id
+ * (negative number) once more than one person is answering.
+ *
+ * `webhookSecret` is sent by Telegram as X-Telegram-Bot-Api-Secret-Token on
+ * every webhook call. Without it the reply endpoint is an open relay: anyone
+ * who guesses the URL could post messages to your customers.
+ */
+export interface TelegramConfig {
+  botToken: string;
+  chatId: string;
+  webhookSecret: string | null;
+}
+
+export function getTelegramConfig(): TelegramConfig | null {
+  const botToken = raw("TELEGRAM_BOT_TOKEN");
+  const chatId = raw("TELEGRAM_CHAT_ID");
+  if (!botToken || !chatId) return null;
+  return { botToken, chatId, webhookSecret: raw("TELEGRAM_WEBHOOK_SECRET") ?? null };
+}
+
+/**
+ * Admin email alerts (handoff, watchlist, quotation). Default ON so existing
+ * deployments are unchanged; set ADMIN_EMAIL_ALERTS=off once Telegram is
+ * covering every message and the emails are just noise. Kept as a flag rather
+ * than deleted so it's one variable to turn back on.
+ */
+export function areEmailAlertsEnabled(): boolean {
+  return (raw("ADMIN_EMAIL_ALERTS") ?? "on").toLowerCase() !== "off";
+}
+
 // ---- Meta channels (each optional and independent) ----
 export interface WhatsAppConfig {
   verifyToken: string;

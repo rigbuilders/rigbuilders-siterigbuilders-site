@@ -251,6 +251,7 @@ export async function handleMessage(msg: NormalizedMessage): Promise<HandledRepl
     externalUserId: msg.externalUserId,
     text: msg.text,
     conversationId: conversation.id,
+    mediaUrl: inboundMedia?.url ?? null,
   });
 
   // Fires regardless of bot/exclusion/handoff status below — if a watched

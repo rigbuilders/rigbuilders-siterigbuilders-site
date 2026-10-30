@@ -25,6 +25,8 @@ export default function CreateOrderPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [cart, setCart] = useState<any[]>([]);
+  // One-time / custom line item (billed once, never added to the products catalog).
+  const [customItem, setCustomItem] = useState({ name: "", price: "" });
 
   // Auth Check
   useEffect(() => {
@@ -63,6 +65,18 @@ export default function CreateOrderPage() {
     setCart(cart.filter(c => c.tempId !== tempId));
   };
 
+  // Add a one-time / custom item to this order only. It lives in the order's
+  // items + procurement rows — it is NOT written to the products table, so it
+  // never becomes a catalog listing.
+  const addCustomItem = () => {
+    const name = customItem.name.trim();
+    const price = Number(customItem.price);
+    if (!name) { toast.error("Enter an item name"); return; }
+    if (!Number.isFinite(price) || price < 0) { toast.error("Enter a valid price"); return; }
+    setCart([...cart, { tempId: Math.random(), name, price, brand: "Custom", category: "custom", custom: true, image_url: null }]);
+    setCustomItem({ name: "", price: "" });
+  };
+
   // --- ID GENERATION ---
   const generateNextId = async (type: string) => {
     try {
@@ -84,7 +98,25 @@ export default function CreateOrderPage() {
     }
   };
 
+  // Customer details required before an order can be created (prevents the
+  // "guest / unknown" orders that happen when the form is submitted blank).
+  const missingCustomer = (
+    !customer.name.trim() ? "Name" :
+    !customer.phone.trim() ? "Phone" :
+    !customer.address.trim() ? "Street Address" :
+    !customer.city.trim() ? "City" :
+    !customer.state.trim() ? "State" :
+    !customer.pincode.trim() ? "Pincode" : ""
+  );
+
   const handleSubmit = async () => {
+    // Gate: force the operator to fill customer details first.
+    if (missingCustomer) {
+      toast.error("Fill customer details first", { description: `${missingCustomer} is required.` });
+      return;
+    }
+    if (cart.length === 0) { toast.error("Add at least one item to the order."); return; }
+
     setLoading(true);
     const toastId = toast.loading("Creating Order & Procurement Items...");
 
@@ -332,6 +364,30 @@ export default function CreateOrderPage() {
                             ))}
                         </div>
                     )}
+
+                    {/* One-time / custom line item — billed once, never saved to the catalog */}
+                    <div className="mt-4 pt-4 border-t border-white/10">
+                        <p className="text-[10px] uppercase tracking-wider text-brand-silver mb-2">One-time / custom item</p>
+                        <div className="flex gap-2">
+                            <input
+                                value={customItem.name}
+                                onChange={(e) => setCustomItem({ ...customItem, name: e.target.value })}
+                                placeholder="Item name (e.g. Service charge)"
+                                className="flex-1 bg-black border border-white/10 p-2.5 rounded text-sm focus:border-brand-purple outline-none"
+                            />
+                            <input
+                                value={customItem.price}
+                                onChange={(e) => setCustomItem({ ...customItem, price: e.target.value })}
+                                type="number"
+                                min="0"
+                                placeholder="₹"
+                                className="w-24 bg-black border border-white/10 p-2.5 rounded text-sm focus:border-brand-purple outline-none"
+                            />
+                            <button type="button" onClick={addCustomItem} className="px-4 bg-brand-purple hover:bg-white hover:text-black rounded text-sm font-bold transition-colors">
+                                Add
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Summary */}
@@ -372,10 +428,10 @@ export default function CreateOrderPage() {
 
                 <button 
                     onClick={handleSubmit} 
-                    disabled={loading || cart.length === 0 || (source === 'amazon' && !externalId)}
+                    disabled={loading || cart.length === 0 || !!missingCustomer || (source === 'amazon' && !externalId)}
                     className="w-full bg-brand-purple hover:bg-white hover:text-black text-white py-4 rounded-xl font-orbitron font-bold uppercase tracking-widest mt-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                 >
-                    {loading ? "Processing..." : "Create Order & Entry"}
+                    {loading ? "Processing..." : missingCustomer ? `Fill ${missingCustomer} First` : "Create Order & Entry"}
                 </button>
 
             </div>

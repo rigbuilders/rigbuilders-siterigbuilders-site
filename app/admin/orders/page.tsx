@@ -4,12 +4,18 @@ import Navbar from "@/components/Navbar";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import { FaTrash, FaUser, FaUserSecret, FaSync, FaMapMarkerAlt, FaFileInvoiceDollar } from "react-icons/fa";
+import { FaTrash, FaUser, FaUserSecret, FaSync, FaMapMarkerAlt, FaFileInvoiceDollar, FaEdit, FaTimes } from "react-icons/fa";
 
 export default function AdminOrders() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+
+  // Edit-order modal state
+  const emptyForm = { fullName: "", email: "", phone: "", addressLine1: "", addressLine2: "", city: "", state: "", pincode: "", country: "India" };
+  const [editing, setEditing] = useState<any>(null);
+  const [form, setForm] = useState({ ...emptyForm });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     init();
@@ -26,9 +32,9 @@ export default function AdminOrders() {
       .channel('admin-orders-live')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders_ops' },
+        { event: '*', schema: 'public', table: 'orders' },
         (payload) => {
-          if (payload.eventType === 'INSERT') fetchOrders(); 
+          if (payload.eventType === 'INSERT') fetchOrders();
           else if (payload.eventType === 'UPDATE') {
              setOrders((prev) => prev.map((o) => o.id === payload.new.id ? { ...o, ...payload.new } : o));
           }
@@ -39,9 +45,11 @@ export default function AdminOrders() {
   };
 
   const fetchOrders = async () => {
+    // The website + manual-entry flows both write to `orders`; orders_ops is a
+    // legacy/ops table. This master archive reads `orders`.
     const { data, error } = await supabase
-      .from('orders_ops')
-      .select(`*, procurement_items ( product_name, category, status )`)
+      .from('orders')
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (error) console.error("Error:", error.message);
@@ -51,23 +59,63 @@ export default function AdminOrders() {
 
   const updateStatus = async (id: string, newStatus: string) => {
     setOrders(orders.map(o => o.id === id ? { ...o, status: newStatus } : o));
-    await supabase.from('orders_ops').update({ status: newStatus }).eq('id', id);
+    await supabase.from('orders').update({ status: newStatus }).eq('id', id);
   };
 
   const deleteOrder = async (id: string) => {
     if(!confirm("⚠️ PERMANENT DELETE: Are you sure?")) return;
     await supabase.from('procurement_items').delete().eq('order_id', id);
-    await supabase.from('orders_ops').delete().eq('id', id);
+    await supabase.from('orders').delete().eq('id', id);
     setOrders(orders.filter(o => o.id !== id));
   };
 
+  const openEdit = (order: any) => {
+    const sa = order.shipping_address || {};
+    setForm({
+      fullName: sa.fullName || sa.name || order.full_name || "",
+      email: sa.email || order.email || "",
+      phone: sa.phone || order.phone || "",
+      addressLine1: sa.addressLine1 || sa.address || "",
+      addressLine2: sa.addressLine2 || "",
+      city: sa.city || "",
+      state: sa.state || "",
+      pincode: sa.pincode || "",
+      country: sa.country || "India",
+    });
+    setEditing(order);
+  };
+
+  const saveEdit = async () => {
+    if (!editing) return;
+    if (!form.fullName.trim() || !form.phone.trim()) { alert("Name and phone are required."); return; }
+    setSaving(true);
+    const shipping_address = { ...(editing.shipping_address || {}), ...form, name: form.fullName };
+    const addressStr = `${form.addressLine1}, ${form.city}, ${form.state} - ${form.pincode}`;
+
+    const { error } = await supabase.from('orders').update({
+      full_name: form.fullName,
+      email: form.email,
+      phone: form.phone,
+      shipping_address,
+      address: addressStr,
+    }).eq('id', editing.id);
+    if (error) { alert(error.message); setSaving(false); return; }
+
+    // Best-effort mirror to the legacy orders_ops row (harmless if none exists).
+    await supabase.from('orders_ops').update({ guest_info: { ...form } }).eq('order_display_id', editing.display_id);
+
+    setOrders(orders.map(o => o.id === editing.id ? { ...o, full_name: form.fullName, email: form.email, phone: form.phone, shipping_address } : o));
+    setSaving(false);
+    setEditing(null);
+  };
+
   const getCustomerDetails = (order: any) => {
-    const info = order.guest_info || {};
-    const name = info.fullName || info.full_name || info.name || "Unknown";
-    const email = info.email || "No Email";
-    const phone = info.phone || info.contact || "No Phone";
-    // Construct Shipping Address string
-    const shipping = `${info.addressLine1}, ${info.addressLine2 || ''}\n${info.city}, ${info.state} - ${info.pincode}\n${info.country || 'India'}`;
+    const sa = order.shipping_address || {};
+    const name = order.full_name || sa.fullName || sa.name || "Unknown";
+    const email = order.email || sa.email || "No Email";
+    const phone = order.phone || sa.phone || "No Phone";
+    const line1 = sa.addressLine1 || sa.address || order.address || '';
+    const shipping = `${line1}${sa.addressLine2 ? ', ' + sa.addressLine2 : ''}\n${sa.city || ''}, ${sa.state || ''} - ${sa.pincode || ''}\n${sa.country || 'India'}`;
     return { name, email, phone, shipping };
   };
 
@@ -102,7 +150,7 @@ export default function AdminOrders() {
             {orders.map((order) => {
                 const { name, email, phone, shipping } = getCustomerDetails(order);
                 const billing = getBillingAddress(order);
-                const isMember = !!order.customer_id;
+                const isMember = !!order.user_id;
 
                 return (
                     <div key={order.id} className="bg-[#1A1A1A] border border-white/5 p-6 rounded-lg hover:border-brand-purple/30 transition-all relative">
@@ -121,7 +169,7 @@ export default function AdminOrders() {
                                         </span>
                                     </div>
                                     <p className="text-sm text-brand-silver">{email} • {phone}</p>
-                                    <p className="text-[10px] text-white/30 font-mono mt-1">ID: {order.order_display_id}</p>
+                                    <p className="text-[10px] text-white/30 font-mono mt-1">ID: {order.display_id}</p>
                                 </div>
                             </div>
                             <div className="mt-4 md:mt-0 text-right">
@@ -151,14 +199,12 @@ export default function AdminOrders() {
 
                             {/* ITEMS */}
                             <div className="text-sm bg-black/20 p-4 rounded border border-white/5">
-                                <span className="text-[10px] text-brand-purple uppercase tracking-wider block mb-2 font-bold">Items ({order.procurement_items?.length || 0})</span>
+                                <span className="text-[10px] text-brand-purple uppercase tracking-wider block mb-2 font-bold">Items ({order.items?.length || 0})</span>
                                 <div className="max-h-24 overflow-y-auto custom-scrollbar space-y-2">
-                                    {(order.procurement_items || []).map((item: any, i: number) => (
+                                    {(order.items || []).map((item: any, i: number) => (
                                         <div key={i} className="flex justify-between items-center text-xs border-b border-white/5 pb-1 last:border-0">
-                                            <span className="text-white/90 truncate pr-2">{item.product_name}</span>
-                                            <span className={`px-1.5 py-0.5 rounded text-[9px] uppercase ${item.status === 'received' ? 'bg-green-500/20 text-green-400' : 'bg-white/5 text-white/40'}`}>
-                                                {item.status}
-                                            </span>
+                                            <span className="text-white/90 truncate pr-2">{item.name || item.product_name || "Item"}</span>
+                                            <span className="px-1.5 py-0.5 rounded text-[9px] uppercase bg-white/5 text-white/40">x{item.quantity || 1}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -182,6 +228,9 @@ export default function AdminOrders() {
                                         <option value="cancelled">Cancelled</option>
                                     </select>
                                 </div>
+                                <button onClick={() => openEdit(order)} className="flex items-center justify-center gap-2 w-full py-2 mb-2 bg-brand-purple/15 hover:bg-brand-purple hover:text-white text-brand-purple text-xs font-bold uppercase rounded transition-all">
+                                    <FaEdit size={10} /> Edit Details
+                                </button>
                                 <button onClick={() => deleteOrder(order.id)} className="flex items-center justify-center gap-2 w-full py-2 bg-red-500/10 hover:bg-red-500 hover:text-white text-red-500 text-xs font-bold uppercase rounded transition-all">
                                     <FaTrash size={10} /> Delete Record
                                 </button>
@@ -193,6 +242,41 @@ export default function AdminOrders() {
             </div>
         )}
       </div>
+
+      {/* EDIT ORDER (customer details) MODAL */}
+      {editing && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setEditing(null)} />
+          <div className="relative z-10 w-full max-w-lg bg-[#1A1A1A] border border-white/10 rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div className="flex justify-between items-center mb-5">
+              <div>
+                <h3 className="font-orbitron text-lg font-bold text-white">Edit Customer Details</h3>
+                <p className="text-[10px] text-brand-silver font-mono mt-0.5">ID: {editing.display_id}</p>
+              </div>
+              <button onClick={() => setEditing(null)} className="text-brand-silver hover:text-white"><FaTimes /></button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <input className="sm:col-span-2 bg-black border border-white/10 p-3 rounded text-sm focus:border-brand-purple outline-none" placeholder="Full Name *" value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })} />
+              <input className="bg-black border border-white/10 p-3 rounded text-sm focus:border-brand-purple outline-none" placeholder="Phone *" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
+              <input className="bg-black border border-white/10 p-3 rounded text-sm focus:border-brand-purple outline-none" placeholder="Email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+              <input className="sm:col-span-2 bg-black border border-white/10 p-3 rounded text-sm focus:border-brand-purple outline-none" placeholder="Address Line 1" value={form.addressLine1} onChange={e => setForm({ ...form, addressLine1: e.target.value })} />
+              <input className="sm:col-span-2 bg-black border border-white/10 p-3 rounded text-sm focus:border-brand-purple outline-none" placeholder="Address Line 2 (optional)" value={form.addressLine2} onChange={e => setForm({ ...form, addressLine2: e.target.value })} />
+              <input className="bg-black border border-white/10 p-3 rounded text-sm focus:border-brand-purple outline-none" placeholder="City" value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} />
+              <input className="bg-black border border-white/10 p-3 rounded text-sm focus:border-brand-purple outline-none" placeholder="State" value={form.state} onChange={e => setForm({ ...form, state: e.target.value })} />
+              <input className="bg-black border border-white/10 p-3 rounded text-sm focus:border-brand-purple outline-none" placeholder="Pincode" maxLength={6} value={form.pincode} onChange={e => setForm({ ...form, pincode: e.target.value })} />
+              <input className="bg-black border border-white/10 p-3 rounded text-sm focus:border-brand-purple outline-none" placeholder="Country" value={form.country} onChange={e => setForm({ ...form, country: e.target.value })} />
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setEditing(null)} className="flex-1 py-3 border border-white/10 rounded-lg text-sm font-bold text-brand-silver hover:bg-white/5 transition-colors">Cancel</button>
+              <button onClick={saveEdit} disabled={saving} className="flex-1 py-3 bg-brand-purple hover:bg-white hover:text-black rounded-lg text-sm font-bold text-white transition-colors disabled:opacity-50">
+                {saving ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

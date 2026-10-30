@@ -61,6 +61,10 @@ switching vendor or model needs no code change.
 | `VAPID_PRIVATE_KEY` | push-notify | disables push (server-only secret) |
 | `VAPID_SUBJECT` | push-notify | `mailto:rigbuilders123@gmail.com` |
 | `PUSH_CHANNELS` | push-notify | unset = push for every channel. Comma-separated list to narrow, e.g. `website` — the other channels have their own apps that already notify |
+| `TELEGRAM_BOT_TOKEN` | telegram + webhook/telegram | disables Telegram alerts (from @BotFather) |
+| `TELEGRAM_CHAT_ID` | telegram | disables Telegram alerts — your private chat id, or a group id (negative number) once more than one person answers |
+| `TELEGRAM_WEBHOOK_SECRET` | webhook/telegram | unset = no header check. **Set it.** Without it the reply endpoint is an open relay to your customers |
+| `ADMIN_EMAIL_ALERTS` | admin-alerts | `on`. Set to `off` once Telegram is covering every message and the handoff emails are just noise |
 | `OLLAMA_BASE_URL` | llm/providers/ollama | **TEMPORARY** — unset means "use Together"; set to `http://localhost:11434` for local Ollama testing only, delete when done |
 | `OLLAMA_MODEL` | llm/providers/ollama | `llama3:latest ` (only read if `OLLAMA_BASE_URL` is set) |
 
