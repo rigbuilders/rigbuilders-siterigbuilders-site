@@ -133,10 +133,12 @@ export async function generateWaybill(input: WaybillInput): Promise<WaybillResul
 // 2. PICKUP — register / cancel
 // ---------------------------------------------------------------------
 export interface PickupInput {
-  date: string;    // YYYY-MM-DD
-  time?: string;   // e.g. "1600" ready-by
+  date: string;       // YYYY-MM-DD
+  time?: string;      // ready-by, e.g. "1600"
+  closeTime?: string; // office/premises closing time, e.g. "1900"
   pieces: number;
   weightKg: number;
+  remarks?: string;
   productCode?: string;
 }
 
@@ -147,10 +149,12 @@ export async function registerPickup(input: PickupInput): Promise<{ token: strin
       CustomerCode: CUSTOMER,
       PickupDate: input.date,        // VERIFY format
       PickupTime: input.time || "1600",
+      ClosingTime: input.closeTime || "1900", // VERIFY field name
       ShipmentPieces: input.pieces,
       ShipmentWeight: input.weightKg,
       ProductCode: input.productCode || "A",
       AreaCode: ORIGIN_AREA,
+      Remarks: input.remarks || "",  // VERIFY field name
     },
     Profile: { LoginID: LOGIN, LicenceKey: LICENSE, Api_type: "S" },
   };

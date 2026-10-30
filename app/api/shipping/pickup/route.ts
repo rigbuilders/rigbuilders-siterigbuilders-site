@@ -17,11 +17,15 @@ export async function POST(req: Request) {
   if (!isConfigured()) return NextResponse.json({ error: "Blue Dart not configured." }, { status: 400 });
 
   try {
-    const { orderId, date, pieces, weightKg } = await req.json();
+    const { orderId, date, time, closeTime, pieces, weightKg, remarks } = await req.json();
+    if (!date) return NextResponse.json({ error: "Pickup date is required." }, { status: 400 });
     const { data: order } = await admin.from("orders").select("id, packed_weight_kg, box_dimensions").eq("id", orderId).single();
 
     const result = await registerPickup({
       date,
+      time,
+      closeTime,
+      remarks,
       pieces: pieces || order?.box_dimensions?.pieces || 1,
       weightKg: weightKg || Number(order?.packed_weight_kg) || 1,
     });

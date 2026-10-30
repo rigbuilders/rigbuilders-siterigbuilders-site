@@ -15,6 +15,13 @@ export default function DocumentsPage() {
   const [search, setSearch] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
 
+  // Blue Dart pickup modal
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const [pickupOrder, setPickupOrder] = useState<any>(null);
+  const [pickupForm, setPickupForm] = useState({ date: tomorrow, time: "16:00", closeTime: "19:00", pieces: "1", weightKg: "1", remarks: "" });
+  const [booking, setBooking] = useState(false);
+  const [genLoading, setGenLoading] = useState(false);
+
   useEffect(() => {
     fetchOrders();
   }, []);
@@ -79,54 +86,112 @@ export default function DocumentsPage() {
     }
   };
 
-  // --- 2. NEW ACTION: DISPATCH ORDER ---
-  const markShipped = async (order: any) => {
-    // 1. Ask for Tracking ID (Optional)
-    const trackingId = prompt("Enter Tracking ID / AWB Number:", "");
-    if (trackingId === null) return; // Cancelled
+  // --- GENERATE AWB (Blue Dart waybill + label), in-app ---
+  const generateAwb = async (order: any) => {
+    if (!confirm("Generate a Blue Dart AWB + shipping label for this order?")) return;
+    setGenLoading(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) { alert("Your session expired — please sign in again."); setGenLoading(false); return; }
 
-    if(!confirm("Confirm Dispatch? This will mark the order as 'Shipped'.")) return;
+    const res = await fetch("/api/shipping/waybill", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ orderId: order.id }),
+    });
+    const json = await res.json().catch(() => ({}));
+    setGenLoading(false);
+    if (!res.ok) { alert(json.error || "AWB generation failed."); return; }
 
-    // 2. Update Database
-    const { error } = await supabase
-        .from('orders')
-        .update({ 
-            status: 'shipped',
-            // Save Tracking ID into the address data
-            shipping_address: { ...order.shipping_address, tracking_id: trackingId } 
-        })
-        .eq('id', order.id);
+    alert(`AWB generated: ${json.awb}`);
+    setOrders(orders.map(o => o.id === order.id ? { ...o, awb_number: json.awb } : o));
+    setSelectedOrder((s: any) => s && s.id === order.id ? { ...s, awb_number: json.awb } : s);
 
-    if (error) alert(error.message);
-    else {
-        alert("Order Dispatched successfully!");
-        // Update UI immediately
-        setOrders(orders.map(o => o.id === order.id ? { ...o, status: 'shipped' } : o));
-        setSelectedOrder({ ...order, status: 'shipped' });
+    // Auto-download the label if Blue Dart returned one.
+    if (json.labelBase64) {
+      const isPdf = /^JVBER/.test(json.labelBase64);
+      const a = document.createElement("a");
+      a.href = `data:${isPdf ? "application/pdf" : "image/png"};base64,${json.labelBase64}`;
+      a.download = `AWB_${json.awb}.${isPdf ? "pdf" : "png"}`;
+      a.click();
     }
   };
 
-  // --- BLUE DART: book a pickup slot via the connected API ---
-  const bookPickup = async (order: any) => {
-    const def = new Date(Date.now() + 86400000).toISOString().slice(0, 10); // tomorrow
-    const date = prompt("Blue Dart pickup date (YYYY-MM-DD):", def);
-    if (!date) return;
+  // --- DISPATCH ORDER (uses the generated/pasted AWB) ---
+  const markShipped = async (order: any) => {
+    const trackingId = prompt("AWB / Tracking Number:", order.awb_number || "");
+    if (trackingId === null) return; // Cancelled
+    if(!confirm("Confirm Dispatch? This will mark the order as 'Shipped'.")) return;
+
+    const awb = trackingId || order.awb_number || null;
+    const { error } = await supabase
+        .from('orders')
+        .update({
+            status: 'shipped',
+            awb_number: awb,
+            shipping_address: { ...order.shipping_address, tracking_id: awb },
+        })
+        .eq('id', order.id);
+
+    if (error) { alert(error.message); return; }
+
+    alert("Order Dispatched. The customer is WhatsApp'd the AWB automatically once Blue Dart logs the pickup — or use 'WhatsApp AWB' to send now.");
+    setOrders(orders.map(o => o.id === order.id ? { ...o, status: 'shipped', awb_number: awb } : o));
+    setSelectedOrder({ ...order, status: 'shipped', awb_number: awb });
+  };
+
+  // --- BLUE DART: open the pickup form for an order ---
+  const openPickup = (order: any) => {
+    setPickupForm({ date: tomorrow, time: "16:00", closeTime: "19:00", pieces: "1", weightKg: "1", remarks: "" });
+    setPickupOrder(order);
+  };
+
+  // --- BLUE DART: submit the pickup booking ---
+  const submitPickup = async () => {
+    if (!pickupOrder) return;
+    if (!pickupForm.date) { alert("Pickup date is required."); return; }
+    setBooking(true);
 
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
-    if (!token) { alert("Your session expired — please sign in again."); return; }
+    if (!token) { alert("Your session expired — please sign in again."); setBooking(false); return; }
 
     const res = await fetch("/api/shipping/pickup", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ orderId: order.id, date }),
+      body: JSON.stringify({
+        orderId: pickupOrder.id,
+        date: pickupForm.date,
+        time: pickupForm.time.replace(":", ""),          // "16:00" -> "1600"
+        closeTime: pickupForm.closeTime.replace(":", ""),
+        pieces: Number(pickupForm.pieces) || 1,
+        weightKg: Number(pickupForm.weightKg) || 1,
+        remarks: pickupForm.remarks,
+      }),
     });
     const json = await res.json().catch(() => ({}));
+    setBooking(false);
     if (!res.ok) { alert(json.error || "Pickup booking failed."); return; }
 
-    alert(`Blue Dart pickup booked for ${date}.\nToken: ${json.token || "—"}`);
-    setOrders(orders.map(o => o.id === order.id ? { ...o, pickup_token: json.token, pickup_date: date } : o));
-    setSelectedOrder({ ...order, pickup_token: json.token, pickup_date: date });
+    alert(`Blue Dart pickup booked for ${pickupForm.date}.\nToken: ${json.token || "—"}`);
+    setOrders(orders.map(o => o.id === pickupOrder.id ? { ...o, pickup_token: json.token, pickup_date: pickupForm.date } : o));
+    setSelectedOrder((s: any) => s && s.id === pickupOrder.id ? { ...s, pickup_token: json.token, pickup_date: pickupForm.date } : s);
+    setPickupOrder(null);
+  };
+
+  // --- Share the AWB tracking number with the customer via WhatsApp ---
+  const notifyAwb = async (order: any, awb: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) return;
+    const res = await fetch("/api/shipping/notify-awb", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ orderId: order.id, awb }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (res.ok) alert(`AWB ${awb} sent to the customer on WhatsApp.`);
+    else alert(`Dispatched, but WhatsApp notification failed: ${json.error || "unknown error"}`);
   };
 
   if (loading) return <div className="min-h-screen bg-[#121212] text-white flex items-center justify-center">Loading Documents...</div>;
@@ -197,12 +262,30 @@ export default function DocumentsPage() {
                                     </span>
                                 ) : (
                                     <button
-                                        onClick={() => bookPickup(selectedOrder)}
+                                        onClick={() => openPickup(selectedOrder)}
                                         className="bg-amber-500 hover:bg-amber-400 text-black px-4 py-2 rounded text-sm font-bold flex items-center gap-2"
                                     >
                                         <FaTruck /> Book Pickup
                                     </button>
                                 )
+                            )}
+
+                            {/* GENERATE AWB — in-app Blue Dart waybill + label */}
+                            {selectedOrder.invoice_no && !selectedOrder.awb_number && selectedOrder.status !== 'shipped' && (
+                                <button
+                                    onClick={() => generateAwb(selectedOrder)}
+                                    disabled={genLoading}
+                                    className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    <FaFileInvoice /> {genLoading ? "Generating…" : "Generate AWB"}
+                                </button>
+                            )}
+
+                            {/* AWB chip once generated */}
+                            {selectedOrder.awb_number && (
+                                <span className="bg-white/5 border border-white/15 text-white px-3 py-2 rounded text-xs font-bold font-mono flex items-center gap-2">
+                                    AWB {selectedOrder.awb_number}
+                                </span>
                             )}
 
                             {/* DISPATCH BUTTON */}
@@ -213,6 +296,16 @@ export default function DocumentsPage() {
                                     className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2"
                                 >
                                     <FaTruck /> Dispatch
+                                </button>
+                            )}
+
+                            {/* MANUAL WHATSAPP AWB — fallback / send now */}
+                            {selectedOrder.status === 'shipped' && selectedOrder.awb_number && (
+                                <button
+                                    onClick={() => notifyAwb(selectedOrder, selectedOrder.awb_number)}
+                                    className="bg-[#25D366] hover:bg-[#1da851] text-black px-4 py-2 rounded text-sm font-bold flex items-center gap-2"
+                                >
+                                    <FaTruck /> WhatsApp AWB
                                 </button>
                             )}
 
@@ -244,6 +337,53 @@ export default function DocumentsPage() {
 
         </div>
       </div>
+
+      {/* BLUE DART — PICKUP BOOKING MODAL */}
+      {pickupOrder && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => !booking && setPickupOrder(null)} />
+          <div className="relative z-10 w-full max-w-md bg-[#1A1A1A] border border-white/10 rounded-2xl p-6 shadow-2xl">
+            <div className="flex items-center gap-2 mb-1 text-amber-400">
+              <FaTruck /> <h3 className="font-orbitron text-lg font-bold text-white">Book Blue Dart Pickup</h3>
+            </div>
+            <p className="text-[10px] text-gray-400 font-mono mb-5">Order {pickupOrder.display_id}</p>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="text-[10px] uppercase tracking-wider text-gray-400">Pickup Date</label>
+                <input type="date" value={pickupForm.date} min={new Date().toISOString().slice(0,10)} onChange={e => setPickupForm({ ...pickupForm, date: e.target.value })} className="w-full mt-1 bg-black border border-white/10 p-2.5 rounded text-sm focus:border-amber-500 outline-none" />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-gray-400">Ready By</label>
+                <input type="time" value={pickupForm.time} onChange={e => setPickupForm({ ...pickupForm, time: e.target.value })} className="w-full mt-1 bg-black border border-white/10 p-2.5 rounded text-sm focus:border-amber-500 outline-none" />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-gray-400">Closing Time</label>
+                <input type="time" value={pickupForm.closeTime} onChange={e => setPickupForm({ ...pickupForm, closeTime: e.target.value })} className="w-full mt-1 bg-black border border-white/10 p-2.5 rounded text-sm focus:border-amber-500 outline-none" />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-gray-400">Pieces</label>
+                <input type="number" min="1" value={pickupForm.pieces} onChange={e => setPickupForm({ ...pickupForm, pieces: e.target.value })} className="w-full mt-1 bg-black border border-white/10 p-2.5 rounded text-sm focus:border-amber-500 outline-none" />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-gray-400">Weight (kg)</label>
+                <input type="number" min="0" step="0.1" value={pickupForm.weightKg} onChange={e => setPickupForm({ ...pickupForm, weightKg: e.target.value })} className="w-full mt-1 bg-black border border-white/10 p-2.5 rounded text-sm focus:border-amber-500 outline-none" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-[10px] uppercase tracking-wider text-gray-400">Remarks (optional)</label>
+                <input type="text" value={pickupForm.remarks} onChange={e => setPickupForm({ ...pickupForm, remarks: e.target.value })} placeholder="Fragile, handle with care…" className="w-full mt-1 bg-black border border-white/10 p-2.5 rounded text-sm focus:border-amber-500 outline-none" />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setPickupOrder(null)} disabled={booking} className="flex-1 py-3 border border-white/10 rounded-lg text-sm font-bold text-gray-300 hover:bg-white/5 transition-colors disabled:opacity-50">Cancel</button>
+              <button onClick={submitPickup} disabled={booking} className="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-black rounded-lg text-sm font-bold transition-colors disabled:opacity-50">
+                {booking ? "Booking…" : "Book Pickup"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
