@@ -75,6 +75,10 @@ async function call<T = any>(path: string, body: any, method: "POST" | "GET" = "
 // ---------------------------------------------------------------------
 // 1. WAYBILL — generate AWB + shipping label
 // ---------------------------------------------------------------------
+export interface ShipperAddress {
+  name: string; addressLine1: string; addressLine2?: string; city: string; state: string; pincode: string; phone: string;
+}
+
 export interface WaybillInput {
   displayId: string;
   consignee: { name: string; addressLine1: string; addressLine2?: string; city: string; state: string; pincode: string; phone: string; email?: string };
@@ -83,6 +87,8 @@ export interface WaybillInput {
   declaredValue: number;
   isCOD: boolean;
   codAmount: number;
+  shipper?: ShipperAddress; // custom pickup/origin address (else the registered origin is used)
+  originArea?: string;      // override BLUEDART_ORIGIN_AREA per shipment
   productCode?: string;    // from Pickup/Product master, e.g. surface vs air
   subProductCode?: string; // COD vs prepaid variant
 }
@@ -107,8 +113,14 @@ export async function generateWaybill(input: WaybillInput): Promise<WaybillResul
       },
       Shipper: {
         CustomerCode: CUSTOMER,
-        OriginArea: ORIGIN_AREA,
-        // ...your pickup/return address fields (VERIFY)
+        OriginArea: input.originArea || ORIGIN_AREA,
+        // Custom pickup/origin address (VERIFY field names against your account).
+        CustomerName: input.shipper?.name || "Rig Builders",
+        CustomerAddress1: input.shipper?.addressLine1 || "",
+        CustomerAddress2: input.shipper?.addressLine2 || "",
+        CustomerAddress3: "",
+        CustomerPincode: input.shipper?.pincode || "",
+        CustomerMobile: input.shipper?.phone || "",
       },
       Services: {
         ProductCode: input.productCode || "A",       // VERIFY default
@@ -184,4 +196,161 @@ export async function track(awb: string): Promise<TrackResult> {
   }));
   const latest = scans[0]?.status || data?.Status || ""; // VERIFY (is scans[0] newest?)
   return { awb, latest, scans, raw: data };
+}
+
+// ---------------------------------------------------------------------
+// 4. RATE / CHARGES + TRANSIT — estimate the cost before booking
+// ---------------------------------------------------------------------
+export interface RateInput {
+  originPincode: string;
+  destPincode: string;
+  weightKg: number;
+  pieces: number;
+  declaredValue: number;
+  isCOD: boolean;
+  codAmount: number;
+  dims?: { l: number; w: number; h: number };
+  productCode?: string;
+  subProductCode?: string;
+}
+
+export interface RateResult {
+  total: number;        // estimated charge (INR), 0 if the API didn't return one
+  currency: string;
+  transit?: string;     // transit time / expected delivery, if returned
+  breakdown?: any;      // raw charge components if present
+  raw: any;
+}
+
+// NOTE: Blue Dart exposes rate/transit via a "finder" API whose exact path,
+// payload and response differ by account/plan — every spot is `VERIFY`. Some
+// accounts don't expose live pricing at all (they price off a contracted rate
+// card); in that case this returns total: 0 with the raw response for you to
+// inspect. Confirm the endpoint with your Blue Dart portal before relying on it.
+export async function getRate(input: RateInput): Promise<RateResult> {
+  const payload = {
+    Request: {
+      OriginPinCode: input.originPincode,       // VERIFY field names
+      DestinationPinCode: input.destPincode,
+      ActualWeight: input.weightKg,
+      PieceCount: input.pieces,
+      DeclaredValue: input.declaredValue,
+      ProductCode: input.productCode || "A",
+      SubProductCode: input.subProductCode || (input.isCOD ? "C" : ""),
+      CollectableAmount: input.isCOD ? input.codAmount : 0,
+      ...(input.dims ? { Dimensions: [{ Length: input.dims.l, Breadth: input.dims.w, Height: input.dims.h, Count: input.pieces }] } : {}),
+    },
+    Profile: { LoginID: LOGIN, LicenceKey: LICENSE, Api_type: "S" },
+  };
+
+  // VERIFY: endpoint path. Common finder paths look like
+  // /in/transportation/finder/v1/... — adjust to your account's documented one.
+  const data = await call(`/in/transportation/finder/v1/GetChargesAndTransit`, payload);
+
+  const total = Number(
+    data?.TotalAmount ?? data?.TotalCharge ?? data?.NetCharge ?? data?.Charge ?? data?.total ?? 0
+  );
+  const transit =
+    data?.ExpectedDeliveryDate || data?.TransitTime || data?.TransitDays || data?.transit || undefined;
+
+  return {
+    total: Number.isFinite(total) ? total : 0,
+    currency: "INR",
+    transit,
+    breakdown: data?.Charges || data?.ChargeBreakup || null,
+    raw: data,
+  };
+}
+
+// ---------------------------------------------------------------------
+// 5. DIAGNOSE — safe sandbox connectivity check (no side effects)
+// ---------------------------------------------------------------------
+// Hits ONLY the token endpoint and (optionally) the read-only rate finder,
+// capturing the raw HTTP status + response body WITHOUT throwing, so we can
+// read Blue Dart's real field names and fix any `VERIFY` spot. Never generates
+// a waybill or books a pickup. Secrets are never echoed back.
+export interface DiagnoseInput {
+  rate?: { originPincode: string; destPincode: string; weightKg: number; pieces: number; declaredValue: number };
+}
+export interface DiagnoseResult {
+  config: { base: string; env: string; hasKey: boolean; hasSecret: boolean; login: string; customer: string; originArea: string };
+  token: { ok: boolean; status: number | null; tokenFieldFound: string | null; raw: any; error?: string };
+  rate?: { ok: boolean; status: number | null; raw: any; error?: string };
+}
+
+export async function diagnose(input: DiagnoseInput = {}): Promise<DiagnoseResult> {
+  const out: DiagnoseResult = {
+    config: {
+      base: BASE, env: ENV, hasKey: !!KEY, hasSecret: !!SECRET,
+      login: LOGIN, customer: CUSTOMER, originArea: ORIGIN_AREA,
+    },
+    token: { ok: false, status: null, tokenFieldFound: null, raw: null },
+  };
+
+  // --- Step 1: token ---
+  let token = "";
+  try {
+    const res = await fetch(`${BASE}/in/transportation/token/v1/login`, {
+      method: "GET",
+      headers: { ClientID: KEY, clientSecret: SECRET, Accept: "application/json" },
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => ({}));
+    const found = data?.JWTToken ? "JWTToken" : data?.token ? "token" : data?.jwt ? "jwt" : null;
+    token = (found ? (data as any)[found] : "") || "";
+    out.token = {
+      ok: res.ok && !!token,
+      status: res.status,
+      tokenFieldFound: found,
+      // Redact the actual token; show only its keys + a length so we can confirm the field.
+      raw: redactToken(data),
+    };
+  } catch (e: any) {
+    out.token.error = e?.message || "token request failed";
+    return out;
+  }
+
+  if (!token || !input.rate) return out;
+
+  // --- Step 2: rate finder (read-only) ---
+  try {
+    const payload = {
+      Request: {
+        OriginPinCode: input.rate.originPincode,
+        DestinationPinCode: input.rate.destPincode,
+        ActualWeight: input.rate.weightKg,
+        PieceCount: input.rate.pieces,
+        DeclaredValue: input.rate.declaredValue,
+        ProductCode: "A",
+        SubProductCode: "",
+        CollectableAmount: 0,
+      },
+      Profile: { LoginID: LOGIN, LicenceKey: LICENSE, Api_type: "S" },
+    };
+    const res = await fetch(`${BASE}/in/transportation/finder/v1/GetChargesAndTransit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", JWTToken: token, Accept: "application/json" },
+      body: JSON.stringify(payload),
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => ({}));
+    out.rate = { ok: res.ok, status: res.status, raw: data };
+  } catch (e: any) {
+    out.rate = { ok: false, status: null, raw: null, error: e?.message || "rate request failed" };
+  }
+
+  return out;
+}
+
+// Replace any token-looking value with "<redacted len=N>" so raw shapes are safe to show.
+function redactToken(obj: any): any {
+  if (!obj || typeof obj !== "object") return obj;
+  const clone: any = Array.isArray(obj) ? [] : {};
+  for (const k of Object.keys(obj)) {
+    const v = (obj as any)[k];
+    if (/token|jwt/i.test(k) && typeof v === "string") clone[k] = `<redacted len=${v.length}>`;
+    else if (v && typeof v === "object") clone[k] = redactToken(v);
+    else clone[k] = v;
+  }
+  return clone;
 }

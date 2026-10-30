@@ -15,12 +15,30 @@ export default function DocumentsPage() {
   const [search, setSearch] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
 
-  // Blue Dart pickup modal
+  // Blue Dart shipment console
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-  const [pickupOrder, setPickupOrder] = useState<any>(null);
-  const [pickupForm, setPickupForm] = useState({ date: tomorrow, time: "16:00", closeTime: "19:00", pieces: "1", weightKg: "1", remarks: "" });
+  // Default pickup/origin = the registered business address (editable per shipment).
+  const BUSINESS = {
+    name: "Rig Builders", phone: "7707801014",
+    addressLine1: "MCB Z2 12267, Sahibzada Jujhar Singh Nagar, Street No. 3A", addressLine2: "",
+    city: "Bathinda", state: "Punjab", pincode: "151001",
+  };
+  const blankShip = () => ({
+    pickup: { ...BUSINESS },
+    drop: { name: "", phone: "", addressLine1: "", addressLine2: "", city: "", state: "", pincode: "", email: "" },
+    parcel: { weightKg: "1", l: "40", w: "40", h: "40", pieces: "1", declaredValue: "0", isCOD: false, codAmount: "0" },
+    slot: { date: tomorrow, time: "16:00", closeTime: "19:00", remarks: "" },
+  });
+  const [shipOrder, setShipOrder] = useState<any>(null);
+  const [ship, setShip] = useState(blankShip());
+  const [rate, setRate] = useState<any>(null);
+  const [checking, setChecking] = useState(false);
   const [booking, setBooking] = useState(false);
   const [genLoading, setGenLoading] = useState(false);
+  const [diag, setDiag] = useState<any>(null);
+  const [diagging, setDiagging] = useState(false);
+
+  const authToken = async () => (await supabase.auth.getSession()).data.session?.access_token || null;
 
   useEffect(() => {
     fetchOrders();
@@ -86,28 +104,114 @@ export default function DocumentsPage() {
     }
   };
 
-  // --- GENERATE AWB (Blue Dart waybill + label), in-app ---
-  const generateAwb = async (order: any) => {
-    if (!confirm("Generate a Blue Dart AWB + shipping label for this order?")) return;
-    setGenLoading(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
-    if (!token) { alert("Your session expired — please sign in again."); setGenLoading(false); return; }
+  // --- SHIPMENT CONSOLE: open, prefilled from the order ---
+  const openShipment = (order: any) => {
+    const sa = order.shipping_address || {};
+    const bd = order.box_dimensions || {};
+    const isCOD = order.payment_mode === "COD" || Number(order.pending_amount) > 0;
+    setShip({
+      pickup: { ...BUSINESS },
+      drop: {
+        name: sa.fullName || sa.name || order.full_name || "",
+        phone: sa.phone || order.phone || "",
+        addressLine1: sa.addressLine1 || sa.address || order.address || "",
+        addressLine2: sa.addressLine2 || "",
+        city: sa.city || "", state: sa.state || "", pincode: sa.pincode || "",
+        email: sa.email || order.email || "",
+      },
+      parcel: {
+        weightKg: String(order.packed_weight_kg || 1),
+        l: String(bd.l || 40), w: String(bd.w || 40), h: String(bd.h || 40),
+        pieces: String(bd.pieces || 1),
+        declaredValue: String(order.total_amount || 0),
+        isCOD,
+        codAmount: String(order.pending_amount || (isCOD ? order.total_amount : 0) || 0),
+      },
+      slot: { date: tomorrow, time: "16:00", closeTime: "19:00", remarks: "" },
+    });
+    setRate(null);
+    setShipOrder(order);
+  };
 
+  // --- SHIPMENT: sandbox connectivity test (token + read-only rate), no side effects ---
+  const testConnection = async () => {
+    setDiagging(true); setDiag(null);
+    const token = await authToken();
+    if (!token) { alert("Your session expired — please sign in again."); setDiagging(false); return; }
+    const res = await fetch("/api/shipping/diag", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        rate: (ship.pickup.pincode && ship.drop.pincode) ? {
+          originPincode: ship.pickup.pincode,
+          destPincode: ship.drop.pincode,
+          weightKg: Number(ship.parcel.weightKg) || 1,
+          pieces: Number(ship.parcel.pieces) || 1,
+          declaredValue: Number(ship.parcel.declaredValue) || 0,
+        } : undefined,
+      }),
+    });
+    const json = await res.json().catch(() => ({}));
+    setDiagging(false);
+    if (!res.ok) { setDiag({ error: json.error || `Request failed (${res.status})` }); return; }
+    setDiag(json);
+  };
+
+  // --- SHIPMENT: estimate charges + transit ---
+  const checkCharges = async () => {
+    setChecking(true); setRate(null);
+    const token = await authToken();
+    if (!token) { alert("Your session expired — please sign in again."); setChecking(false); return; }
+    const res = await fetch("/api/shipping/rate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        originPincode: ship.pickup.pincode,
+        destPincode: ship.drop.pincode,
+        weightKg: Number(ship.parcel.weightKg),
+        pieces: Number(ship.parcel.pieces),
+        declaredValue: Number(ship.parcel.declaredValue),
+        isCOD: ship.parcel.isCOD,
+        codAmount: Number(ship.parcel.codAmount),
+        dims: { l: Number(ship.parcel.l), w: Number(ship.parcel.w), h: Number(ship.parcel.h) },
+      }),
+    });
+    const json = await res.json().catch(() => ({}));
+    setChecking(false);
+    if (!res.ok) { alert(json.error || "Rate check failed."); return; }
+    setRate(json);
+  };
+
+  // --- SHIPMENT: generate AWB + label from the console values ---
+  const genAwb = async () => {
+    if (!shipOrder) return;
+    if (!confirm("Generate a Blue Dart AWB + shipping label with these details?")) return;
+    setGenLoading(true);
+    const token = await authToken();
+    if (!token) { alert("Your session expired — please sign in again."); setGenLoading(false); return; }
     const res = await fetch("/api/shipping/waybill", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ orderId: order.id }),
+      body: JSON.stringify({
+        orderId: shipOrder.id,
+        drop: ship.drop,
+        shipper: ship.pickup,
+        parcel: {
+          weightKg: Number(ship.parcel.weightKg), l: Number(ship.parcel.l), w: Number(ship.parcel.w), h: Number(ship.parcel.h),
+          pieces: Number(ship.parcel.pieces), declaredValue: Number(ship.parcel.declaredValue),
+          isCOD: ship.parcel.isCOD, codAmount: Number(ship.parcel.codAmount),
+        },
+      }),
     });
     const json = await res.json().catch(() => ({}));
     setGenLoading(false);
     if (!res.ok) { alert(json.error || "AWB generation failed."); return; }
 
     alert(`AWB generated: ${json.awb}`);
-    setOrders(orders.map(o => o.id === order.id ? { ...o, awb_number: json.awb } : o));
-    setSelectedOrder((s: any) => s && s.id === order.id ? { ...s, awb_number: json.awb } : s);
+    setOrders(orders.map(o => o.id === shipOrder.id ? { ...o, awb_number: json.awb } : o));
+    setSelectedOrder((s: any) => s && s.id === shipOrder.id ? { ...s, awb_number: json.awb } : s);
+    setShipOrder((s: any) => s ? { ...s, awb_number: json.awb } : s);
 
-    // Auto-download the label if Blue Dart returned one.
     if (json.labelBase64) {
       const isPdf = /^JVBER/.test(json.labelBase64);
       const a = document.createElement("a");
@@ -140,43 +244,34 @@ export default function DocumentsPage() {
     setSelectedOrder({ ...order, status: 'shipped', awb_number: awb });
   };
 
-  // --- BLUE DART: open the pickup form for an order ---
-  const openPickup = (order: any) => {
-    setPickupForm({ date: tomorrow, time: "16:00", closeTime: "19:00", pieces: "1", weightKg: "1", remarks: "" });
-    setPickupOrder(order);
-  };
-
-  // --- BLUE DART: submit the pickup booking ---
-  const submitPickup = async () => {
-    if (!pickupOrder) return;
-    if (!pickupForm.date) { alert("Pickup date is required."); return; }
+  // --- SHIPMENT: book the Blue Dart pickup from the console ---
+  const bookPickupNow = async () => {
+    if (!shipOrder) return;
+    if (!ship.slot.date) { alert("Pickup date is required."); return; }
     setBooking(true);
-
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
+    const token = await authToken();
     if (!token) { alert("Your session expired — please sign in again."); setBooking(false); return; }
-
     const res = await fetch("/api/shipping/pickup", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({
-        orderId: pickupOrder.id,
-        date: pickupForm.date,
-        time: pickupForm.time.replace(":", ""),          // "16:00" -> "1600"
-        closeTime: pickupForm.closeTime.replace(":", ""),
-        pieces: Number(pickupForm.pieces) || 1,
-        weightKg: Number(pickupForm.weightKg) || 1,
-        remarks: pickupForm.remarks,
+        orderId: shipOrder.id,
+        date: ship.slot.date,
+        time: ship.slot.time.replace(":", ""),
+        closeTime: ship.slot.closeTime.replace(":", ""),
+        pieces: Number(ship.parcel.pieces) || 1,
+        weightKg: Number(ship.parcel.weightKg) || 1,
+        remarks: ship.slot.remarks,
       }),
     });
     const json = await res.json().catch(() => ({}));
     setBooking(false);
     if (!res.ok) { alert(json.error || "Pickup booking failed."); return; }
 
-    alert(`Blue Dart pickup booked for ${pickupForm.date}.\nToken: ${json.token || "—"}`);
-    setOrders(orders.map(o => o.id === pickupOrder.id ? { ...o, pickup_token: json.token, pickup_date: pickupForm.date } : o));
-    setSelectedOrder((s: any) => s && s.id === pickupOrder.id ? { ...s, pickup_token: json.token, pickup_date: pickupForm.date } : s);
-    setPickupOrder(null);
+    alert(`Blue Dart pickup booked for ${ship.slot.date}.\nToken: ${json.token || "—"}`);
+    setOrders(orders.map(o => o.id === shipOrder.id ? { ...o, pickup_token: json.token, pickup_date: ship.slot.date } : o));
+    setSelectedOrder((s: any) => s && s.id === shipOrder.id ? { ...s, pickup_token: json.token, pickup_date: ship.slot.date } : s);
+    setShipOrder((s: any) => s ? { ...s, pickup_token: json.token, pickup_date: ship.slot.date } : s);
   };
 
   // --- Share the AWB tracking number with the customer via WhatsApp ---
@@ -254,31 +349,21 @@ export default function DocumentsPage() {
                         </div>
                         
                         <div className="flex gap-3">
-                            {/* BLUE DART PICKUP — book a slot, or show the booked token */}
+                            {/* SHIPMENT CONSOLE — rates, AWB + label, pickup, addresses */}
                             {selectedOrder.invoice_no && selectedOrder.status !== 'shipped' && (
-                                selectedOrder.pickup_token ? (
-                                    <span className="bg-amber-500/15 text-amber-400 border border-amber-500/30 px-3 py-2 rounded text-xs font-bold flex items-center gap-2">
-                                        <FaTruck /> Pickup {selectedOrder.pickup_date || "booked"}
-                                    </span>
-                                ) : (
-                                    <button
-                                        onClick={() => openPickup(selectedOrder)}
-                                        className="bg-amber-500 hover:bg-amber-400 text-black px-4 py-2 rounded text-sm font-bold flex items-center gap-2"
-                                    >
-                                        <FaTruck /> Book Pickup
-                                    </button>
-                                )
+                                <button
+                                    onClick={() => openShipment(selectedOrder)}
+                                    className="bg-amber-500 hover:bg-amber-400 text-black px-4 py-2 rounded text-sm font-bold flex items-center gap-2"
+                                >
+                                    <FaTruck /> Shipment
+                                </button>
                             )}
 
-                            {/* GENERATE AWB — in-app Blue Dart waybill + label */}
-                            {selectedOrder.invoice_no && !selectedOrder.awb_number && selectedOrder.status !== 'shipped' && (
-                                <button
-                                    onClick={() => generateAwb(selectedOrder)}
-                                    disabled={genLoading}
-                                    className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2 disabled:opacity-50"
-                                >
-                                    <FaFileInvoice /> {genLoading ? "Generating…" : "Generate AWB"}
-                                </button>
+                            {/* Pickup chip once booked */}
+                            {selectedOrder.pickup_token && (
+                                <span className="bg-amber-500/15 text-amber-400 border border-amber-500/30 px-3 py-2 rounded text-xs font-bold flex items-center gap-2">
+                                    <FaTruck /> Pickup {selectedOrder.pickup_date || "booked"}
+                                </span>
                             )}
 
                             {/* AWB chip once generated */}
@@ -338,52 +423,125 @@ export default function DocumentsPage() {
         </div>
       </div>
 
-      {/* BLUE DART — PICKUP BOOKING MODAL */}
-      {pickupOrder && (
+      {/* BLUE DART — SHIPMENT CONSOLE (addresses, parcel, charges, AWB, pickup) */}
+      {shipOrder && (() => {
+        const inp = "w-full mt-1 bg-black border border-white/10 p-2 rounded text-sm focus:border-amber-500 outline-none";
+        const lbl = "text-[10px] uppercase tracking-wider text-gray-400";
+        const addrFields: [string, string, 1 | 2][] = [
+          ["name", "Name", 2], ["phone", "Phone", 1], ["pincode", "Pincode", 1],
+          ["addressLine1", "Address 1", 2], ["addressLine2", "Address 2", 2],
+          ["city", "City", 1], ["state", "State", 1],
+        ];
+        const setGrp = (grp: "pickup" | "drop", k: string, v: string) =>
+          setShip(s => ({ ...s, [grp]: { ...(s as any)[grp], [k]: v } }));
+        const setParcel = (k: string, v: any) => setShip(s => ({ ...s, parcel: { ...s.parcel, [k]: v } }));
+        const setSlot = (k: string, v: string) => setShip(s => ({ ...s, slot: { ...s.slot, [k]: v } }));
+        const busy = checking || booking || genLoading || diagging;
+        const hasAwb = !!shipOrder.awb_number;
+        return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => !booking && setPickupOrder(null)} />
-          <div className="relative z-10 w-full max-w-md bg-[#1A1A1A] border border-white/10 rounded-2xl p-6 shadow-2xl">
-            <div className="flex items-center gap-2 mb-1 text-amber-400">
-              <FaTruck /> <h3 className="font-orbitron text-lg font-bold text-white">Book Blue Dart Pickup</h3>
-            </div>
-            <p className="text-[10px] text-gray-400 font-mono mb-5">Order {pickupOrder.display_id}</p>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2">
-                <label className="text-[10px] uppercase tracking-wider text-gray-400">Pickup Date</label>
-                <input type="date" value={pickupForm.date} min={new Date().toISOString().slice(0,10)} onChange={e => setPickupForm({ ...pickupForm, date: e.target.value })} className="w-full mt-1 bg-black border border-white/10 p-2.5 rounded text-sm focus:border-amber-500 outline-none" />
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => !busy && setShipOrder(null)} />
+          <div className="relative z-10 w-full max-w-3xl bg-[#1A1A1A] border border-white/10 rounded-2xl p-6 shadow-2xl max-h-[92vh] overflow-y-auto custom-scrollbar">
+            <div className="flex justify-between items-start mb-5">
+              <div className="flex items-center gap-2 text-amber-400">
+                <FaTruck /> <h3 className="font-orbitron text-lg font-bold text-white">Shipment — {shipOrder.display_id}</h3>
               </div>
-              <div>
-                <label className="text-[10px] uppercase tracking-wider text-gray-400">Ready By</label>
-                <input type="time" value={pickupForm.time} onChange={e => setPickupForm({ ...pickupForm, time: e.target.value })} className="w-full mt-1 bg-black border border-white/10 p-2.5 rounded text-sm focus:border-amber-500 outline-none" />
-              </div>
-              <div>
-                <label className="text-[10px] uppercase tracking-wider text-gray-400">Closing Time</label>
-                <input type="time" value={pickupForm.closeTime} onChange={e => setPickupForm({ ...pickupForm, closeTime: e.target.value })} className="w-full mt-1 bg-black border border-white/10 p-2.5 rounded text-sm focus:border-amber-500 outline-none" />
-              </div>
-              <div>
-                <label className="text-[10px] uppercase tracking-wider text-gray-400">Pieces</label>
-                <input type="number" min="1" value={pickupForm.pieces} onChange={e => setPickupForm({ ...pickupForm, pieces: e.target.value })} className="w-full mt-1 bg-black border border-white/10 p-2.5 rounded text-sm focus:border-amber-500 outline-none" />
-              </div>
-              <div>
-                <label className="text-[10px] uppercase tracking-wider text-gray-400">Weight (kg)</label>
-                <input type="number" min="0" step="0.1" value={pickupForm.weightKg} onChange={e => setPickupForm({ ...pickupForm, weightKg: e.target.value })} className="w-full mt-1 bg-black border border-white/10 p-2.5 rounded text-sm focus:border-amber-500 outline-none" />
-              </div>
-              <div className="col-span-2">
-                <label className="text-[10px] uppercase tracking-wider text-gray-400">Remarks (optional)</label>
-                <input type="text" value={pickupForm.remarks} onChange={e => setPickupForm({ ...pickupForm, remarks: e.target.value })} placeholder="Fragile, handle with care…" className="w-full mt-1 bg-black border border-white/10 p-2.5 rounded text-sm focus:border-amber-500 outline-none" />
-              </div>
+              <button onClick={() => !busy && setShipOrder(null)} className="text-gray-400 hover:text-white">✕</button>
             </div>
 
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => setPickupOrder(null)} disabled={booking} className="flex-1 py-3 border border-white/10 rounded-lg text-sm font-bold text-gray-300 hover:bg-white/5 transition-colors disabled:opacity-50">Cancel</button>
-              <button onClick={submitPickup} disabled={booking} className="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-black rounded-lg text-sm font-bold transition-colors disabled:opacity-50">
-                {booking ? "Booking…" : "Book Pickup"}
+            {/* Addresses */}
+            <div className="grid md:grid-cols-2 gap-4">
+              {(["pickup", "drop"] as const).map((grp) => (
+                <div key={grp} className="bg-black/30 border border-white/5 rounded-xl p-4">
+                  <p className="text-[11px] uppercase tracking-wider text-amber-400 font-bold mb-3">{grp === "pickup" ? "Pickup (From)" : "Drop (To)"}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {addrFields.map(([k, label, span]) => (
+                      <input key={k} placeholder={label} value={(ship as any)[grp][k]}
+                        onChange={e => setGrp(grp, k, e.target.value)}
+                        className={`${span === 2 ? "col-span-2" : "col-span-1"} ${inp} mt-0`} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Parcel */}
+            <div className="bg-black/30 border border-white/5 rounded-xl p-4 mt-4">
+              <p className="text-[11px] uppercase tracking-wider text-amber-400 font-bold mb-3">Parcel</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div><label className={lbl}>Weight (kg)</label><input type="number" min="0" step="0.1" value={ship.parcel.weightKg} onChange={e => setParcel("weightKg", e.target.value)} className={inp} /></div>
+                <div><label className={lbl}>Pieces</label><input type="number" min="1" value={ship.parcel.pieces} onChange={e => setParcel("pieces", e.target.value)} className={inp} /></div>
+                <div><label className={lbl}>Declared Value</label><input type="number" min="0" value={ship.parcel.declaredValue} onChange={e => setParcel("declaredValue", e.target.value)} className={inp} /></div>
+                <div className="flex items-end gap-2 pb-1">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm text-white">
+                    <input type="checkbox" className="accent-amber-500 w-4 h-4" checked={ship.parcel.isCOD} onChange={e => setParcel("isCOD", e.target.checked)} /> COD
+                  </label>
+                </div>
+                <div><label className={lbl}>Length (cm)</label><input type="number" min="0" value={ship.parcel.l} onChange={e => setParcel("l", e.target.value)} className={inp} /></div>
+                <div><label className={lbl}>Breadth (cm)</label><input type="number" min="0" value={ship.parcel.w} onChange={e => setParcel("w", e.target.value)} className={inp} /></div>
+                <div><label className={lbl}>Height (cm)</label><input type="number" min="0" value={ship.parcel.h} onChange={e => setParcel("h", e.target.value)} className={inp} /></div>
+                {ship.parcel.isCOD && <div><label className={lbl}>COD Amount</label><input type="number" min="0" value={ship.parcel.codAmount} onChange={e => setParcel("codAmount", e.target.value)} className={inp} /></div>}
+              </div>
+            </div>
+
+            {/* Pickup slot */}
+            <div className="bg-black/30 border border-white/5 rounded-xl p-4 mt-4">
+              <p className="text-[11px] uppercase tracking-wider text-amber-400 font-bold mb-3">Pickup Slot</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div><label className={lbl}>Date</label><input type="date" min={new Date().toISOString().slice(0,10)} value={ship.slot.date} onChange={e => setSlot("date", e.target.value)} className={inp} /></div>
+                <div><label className={lbl}>Ready By</label><input type="time" value={ship.slot.time} onChange={e => setSlot("time", e.target.value)} className={inp} /></div>
+                <div><label className={lbl}>Closing</label><input type="time" value={ship.slot.closeTime} onChange={e => setSlot("closeTime", e.target.value)} className={inp} /></div>
+                <div><label className={lbl}>Remarks</label><input type="text" value={ship.slot.remarks} onChange={e => setSlot("remarks", e.target.value)} placeholder="Fragile…" className={inp} /></div>
+              </div>
+            </div>
+
+            {/* Rate result */}
+            {rate && (
+              <div className="mt-4 bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-center justify-between">
+                <span className="text-sm text-amber-300 font-bold">Estimated Charge</span>
+                <span className="text-right">
+                  <span className="text-lg font-bold text-white font-saira">{rate.total > 0 ? `₹${Number(rate.total).toLocaleString("en-IN")}` : "Not returned by API"}</span>
+                  {rate.transit && <span className="block text-[11px] text-amber-300/80">Transit: {rate.transit}</span>}
+                </span>
+              </div>
+            )}
+
+            {/* Sandbox connectivity test output (raw, no side effects) */}
+            {diag && (
+              <div className="mt-4 bg-black border border-white/10 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] uppercase tracking-wider text-gray-400 font-bold">Blue Dart Test{diag.config?.env ? ` · ${diag.config.env}` : ""}</span>
+                  {!diag.error && (
+                    <span className={`text-[11px] font-bold ${diag.token?.ok ? "text-emerald-400" : "text-red-400"}`}>
+                      Token {diag.token?.ok ? "OK" : "FAILED"}{diag.token?.status != null ? ` (${diag.token.status})` : ""}
+                      {diag.rate ? ` · Rate ${diag.rate.ok ? "OK" : "FAILED"} (${diag.rate.status ?? "—"})` : ""}
+                    </span>
+                  )}
+                </div>
+                <pre className="text-[10px] leading-relaxed text-gray-300 whitespace-pre-wrap break-words max-h-64 overflow-y-auto custom-scrollbar">{JSON.stringify(diag, null, 2)}</pre>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex flex-wrap gap-3 mt-6">
+              <button onClick={testConnection} disabled={busy} className="px-4 py-3 border border-white/20 text-gray-200 rounded-lg text-sm font-bold hover:bg-white/5 transition-colors disabled:opacity-50">
+                {diagging ? "Testing…" : "Test Connection"}
               </button>
+              <button onClick={checkCharges} disabled={busy} className="px-4 py-3 border border-amber-500/40 text-amber-400 rounded-lg text-sm font-bold hover:bg-amber-500/10 transition-colors disabled:opacity-50">
+                {checking ? "Checking…" : "Check Charges"}
+              </button>
+              <button onClick={genAwb} disabled={busy || hasAwb} className="px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50">
+                {hasAwb ? `AWB ${shipOrder.awb_number}` : genLoading ? "Generating…" : "Generate AWB + Label"}
+              </button>
+              <button onClick={bookPickupNow} disabled={busy} className="px-4 py-3 bg-amber-500 hover:bg-amber-400 text-black rounded-lg text-sm font-bold transition-colors disabled:opacity-50">
+                {booking ? "Booking…" : shipOrder.pickup_token ? "Re-book Pickup" : "Book Pickup"}
+              </button>
+              <button onClick={() => !busy && setShipOrder(null)} className="ml-auto px-4 py-3 border border-white/10 rounded-lg text-sm font-bold text-gray-300 hover:bg-white/5 transition-colors">Close</button>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

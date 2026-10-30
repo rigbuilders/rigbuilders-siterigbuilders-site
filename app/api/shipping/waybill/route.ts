@@ -19,7 +19,8 @@ export async function POST(req: Request) {
   if (!isConfigured()) return NextResponse.json({ error: "Blue Dart not configured." }, { status: 400 });
 
   try {
-    const { orderId } = await req.json();
+    // Optional overrides from the Shipment console; otherwise derive from the order.
+    const { orderId, drop, parcel, shipper } = await req.json();
     if (!orderId) return NextResponse.json({ error: "orderId is required." }, { status: 400 });
 
     const { data: order } = await admin.from("orders").select("*").eq("id", orderId).single();
@@ -28,35 +29,45 @@ export async function POST(req: Request) {
 
     const sa = order.shipping_address || {};
     const dims = order.box_dimensions || {};
-    const isCOD = order.payment_mode === "COD" || Number(order.pending_amount) > 0;
+    const isCOD = parcel?.isCOD !== undefined
+      ? !!parcel.isCOD
+      : (order.payment_mode === "COD" || Number(order.pending_amount) > 0);
+
+    const consignee = {
+      name: drop?.name || sa.fullName || sa.name || order.full_name || "Customer",
+      addressLine1: drop?.addressLine1 || sa.addressLine1 || sa.address || order.address || "",
+      addressLine2: drop?.addressLine2 || sa.addressLine2 || "",
+      city: drop?.city || sa.city || "",
+      state: drop?.state || sa.state || "",
+      pincode: drop?.pincode || sa.pincode || "",
+      phone: drop?.phone || sa.phone || order.phone || "",
+      email: drop?.email || sa.email || order.email || "",
+    };
+
+    const declaredValue = parcel?.declaredValue !== undefined ? Number(parcel.declaredValue) : (Number(order.total_amount) || 0);
 
     const result = await generateWaybill({
       displayId: order.display_id,
-      consignee: {
-        name: sa.fullName || sa.name || order.full_name || "Customer",
-        addressLine1: sa.addressLine1 || sa.address || order.address || "",
-        addressLine2: sa.addressLine2 || "",
-        city: sa.city || "",
-        state: sa.state || "",
-        pincode: sa.pincode || "",
-        phone: sa.phone || order.phone || "",
-        email: sa.email || order.email || "",
-      },
-      weightKg: Number(order.packed_weight_kg) || 1,
+      consignee,
+      weightKg: Number(parcel?.weightKg) || Number(order.packed_weight_kg) || 1,
       dims: {
-        l: Number(dims.l) || 40,
-        w: Number(dims.w) || 40,
-        h: Number(dims.h) || 40,
-        pieces: Number(dims.pieces) || 1,
+        l: Number(parcel?.l) || Number(dims.l) || 40,
+        w: Number(parcel?.w) || Number(dims.w) || 40,
+        h: Number(parcel?.h) || Number(dims.h) || 40,
+        pieces: Number(parcel?.pieces) || Number(dims.pieces) || 1,
       },
-      declaredValue: Number(order.total_amount) || 0,
+      declaredValue,
       isCOD,
-      codAmount: isCOD ? (Number(order.pending_amount) || Number(order.total_amount) || 0) : 0,
+      codAmount: isCOD ? (Number(parcel?.codAmount) || Number(order.pending_amount) || declaredValue || 0) : 0,
+      shipper: shipper && shipper.pincode ? shipper : undefined,
     });
 
     await admin.from("orders").update({
       awb_number: result.awb,
       shipping_address: { ...sa, tracking_id: result.awb },
+      // Persist the packed parcel so later steps / re-prints have it.
+      packed_weight_kg: Number(parcel?.weightKg) || order.packed_weight_kg || null,
+      box_dimensions: parcel ? { l: Number(parcel.l) || null, w: Number(parcel.w) || null, h: Number(parcel.h) || null, pieces: Number(parcel.pieces) || 1 } : dims,
     }).eq("id", orderId);
 
     await admin.from("order_events").insert({

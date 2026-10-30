@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Saira, Orbitron } from "next/font/google"; 
+import localFont from "next/font/local";
 import "@/app/globals.css";
 import { CartProvider } from "./context/CartContext"; 
 import { ModalProvider } from "./context/ModalContext"; 
@@ -11,18 +11,38 @@ import FloatingBuilderBtn from "@/components/FloatingBuilderBtn";
 import DesktopWidgets from "@/components/DesktopWidgets";
 import ChatWidget from "@/components/ChatWidget";
 
-const saira = Saira({
-  subsets: ["latin"],
+/**
+ * Fonts are self-hosted from app/fonts rather than fetched from Google at
+ * build time.
+ *
+ * next/font/google downloads the font CSS during the build, which puts
+ * someone else's CDN on the critical path of every deploy — a transient
+ * Google Fonts hiccup failed a production build outright ("An error occurred
+ * in next/font: Cannot read properties of null"), with no bad code involved.
+ * Local files remove that failure mode entirely, and also drop a third-party
+ * request from page load.
+ *
+ * Both are variable fonts, so one file covers the whole weight range instead
+ * of one request per weight. `weight: "100 900"` declares that range to the
+ * browser; the Tailwind font-weight utilities then interpolate anywhere
+ * inside it rather than snapping to the nearest shipped file.
+ */
+const saira = localFont({
+  src: "./fonts/Saira-Variable.ttf",
   variable: "--font-saira",
-  weight: ["300", "400", "500", "600", "700"], 
+  weight: "100 900",
   display: "swap",
+  // Rendered in the fallback metrics until the real font loads, which stops
+  // the layout shifting when it arrives.
+  adjustFontFallback: "Arial",
 });
 
-const orbitron = Orbitron({
-  subsets: ["latin"],
+const orbitron = localFont({
+  src: "./fonts/Orbitron-Variable.ttf",
   variable: "--font-orbitron",
-  weight: ["400", "500", "600", "700", "800", "900"],
+  weight: "400 900",
   display: "swap",
+  adjustFontFallback: "Arial",
 });
 
 // --- SEO CONFIGURATION ---
