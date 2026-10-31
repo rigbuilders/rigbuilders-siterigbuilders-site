@@ -123,7 +123,19 @@ async function processInbound(adapter: ChannelAdapter, rawPayload: unknown): Pro
   }
 
   try {
-    const reply = await handleMessage(message);
+    const reply = await handleMessage(message, {
+      // Only the route holds the adapter, so the orchestrator asks us to send
+      // the "taking a look" acknowledgement when an image arrives. Wrapped
+      // because a failed acknowledgement is cosmetic and must never stop the
+      // real reply that follows it.
+      sendInterim: async (text) => {
+        try {
+          await adapter.sendReply(message.externalUserId, text);
+        } catch (err) {
+          console.error(`[webhook:${adapter.channelId}] interim send failed: ${(err as Error).message}`);
+        }
+      },
+    });
     // null means: excluded number, or a human already has this conversation
     // handed off — stay silent, the message is already saved for the admin inbox.
     if (reply) {

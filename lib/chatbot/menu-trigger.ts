@@ -29,6 +29,18 @@
 /** The model emits exactly this when it can't help. See SYSTEM_PROMPT. */
 export const NEEDS_MENU_TOKEN = "NEEDS_MENU";
 
+/**
+ * The model emits this when the customer needs an actual person. Distinct
+ * from NEEDS_MENU: a menu is for "I don't know what you want", this is for
+ * "I know exactly what you want and I'm not the one who can do it".
+ *
+ * Added after reading real transcripts where the bot said "I'll forward your
+ * details to a specialist right away" and "I've passed your number along to
+ * our team" — neither of which happened, because it had no way to make them
+ * happen. This token is that way.
+ */
+export const NEEDS_HUMAN_TOKEN = "NEEDS_HUMAN";
+
 // Greetings and openers that carry no question. Matched on the whole message
 // (after stripping punctuation), never as a substring — "hi, do you have
 // 32gb ram" is a real question that happens to start with a greeting.
@@ -101,6 +113,11 @@ export function preLlmMenuTrigger(text: string): MenuTriggerReason | null {
 /** Tier 3. True when the model signalled it couldn't help. */
 export function modelGaveUp(reply: string): boolean {
   return reply.trim().toUpperCase().startsWith(NEEDS_MENU_TOKEN);
+}
+
+/** True when the model signalled the customer needs a person, not a menu. */
+export function modelWantsHuman(reply: string): boolean {
+  return reply.trim().toUpperCase().startsWith(NEEDS_HUMAN_TOKEN);
 }
 
 /** The line shown above the menu, worded for why it appeared. */

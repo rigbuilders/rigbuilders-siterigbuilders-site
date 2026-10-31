@@ -31,6 +31,10 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return {
     title: dynamicTitle,
     description: dynamicDescription,
+    // Self-referencing canonical to the clean product URL. This is what tells
+    // Google that a ?srsltid=… variant (added by Merchant Center on free
+    // listings) is the same page as the clean URL, so it indexes one, not many.
+    alternates: { canonical: `/product/${id}` },
     openGraph: {
       title: dynamicTitle,
       description: dynamicDescription,
@@ -66,18 +70,30 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     notFound(); 
   }
 
+  // priceValidUntil keeps the Offer "fresh" for Google (~1 year out) — without
+  // it, Rich Results / Merchant flag a non-critical warning. offers.url + sku +
+  // itemCondition round out the fields Google wants for merchant listings.
+  const priceValidUntil = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: product.name,
     image: product.image_url,
     description: product.description,
+    sku: product.sku || String(product.id),
     brand: { '@type': 'Brand', name: 'Rig Builders' },
     offers: {
       '@type': 'Offer',
+      url: `https://www.rigbuilders.in/product/${id}`,
       priceCurrency: 'INR',
       price: product.price,
+      priceValidUntil,
+      itemCondition: 'https://schema.org/NewCondition',
       availability: product.in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+      seller: { '@type': 'Organization', name: 'Rig Builders' },
     },
   };
 

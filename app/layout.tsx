@@ -60,9 +60,12 @@ export const metadata: Metadata = {
 
   keywords: ["Custom PC India", "Gaming PC Build", "Workstation PC", "Rig Builders", "Liquid Cooled PC"],
 
-  alternates: {
-    canonical: "/",
-  },
+  // NOTE: Do NOT set alternates.canonical here. In the App Router, a canonical
+  // set on the root layout is inherited by every page that doesn't override it,
+  // so a static "/" would tell Google that /cart, /products, etc. are all the
+  // homepage. The homepage's own canonical lives in app/page.tsx; other routes
+  // set their own (see blog/[slug], products/[category]) or let Google
+  // self-canonicalize to the crawled URL.
 
   // 2. UNIFIED ICON CONFIGURATION (Best for Google Search)
   // Assumes you place a solid square 'icon.png' (e.g. 192x192px) in your public folder

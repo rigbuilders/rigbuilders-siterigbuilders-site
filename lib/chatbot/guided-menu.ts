@@ -82,7 +82,12 @@ function notSure(seed: string): MenuOption {
 export const MENU_NODES: Record<string, MenuNode> = {
   root: {
     id: "root",
-    prompt: "Hi! What would you like to do today?",
+    // Neutral on purpose. The greeting lives in menuIntro() (menu-trigger.ts)
+    // because it varies with WHY the menu opened — a welcome, an apology for
+    // something unreadable, or "I didn't follow that". When both carried a
+    // greeting the customer got "Hi! Welcome to Rig Builders. What can I help
+    // you with today? Hi! What would you like to do today?" in one bubble.
+    prompt: "Pick whichever is closest:",
     options: [
       { id: "build", label: "Build a custom PC", hint: "Use case, budget, quote", next: "build-use-case" },
       { id: "prebuilt", label: "Shop prebuilt rigs", hint: "Browse our four ranges", next: "prebuilt-range" },

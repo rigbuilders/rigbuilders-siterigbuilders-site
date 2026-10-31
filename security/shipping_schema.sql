@@ -44,6 +44,71 @@ create policy order_events_read_own on public.order_events for select
   ));
 
 -- ---------------------------------------------------------------------
+-- 2b. pickup_addresses — saved origin/pickup locations (manageable)
+-- ---------------------------------------------------------------------
+create table if not exists public.pickup_addresses (
+  id            uuid primary key default gen_random_uuid(),
+  label         text not null,               -- "Bathinda HQ", "Warehouse 2"
+  contact_name  text not null default 'Rig Builders',
+  phone         text not null,
+  address_line1 text not null,
+  address_line2 text,
+  city          text not null,
+  state         text not null,
+  pincode       text not null,
+  origin_area   text,                        -- Blue Dart area/pincode for pickup registration
+  is_default    boolean not null default false,
+  created_at    timestamptz default timezone('utc', now())
+);
+
+-- Only one default at a time: when a row is set default, unset the others.
+create or replace function public.pickup_addresses_single_default()
+returns trigger language plpgsql as $$
+begin
+  if new.is_default then
+    update public.pickup_addresses set is_default = false where id <> new.id;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_pickup_single_default on public.pickup_addresses;
+create trigger trg_pickup_single_default
+  before insert or update of is_default on public.pickup_addresses
+  for each row when (new.is_default) execute function public.pickup_addresses_single_default();
+
+alter table public.pickup_addresses enable row level security;
+-- Reads/writes happen through admin-authorized API routes (service role bypasses RLS).
+-- No public policy → anon/auth clients cannot see or change pickup addresses.
+
+-- ---------------------------------------------------------------------
+-- 2c. pickups — unified pickup log (app-booked AND portal-booked)
+-- ---------------------------------------------------------------------
+-- Blue Dart's API cannot list pickups, so portal-booked ones are logged here
+-- manually (source='portal'); app-booked ones are inserted automatically by the
+-- RegisterPickup route (source='app'). The dashboard also merges in any order
+-- that has a pickup_token but no row here, so nothing is missed.
+create table if not exists public.pickups (
+  id                uuid primary key default gen_random_uuid(),
+  token             text,                        -- Blue Dart token/registration number
+  pickup_date       date,
+  ready_time        text,                        -- e.g. "16:00"
+  close_time        text,                        -- e.g. "19:00"
+  pieces            integer,
+  weight_kg         numeric,
+  location_label    text,                        -- origin label / city for quick scanning
+  order_display_id  text,                        -- optional link to an order
+  status            text not null default 'scheduled',  -- scheduled | completed | cancelled
+  source            text not null default 'app',         -- app | portal
+  remarks           text,
+  created_at        timestamptz default timezone('utc', now())
+);
+create index if not exists idx_pickups_date on public.pickups (pickup_date desc);
+create unique index if not exists uq_pickups_token on public.pickups (token) where token is not null;
+
+alter table public.pickups enable row level security;
+-- Managed through admin-authorized API routes (service role bypasses RLS).
+
+-- ---------------------------------------------------------------------
 -- 3. Schedule the tracking poll (pg_cron + pg_net) — runs on Supabase,
 --    no Vercel cron needed. Every 3 hours it POSTs the secured endpoint,
 --    which polls Blue Dart for all in-transit AWBs and advances statuses.

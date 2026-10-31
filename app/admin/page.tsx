@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import {
   FaBox, FaClipboardList, FaPlusCircle, FaShoppingCart, FaTools,
   FaFileInvoice, FaChartPie, FaPenNib, FaTags, FaShieldAlt, FaArrowRight,
-  FaComments, FaLayerGroup
+  FaComments, FaLayerGroup, FaTruck
 } from "react-icons/fa";
 
 export default function AdminDashboard() {
@@ -83,6 +83,13 @@ export default function AdminDashboard() {
           icon: <FaComments />,
           desc: "Live WhatsApp/Instagram/Messenger conversations. Reply manually, pause the bot, or exclude numbers.",
           color: "text-cyan-400 border-cyan-400/20 hover:bg-cyan-400/10"
+        },
+        {
+          title: "Shipping Hub",
+          href: "/admin/shipping",
+          icon: <FaTruck />,
+          desc: "Blue Dart account status, balance, live shipments and saved pickup addresses.",
+          color: "text-orange-400 border-orange-400/20 hover:bg-orange-400/10"
         },
       ]
     },

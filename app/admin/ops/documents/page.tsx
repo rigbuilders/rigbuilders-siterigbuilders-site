@@ -37,12 +37,35 @@ export default function DocumentsPage() {
   const [genLoading, setGenLoading] = useState(false);
   const [diag, setDiag] = useState<any>(null);
   const [diagging, setDiagging] = useState(false);
+  const [pickupAddrs, setPickupAddrs] = useState<any[]>([]);
 
   const authToken = async () => (await supabase.auth.getSession()).data.session?.access_token || null;
 
   useEffect(() => {
     fetchOrders();
+    loadPickupAddrs();
   }, []);
+
+  // Saved pickup/origin addresses (managed in the Shipping Hub).
+  const loadPickupAddrs = async () => {
+    const token = await authToken();
+    if (!token) return;
+    const res = await fetch("/api/shipping/pickup-addresses", { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) return;
+    const json = await res.json().catch(() => ({}));
+    setPickupAddrs(json.addresses || []);
+  };
+
+  // Map a saved pickup address onto the console's "pickup (from)" block.
+  const addrToPickup = (a: any) => ({
+    name: a.contact_name || "Rig Builders", phone: a.phone || "",
+    addressLine1: a.address_line1 || "", addressLine2: a.address_line2 || "",
+    city: a.city || "", state: a.state || "", pincode: a.pincode || "",
+  });
+  const applyPickupAddr = (id: string) => {
+    const a = pickupAddrs.find(x => x.id === id);
+    if (a) setShip(s => ({ ...s, pickup: addrToPickup(a) }));
+  };
 
   const fetchOrders = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -109,8 +132,9 @@ export default function DocumentsPage() {
     const sa = order.shipping_address || {};
     const bd = order.box_dimensions || {};
     const isCOD = order.payment_mode === "COD" || Number(order.pending_amount) > 0;
+    const def = pickupAddrs.find(a => a.is_default);
     setShip({
-      pickup: { ...BUSINESS },
+      pickup: def ? addrToPickup(def) : { ...BUSINESS },
       drop: {
         name: sa.fullName || sa.name || order.full_name || "",
         phone: sa.phone || order.phone || "",
@@ -454,6 +478,13 @@ export default function DocumentsPage() {
               {(["pickup", "drop"] as const).map((grp) => (
                 <div key={grp} className="bg-black/30 border border-white/5 rounded-xl p-4">
                   <p className="text-[11px] uppercase tracking-wider text-amber-400 font-bold mb-3">{grp === "pickup" ? "Pickup (From)" : "Drop (To)"}</p>
+                  {grp === "pickup" && pickupAddrs.length > 0 && (
+                    <select onChange={e => e.target.value && applyPickupAddr(e.target.value)} defaultValue=""
+                      className="w-full mb-3 bg-black border border-white/10 p-2 rounded text-sm focus:border-amber-500 outline-none">
+                      <option value="">Use a saved pickup address…</option>
+                      {pickupAddrs.map(a => <option key={a.id} value={a.id}>{a.label}{a.is_default ? " (default)" : ""} — {a.city}</option>)}
+                    </select>
+                  )}
                   <div className="grid grid-cols-2 gap-2">
                     {addrFields.map(([k, label, span]) => (
                       <input key={k} placeholder={label} value={(ship as any)[grp][k]}

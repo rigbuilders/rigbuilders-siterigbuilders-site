@@ -1,7 +1,15 @@
+import type { Metadata } from "next";
 import NavbarNeo from "@/components/home/NavbarNeo";
 import HeroCarousel from "@/components/home/HeroCarousel";
 import HomeShowcase from "@/components/home/HomeShowcase";
 import Footer from "@/components/Footer";
+
+// Homepage-only canonical. Kept here (not in the root layout) so it doesn't
+// leak to every other route — the clean "/" is what Google should index for the
+// homepage even when it arrives on a ?srsltid=… variant from Merchant Center.
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 // NOTE: The previous homepage (old Navbar + Hero/BrandCarousel/CategoryGrid/…
 // section stack) is intentionally no longer rendered here — it's been replaced

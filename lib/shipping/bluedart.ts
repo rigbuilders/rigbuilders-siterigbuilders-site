@@ -263,6 +263,46 @@ export async function getRate(input: RateInput): Promise<RateResult> {
 }
 
 // ---------------------------------------------------------------------
+// 4b. BALANCE — best-effort account balance (many accounts don't expose one)
+// ---------------------------------------------------------------------
+export interface BalanceResult {
+  supported: boolean;   // did the API return a usable balance figure?
+  available: number | null;
+  currency: string;
+  status: number | null;
+  raw: any;
+  note?: string;
+}
+
+// Blue Dart's apigateway does not publish a universal "wallet balance" endpoint —
+// most accounts are credit/contract and price off a rate card. We try a likely
+// finder path and, if it isn't there or returns no number, degrade gracefully to
+// supported:false with the raw response so you can see exactly what came back.
+export async function getBalance(): Promise<BalanceResult> {
+  const base: BalanceResult = { supported: false, available: null, currency: "INR", status: null, raw: null };
+  try {
+    const token = await getToken();
+    // VERIFY: this path is a best guess; adjust to your account's documented one.
+    const res = await fetch(`${BASE}/in/transportation/finder/v1/GetAccountBalance`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", JWTToken: token, Accept: "application/json" },
+      body: JSON.stringify({ Profile: { LoginID: LOGIN, LicenceKey: LICENSE, Api_type: "S" }, Request: { CustomerCode: CUSTOMER } }),
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => ({}));
+    const amt = Number(
+      data?.AvailableBalance ?? data?.Balance ?? data?.CreditBalance ?? data?.AvailableCredit ?? NaN
+    );
+    if (res.ok && Number.isFinite(amt)) {
+      return { ...base, supported: true, available: amt, status: res.status, raw: data };
+    }
+    return { ...base, status: res.status, raw: data, note: "No balance figure returned — account likely credit/contract." };
+  } catch (e: any) {
+    return { ...base, note: e?.message || "Balance request failed." };
+  }
+}
+
+// ---------------------------------------------------------------------
 // 5. DIAGNOSE — safe sandbox connectivity check (no side effects)
 // ---------------------------------------------------------------------
 // Hits ONLY the token endpoint and (optionally) the read-only rate finder,

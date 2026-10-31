@@ -23,8 +23,10 @@ import {
   setMenuState,
   type MenuState,
 } from "./menu-state";
-import { menuIntro, modelGaveUp, preLlmMenuTrigger, type MenuTriggerReason } from "./menu-trigger";
+import { menuIntro, modelGaveUp, modelWantsHuman, preLlmMenuTrigger, type MenuTriggerReason } from "./menu-trigger";
+import { notifyTelegramEscalation } from "./telegram";
 import { getProductDetail } from "./menu-data";
+import { IMAGE_ACK_MESSAGE, buildImageContext, describeImage } from "./vision";
 import type { MediaType, NormalizedMessage, ReplyMeta } from "./types";
 
 const SITE_URL = "https://www.rigbuilders.in";
@@ -222,7 +224,22 @@ async function handleMenuTap(replyId: string, conversationId: string): Promise<M
  * cases the inbound message is still recorded, so it shows up in the admin
  * inbox for a human to answer.
  */
-export async function handleMessage(msg: NormalizedMessage): Promise<HandledReply | null> {
+export interface HandleMessageOptions {
+  /**
+   * Sends a message to the customer immediately, ahead of the real reply.
+   * Supplied by the webhook route because only it holds the adapter.
+   *
+   * Used for the image acknowledgement: describing a picture takes a few
+   * seconds, and silence while that happens reads as being ignored. Never
+   * awaited in a way that can block the reply — a failed interim is cosmetic.
+   */
+  sendInterim?: (text: string) => Promise<void>;
+}
+
+export async function handleMessage(
+  msg: NormalizedMessage,
+  options: HandleMessageOptions = {}
+): Promise<HandledReply | null> {
   const user = await findOrCreateUser(msg.channel, msg.externalUserId);
   const conversation = await findOrCreateActiveConversation(user.id, msg.channel);
 
@@ -301,11 +318,43 @@ export async function handleMessage(msg: NormalizedMessage): Promise<HandledRepl
     await clearMenuState(conversation.id);
   }
 
+  // An image needs looking at before anything else can be said about it.
+  // Two stages on purpose: the vision model only DESCRIBES (see vision.ts),
+  // and the description is fed to the main model as context so every rule
+  // about pricing, escalation and tone stays in one prompt.
+  let imageContext: string | null = null;
+  const inboundImage = msg.attachments?.find((a) => a.type === "image");
+  if (inboundImage) {
+    // Tell the customer we're on it before spending several seconds looking.
+    // Silence here is what makes a bot feel broken.
+    if (options.sendInterim) {
+      try {
+        await options.sendInterim(IMAGE_ACK_MESSAGE);
+        await appendMessage(conversation.id, "assistant", IMAGE_ACK_MESSAGE, "vision-ack");
+      } catch (err) {
+        console.error(`[chatbot:orchestrator] image ack failed: ${(err as Error).message}`);
+      }
+    }
+
+    const description = await describeImage(inboundImage.url);
+    if (description) {
+      imageContext = buildImageContext(description);
+      // Worth recording: when a reply about an image is wrong, the first
+      // question is always whether the model misread the picture or the
+      // assistant misused a correct description.
+      console.log(`[chatbot:orchestrator] image described (${description.length} chars) for ${msg.externalUserId}`);
+    }
+  }
+
   // Tiers 1 and 2 — both free, both before any model call. A greeting has
   // nothing to answer, and a sticker or reaction is something we already know
   // we couldn't read, so sending either to the model costs money and produces
   // a confused reply about inventory. See menu-trigger.ts.
-  const preTrigger: MenuTriggerReason | null = msg.replyId ? null : preLlmMenuTrigger(effectiveText);
+  // An image we successfully described is a real message, not an unreadable
+  // one — the placeholder text ("[Customer sent an image]") would otherwise
+  // trip the menu fallback and throw away the description we just paid for.
+  const preTrigger: MenuTriggerReason | null =
+    msg.replyId || imageContext ? null : preLlmMenuTrigger(effectiveText);
   if (preTrigger) {
     // "Brand new conversation" is good enough for choosing between a welcome
     // and a plain re-offer, and costs nothing — a message count would be an
@@ -330,11 +379,19 @@ export async function handleMessage(msg: NormalizedMessage): Promise<HandledRepl
   // this is the customer-triggered path.
   if (isHandoffRequest(effectiveText)) {
     await updateConversationStatus(conversation.id, "handed_off");
+    await clearMenuState(conversation.id);
     await appendMessage(conversation.id, "assistant", HANDOFF_ACK_MESSAGE, "handoff");
+    await notifyTelegramEscalation({
+      channel: msg.channel,
+      externalUserId: msg.externalUserId,
+      text: effectiveText,
+      conversationId: conversation.id,
+      reason: "Customer asked for a person",
+    });
     await notifyAdminOfHandoff({
       channel: msg.channel,
       externalUserId: msg.externalUserId,
-      message: msg.text,
+      message: effectiveText,
     });
     return { text: HANDOFF_ACK_MESSAGE };
   }
@@ -402,10 +459,44 @@ export async function handleMessage(msg: NormalizedMessage): Promise<HandledRepl
     console.error(`[chatbot:orchestrator] product lookup failed: ${(err as Error).message}`);
   }
   const productContext = buildProductContext(candidateProducts);
-  const systemPrompt = productContext ? `${SYSTEM_PROMPT}\n\n${productContext}` : SYSTEM_PROMPT;
+
+  // Tell the model who it's talking to. On WhatsApp the customer's number IS
+  // their contact detail, and without this the bot asked one customer for a
+  // phone number four times in a row — including after they'd replied "same
+  // number" — which reads as nobody listening.
+  const whoContext =
+    msg.channel === "whatsapp"
+      ? `You are talking to this customer on WhatsApp. Their number is ${msg.externalUserId}. ` +
+        `The team already has it, so never ask them for a contact number — if they want a call, use NEEDS_HUMAN.`
+      : `You are talking to this customer on ${msg.channel}. You do NOT have their phone number or email.`;
+
+  const systemPrompt = [SYSTEM_PROMPT, whoContext, imageContext, productContext].filter(Boolean).join("\n\n");
 
   try {
     const { text: rawText, provider } = await generateReply(systemPrompt, history, effectiveText);
+
+    // The model signalled the customer needs an actual person. This is the
+    // path that replaces "I'll forward your details to a specialist" — a
+    // sentence the bot used to produce with nothing behind it. Now it pauses
+    // the bot, raises a loud Telegram alert, and tells the customer the truth.
+    if (modelWantsHuman(rawText)) {
+      await updateConversationStatus(conversation.id, "handed_off");
+      await clearMenuState(conversation.id);
+      await appendMessage(conversation.id, "assistant", HANDOFF_ACK_MESSAGE, "handoff");
+      await notifyTelegramEscalation({
+        channel: msg.channel,
+        externalUserId: msg.externalUserId,
+        text: effectiveText,
+        conversationId: conversation.id,
+        reason: "Assistant decided this needs a person",
+      });
+      await notifyAdminOfHandoff({
+        channel: msg.channel,
+        externalUserId: msg.externalUserId,
+        message: effectiveText,
+      });
+      return { text: HANDOFF_ACK_MESSAGE };
+    }
 
     // Tier 3 — the model signalled it couldn't help (see system-prompt.ts and
     // menu-trigger.ts). Checking for an exact token beats pattern-matching its

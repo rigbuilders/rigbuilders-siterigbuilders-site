@@ -105,6 +105,33 @@ export function getLlmApiConfig(): LlmApiConfig | null {
 }
 
 /**
+ * Vision model, used ONLY to describe an inbound customer image. It never
+ * talks to the customer — it produces a description which is then handed to
+ * the main model as context, so every rule about pricing, handoff and tone
+ * stays in one place rather than being duplicated into a second prompt.
+ *
+ * Shares LLM_BASE_URL and LLM_API_KEY with the main provider: on an
+ * OpenAI-compatible gateway this is a model name on the same endpoint, not a
+ * separate integration.
+ */
+export function getVisionConfig(): LlmApiConfig | null {
+  const base = getLlmApiConfig();
+  if (!base) return null;
+
+  const model = raw("LLM_VISION_MODEL") ?? "google/gemma-3-12b-it";
+  return {
+    ...base,
+    model,
+    label: `${model.split("/").pop() ?? model}-vision`,
+    // Descriptions are short by design — the main model writes the reply, this
+    // just says what's in the picture. A tight cap also keeps a chatty vision
+    // model from padding the context it feeds downstream.
+    maxTokens: 400,
+    reasoningEffort: null,
+  };
+}
+
+/**
  * TEMPORARY, local-testing-only provider: a locally-running Ollama server
  * (e.g. `ollama run qwen3.5:2b-q4_K_M`). Only used by the WhatsApp/Messenger/
  * Instagram path (llm/router.ts) as a local-dev override — the website chat

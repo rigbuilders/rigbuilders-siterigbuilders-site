@@ -130,6 +130,71 @@ export async function notifyTelegramOfMessage(params: {
   }
 }
 
+/**
+ * A customer needs a person — they asked for an expert or a call, it's
+ * urgent, it's a complaint, or the assistant couldn't resolve it.
+ *
+ * Deliberately a SEPARATE, visually distinct message rather than a flag on the
+ * normal alert: in a busy chat the ordinary notifications become wallpaper,
+ * and the whole reason this exists is that customers were being told someone
+ * would call them and then nobody did. This is the one that has to be noticed.
+ *
+ * Still carries the link row, so it can be replied to like any other alert.
+ */
+export async function notifyTelegramEscalation(params: {
+  channel: string;
+  externalUserId: string;
+  text: string;
+  conversationId: string;
+  reason: string;
+}): Promise<void> {
+  const config = getTelegramConfig();
+  if (!config) return;
+
+  const label = CHANNEL_LABEL[params.channel] ?? params.channel;
+  const inboxUrl = `${SITE_URL}/admin/chatbot/${CHANNEL_ROUTE[params.channel] ?? ""}`;
+
+  // The customer's own number is the contact detail on WhatsApp — surfacing
+  // it here means nobody has to go and look it up, and the bot never has to
+  // ask the customer for a number it was already given.
+  const contactLine =
+    params.channel === "whatsapp"
+      ? `\n<b>Call back on:</b> <code>${escapeHtml(params.externalUserId)}</code>`
+      : "";
+
+  const message =
+    `‼️ <b>NEEDS A PERSON</b> — ${escapeHtml(label)}\n` +
+    `<b>Why:</b> ${escapeHtml(params.reason)}${contactLine}\n\n` +
+    `${escapeHtml(params.text?.trim() || "(no text)")}\n\n` +
+    `<i>Reply to this message to answer them directly.</i>\n` +
+    `<a href="${escapeHtml(inboxUrl)}">Open inbox</a>`;
+
+  const sent = await callTelegram("sendMessage", {
+    chat_id: config.chatId,
+    text: message,
+    parse_mode: "HTML",
+    disable_web_page_preview: true,
+    // Overrides a muted chat. Normal alerts respect mute; this one shouldn't,
+    // because a missed escalation is a lost customer.
+    disable_notification: false,
+  });
+
+  const messageId = sent?.result?.message_id;
+  if (!messageId) return;
+
+  try {
+    await supabaseAdmin.from("telegram_message_links").insert({
+      telegram_chat_id: String(config.chatId),
+      telegram_message_id: messageId,
+      conversation_id: params.conversationId,
+      channel: params.channel,
+      external_user_id: params.externalUserId,
+    });
+  } catch (err) {
+    console.error(`[chatbot:telegram] escalation link insert failed: ${(err as Error).message}`);
+  }
+}
+
 /** Plain confirmation back into the Telegram thread (delivery receipts, errors). */
 export async function replyInTelegram(replyToMessageId: number, text: string): Promise<void> {
   const config = getTelegramConfig();

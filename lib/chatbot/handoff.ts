@@ -23,6 +23,29 @@ const HANDOFF_PATTERNS: RegExp[] = [
   /\bescalate\b/i,
   /\bmanager\b/i,
   /\bcomplaint\b/i,
+
+  // Added after reviewing real transcripts. Every one of these was said by a
+  // customer and NOT caught, so the bot carried on conversationally — in one
+  // case asking for a phone number four times, in another promising to
+  // "forward your details to a specialist" when nothing was forwarded
+  // anywhere. Asking for an expert or a call is a request for a person, and
+  // treating it as anything else makes the bot dishonest.
+  /\bexpert\b/i,
+  /\bspecialist\b/i,
+  /\btechnician\b/i,
+  /\bengineer\b/i,
+  /\b(call|ring|phone) (me|us|back)\b/i,
+  /\bcallback\b/i,
+  /\bcall back\b/i,
+  /\bconnect (on|over|via) (a |the |)?call\b/i,
+  /\b(can|could|shall) we (connect|talk|speak)\b/i,
+  /\bon (a |the )?call\b/i,
+  /\byour number\b/i,
+  /\bcontact number\b/i,
+  /\bwhatsapp number\b/i,
+  /\burgent(ly)?\b/i,
+  /\bemergency\b/i,
+  /\basap\b/i,
 ];
 
 export function isHandoffRequest(text: string): boolean {

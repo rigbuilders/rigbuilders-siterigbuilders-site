@@ -6,24 +6,26 @@ const baseUrl = "https://www.rigbuilders.in";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // 1. STATIC ROUTES (Hardcoded to ensure they ALWAYS exist)
-  const staticRoutes = [
-    '',
-    '/products',
-    '/ascend',
-    '/workpro',
-    '/creator',
-    '/signature',
-    '/cart',
-    '/configure',
-    '/support',
-    '/how-we-commission',
+  // NOTE: /cart is intentionally excluded — it's a thin, user-specific utility
+  // page with no search value and is marked noindex (see app/cart/page metadata).
+  // The homepage keeps top priority; the rest are ranked below it.
+  const staticRoutes: { path: string; priority: number }[] = [
+    { path: '', priority: 1.0 },
+    { path: '/products', priority: 0.9 },
+    { path: '/ascend', priority: 0.8 },
+    { path: '/workpro', priority: 0.8 },
+    { path: '/creator', priority: 0.8 },
+    { path: '/signature', priority: 0.8 },
+    { path: '/configure', priority: 0.7 },
+    { path: '/support', priority: 0.6 },
+    { path: '/how-we-commission', priority: 0.6 },
   ];
 
-  const staticUrls = staticRoutes.map((route) => ({
-    url: `${baseUrl}${route}`,
+  const staticUrls = staticRoutes.map(({ path, priority }) => ({
+    url: `${baseUrl}${path}`,
     lastModified: new Date(),
-    changeFrequency: 'daily' as const,
-    priority: 1.0,
+    changeFrequency: 'weekly' as const,
+    priority,
   }));
 
   // 2. CATEGORIES — canonical slugs from the DB (with code fallback), so new
