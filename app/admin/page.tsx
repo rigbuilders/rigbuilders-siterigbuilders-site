@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import {
   FaBox, FaClipboardList, FaPlusCircle, FaShoppingCart, FaTools,
   FaFileInvoice, FaChartPie, FaPenNib, FaTags, FaShieldAlt, FaArrowRight,
-  FaComments, FaLayerGroup, FaTruck
+  FaComments, FaLayerGroup, FaTruck, FaKey, FaImages
 } from "react-icons/fa";
 
 export default function AdminDashboard() {
@@ -91,6 +91,13 @@ export default function AdminDashboard() {
           desc: "Blue Dart account status, balance, live shipments and saved pickup addresses.",
           color: "text-orange-400 border-orange-400/20 hover:bg-orange-400/10"
         },
+        {
+          title: "Activation Keys",
+          href: "/admin/ops/activations",
+          icon: <FaKey />,
+          desc: "Mint standalone Aegis licence keys for warranty replacements, RMA units, or offline sales.",
+          color: "text-amber-400 border-amber-400/20 hover:bg-amber-400/10"
+        },
       ]
     },
     {
@@ -142,6 +149,13 @@ export default function AdminDashboard() {
           icon: <FaTags />,
           desc: "Create discount codes and track influencer/affiliate performance.",
           color: "text-orange-400 border-orange-400/20 hover:bg-orange-400/10"
+        },
+        {
+          title: "Hero & Banners",
+          href: "/admin/hero",
+          icon: <FaImages />,
+          desc: "Manage the homepage hero slides and the banners on the desktops, products and accessories pages.",
+          color: "text-pink-400 border-pink-400/20 hover:bg-pink-400/10"
         },
       ]
     }
