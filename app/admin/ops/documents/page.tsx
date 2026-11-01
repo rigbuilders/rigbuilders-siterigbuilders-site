@@ -4,9 +4,10 @@ import Navbar from "@/components/Navbar";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import { FaFileInvoice, FaPrint, FaSearch, FaTruck } from "react-icons/fa";
+import { FaFileInvoice, FaPrint, FaSearch, FaTruck, FaHeart, FaPlus } from "react-icons/fa";
 import { PDFDownloadLink, PDFViewer } from "@react-pdf/renderer";
-import { OrderPDF } from "./OrderPDF"; 
+import { OrderPDF } from "./OrderPDF";
+import { templateForOrder, ThankTemplate, GOOGLE_REVIEW_URL, SITE_URL } from "@/lib/thankyou";
 
 export default function DocumentsPage() {
   const router = useRouter();
@@ -38,12 +39,20 @@ export default function DocumentsPage() {
   const [diag, setDiag] = useState<any>(null);
   const [diagging, setDiagging] = useState(false);
   const [pickupAddrs, setPickupAddrs] = useState<any[]>([]);
+  // Thank-you note
+  const [thankOrder, setThankOrder] = useState<any>(null);
+  const [staff, setStaff] = useState<any[]>([]);
+  const [thankBy, setThankBy] = useState("");
+  const [thankTpl, setThankTpl] = useState<ThankTemplate>("components");
+  const [newStaff, setNewStaff] = useState("");
+  const [addingStaff, setAddingStaff] = useState(false);
 
   const authToken = async () => (await supabase.auth.getSession()).data.session?.access_token || null;
 
   useEffect(() => {
     fetchOrders();
     loadPickupAddrs();
+    loadStaff();
   }, []);
 
   // Saved pickup/origin addresses (managed in the Shipping Hub).
@@ -65,6 +74,62 @@ export default function DocumentsPage() {
   const applyPickupAddr = (id: string) => {
     const a = pickupAddrs.find(x => x.id === id);
     if (a) setShip(s => ({ ...s, pickup: addrToPickup(a) }));
+  };
+
+  // --- THANK-YOU NOTE ---
+  const loadStaff = async () => {
+    const token = await authToken();
+    if (!token) return;
+    const res = await fetch("/api/staff", { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) return;
+    const json = await res.json().catch(() => ({}));
+    setStaff(json.staff || []);
+    if (!thankBy && json.staff?.length) setThankBy(json.staff[0].name);
+  };
+
+  // Catalog products in the order that have their own product page.
+  const productItemsOf = (order: any) =>
+    (order?.items || []).filter((i: any) => i.id && !i.custom && !i.configurator_name);
+
+  // QR target: exactly one distinct catalog product → its page; else Google reviews.
+  const qrTargetOf = (order: any) => {
+    const ids = Array.from(new Set(productItemsOf(order).map((i: any) => i.id)));
+    if (ids.length === 1) {
+      return { url: `${SITE_URL}/product/${ids[0]}`, label: "SCAN FOR YOUR PRODUCT" };
+    }
+    return { url: GOOGLE_REVIEW_URL, label: "SCAN TO REVIEW US" };
+  };
+
+  const openThankYou = (order: any) => {
+    const cats = (order?.items || []).map((i: any) => i.category || (i.configurator_name ? "custom" : ""));
+    setThankTpl(templateForOrder(cats));
+    if (!thankBy && staff.length) setThankBy(staff[0].name);
+    setThankOrder(order);
+  };
+
+  const addStaff = async () => {
+    const name = newStaff.trim();
+    if (!name) return;
+    setAddingStaff(true);
+    const token = await authToken();
+    const res = await fetch("/api/staff", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ name }),
+    });
+    const json = await res.json().catch(() => ({}));
+    setAddingStaff(false);
+    if (!res.ok) { alert(json.error || "Couldn't add."); return; }
+    setNewStaff("");
+    await loadStaff();
+    setThankBy(name);
+  };
+
+  const printThankYou = () => {
+    if (!thankBy) { alert("Select or add who assembled/packaged this order."); return; }
+    const { url, label } = qrTargetOf(thankOrder);
+    const qs = new URLSearchParams({ tpl: thankTpl, by: thankBy, qr: url, ql: label });
+    window.open(`/api/thankyou?${qs.toString()}`, "_blank");
   };
 
   const fetchOrders = async () => {
@@ -418,8 +483,16 @@ export default function DocumentsPage() {
                                 </button>
                             )}
 
+                            {/* THANK-YOU NOTE */}
+                            <button
+                                onClick={() => openThankYou(selectedOrder)}
+                                className="bg-[#FF5A1F] hover:bg-[#ff6f3c] text-black px-4 py-2 rounded text-sm font-bold flex items-center gap-2"
+                            >
+                                <FaHeart /> Thank-You Note
+                            </button>
+
                             {/* DOWNLOAD BUTTON */}
-                            <PDFDownloadLink 
+                            <PDFDownloadLink
                                 document={<OrderPDF order={selectedOrder} />} 
                                 fileName={`Invoice_${selectedOrder.display_id}.pdf`}
                                 className="bg-brand-purple hover:bg-brand-purple/80 text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2"
@@ -446,6 +519,68 @@ export default function DocumentsPage() {
 
         </div>
       </div>
+
+      {/* THANK-YOU NOTE — pick assembler + template, open print view */}
+      {thankOrder && (() => {
+        const { url, label } = qrTargetOf(thankOrder);
+        const isReview = url === GOOGLE_REVIEW_URL;
+        return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setThankOrder(null)} />
+          <div className="relative z-10 w-full max-w-md bg-[#1A1A1A] border border-white/10 rounded-2xl p-6 shadow-2xl">
+            <div className="flex items-center gap-2 mb-1" style={{ color: "#FF5A1F" }}>
+              <FaHeart /> <h3 className="font-orbitron text-lg font-bold text-white">Thank-You Note</h3>
+            </div>
+            <p className="text-[10px] text-gray-400 font-mono mb-5">Order {thankOrder.display_id}</p>
+
+            {/* Template */}
+            <label className="text-[10px] uppercase tracking-wider text-gray-400">Template (auto-detected)</label>
+            <div className="grid grid-cols-3 gap-2 mt-1 mb-4">
+              {(["builds", "components", "accessories"] as const).map(t => (
+                <button key={t} onClick={() => setThankTpl(t)}
+                  className={`py-2 rounded text-xs font-bold capitalize border transition-colors ${thankTpl === t ? "bg-[#FF5A1F] text-black border-[#FF5A1F]" : "border-white/15 text-gray-300 hover:bg-white/5"}`}>
+                  {t}
+                </button>
+              ))}
+            </div>
+
+            {/* Assembler / packager */}
+            <label className="text-[10px] uppercase tracking-wider text-gray-400">Assembled / Packaged By</label>
+            <select value={thankBy} onChange={e => setThankBy(e.target.value)}
+              className="w-full mt-1 bg-black border border-white/10 p-2.5 rounded text-sm focus:border-amber-500 outline-none">
+              {staff.length === 0 && <option value="">No staff yet — add one below</option>}
+              {staff.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+            </select>
+            <div className="flex gap-2 mt-2">
+              <input value={newStaff} onChange={e => setNewStaff(e.target.value)} placeholder="Add a new assembler/packager…"
+                className="flex-1 bg-black border border-white/10 p-2 rounded text-sm focus:border-amber-500 outline-none" />
+              <button onClick={addStaff} disabled={addingStaff || !newStaff.trim()}
+                className="px-3 py-2 border border-white/15 rounded text-sm font-bold text-gray-200 hover:bg-white/5 disabled:opacity-50 flex items-center gap-1">
+                <FaPlus /> {addingStaff ? "…" : "Add"}
+              </button>
+            </div>
+
+            {/* QR target info */}
+            <div className="mt-4 bg-black/40 border border-white/5 rounded-lg p-3 text-xs text-gray-400">
+              <span className="font-bold text-gray-300">QR points to: </span>
+              {isReview
+                ? <>Google review page <span className="text-gray-500">(order has {productItemsOf(thankOrder).length === 0 ? "no single catalog product" : "multiple products"})</span></>
+                : <>the product page <span className="text-gray-500">(single product order)</span></>}
+              {isReview && GOOGLE_REVIEW_URL.includes("REPLACE_WITH_PLACE_ID") && (
+                <div className="mt-2 text-amber-400">⚠ Set your Google review link in lib/thankyou.ts first.</div>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setThankOrder(null)} className="flex-1 py-3 border border-white/10 rounded-lg text-sm font-bold text-gray-300 hover:bg-white/5 transition-colors">Cancel</button>
+              <button onClick={printThankYou} className="flex-1 py-3 rounded-lg text-sm font-bold text-black hover:opacity-90 transition-opacity" style={{ background: "#FF5A1F" }}>
+                Open / Print
+              </button>
+            </div>
+          </div>
+        </div>
+        );
+      })()}
 
       {/* BLUE DART — SHIPMENT CONSOLE (addresses, parcel, charges, AWB, pickup) */}
       {shipOrder && (() => {

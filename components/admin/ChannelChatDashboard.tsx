@@ -98,6 +98,62 @@ function formatTimestamp(iso: string): string {
  * lib/chatbot/inbound-media.ts) precisely so it survives all the way to this
  * download, rather than saving as a bare UUID the OS can't open.
  */
+/** Up to two initials for the avatar. Phone numbers fall back to the last two digits. */
+function initialsFor(label: string): string {
+  const trimmed = label.trim();
+  if (!trimmed) return "?";
+
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  const letters = words
+    .map((w) => w[0])
+    .filter((ch) => /[a-zA-Z]/.test(ch))
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
+  // A bare phone number has no letters — its last two digits are far more
+  // distinguishing than its first two, since local numbers share prefixes.
+  return letters || trimmed.replace(/\D/g, "").slice(-2) || "?";
+}
+
+/** 24-hour clock for the in-bubble timestamp. */
+function formatClockTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false });
+  } catch {
+    return "";
+  }
+}
+
+/** "Today" / "Yesterday" / a date, for the separators between days. */
+function formatDateSeparator(iso: string): string {
+  try {
+    const date = new Date(iso);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+
+    const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+    if (sameDay(date, today)) return "Today";
+    if (sameDay(date, yesterday)) return "Yesterday";
+    return date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  } catch {
+    return "";
+  }
+}
+
+/** True when this message starts a new calendar day within the thread. */
+function shouldShowDateSeparator(messages: { created_at: string }[], index: number): boolean {
+  if (index === 0) return true;
+  try {
+    const current = new Date(messages[index].created_at).toDateString();
+    const previous = new Date(messages[index - 1].created_at).toDateString();
+    return current !== previous;
+  } catch {
+    return false;
+  }
+}
+
 function fileNameFromUrl(url: string): string {
   const last = url.split("/").pop()?.split("?")[0] ?? "";
   if (!last) return "download";
@@ -669,31 +725,52 @@ export default function ChannelChatDashboard({ channel, theme }: { channel: stri
           </div>
         )}
 
+        {/*
+          On phones this behaves like WhatsApp: one pane at a time. The list
+          fills the screen until you pick someone, then the thread takes over
+          with a back arrow. Previously both panes stacked, so reading a reply
+          meant scrolling past every conversation in the list first — unusable
+          one-handed, which is how this gets used in practice.
+          From lg up, the original two-pane layout is unchanged.
+        */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="bg-[#1A1A1A] border border-white/10 rounded-xl overflow-hidden lg:col-span-1">
+          <div
+            className={`bg-[#1A1A1A] border border-white/10 rounded-xl overflow-hidden lg:col-span-1 ${
+              selectedId ? "hidden lg:block" : "block"
+            }`}
+          >
             <div className="p-4 border-b border-white/10 text-xs uppercase font-bold text-brand-silver tracking-widest">
               {loadingList ? "Loading..." : `${conversations.length} conversations`}
             </div>
-            <div className="max-h-[70vh] overflow-y-auto divide-y divide-white/5">
+            <div className="max-h-[calc(100vh-14rem)] lg:max-h-[70vh] overflow-y-auto divide-y divide-white/5">
               {conversations.map((c) => (
                 <button
                   key={c.id}
                   onClick={() => setSelectedId(c.id)}
-                  className={`w-full text-left p-4 hover:bg-white/5 transition-all ${
+                  className={`w-full text-left px-3 py-3 hover:bg-white/5 transition-all flex items-start gap-3 ${
                     selectedId === c.id ? `bg-white/10 border-l-2 ${theme.accentBorder}` : ""
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-bold truncate">{c.displayName || c.externalUserId}</span>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {c.status === "handed_off" && (
-                        <span className="text-[10px] uppercase font-bold text-yellow-400">Paused</span>
-                      )}
-                      <span className="text-[10px] text-brand-silver">{formatTimestamp(c.updatedAt)}</span>
-                    </div>
+                  {/* Avatar — the quickest way to tell threads apart at a
+                      glance when every row is otherwise a phone number. */}
+                  <div
+                    className={`w-11 h-11 rounded-full ${theme.bubbleOut} border border-white/10 flex items-center justify-center text-sm font-bold shrink-0 mt-0.5`}
+                  >
+                    {initialsFor(c.displayName || c.externalUserId)}
                   </div>
-                  <div className="text-xs text-brand-silver truncate">
-                    {c.lastMessage?.content || "No messages yet"}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-2 mb-0.5">
+                      <span className="text-sm font-bold truncate">{c.displayName || c.externalUserId}</span>
+                      <span className="text-[10px] text-brand-silver shrink-0">{formatTimestamp(c.updatedAt)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-brand-silver truncate flex-1">
+                        {c.lastMessage?.content || "No messages yet"}
+                      </span>
+                      {c.status === "handed_off" && (
+                        <span className="text-[9px] uppercase font-bold text-yellow-400 shrink-0">Paused</span>
+                      )}
+                    </div>
                   </div>
                 </button>
               ))}
@@ -703,47 +780,89 @@ export default function ChannelChatDashboard({ channel, theme }: { channel: stri
             </div>
           </div>
 
-          <div className="bg-[#1A1A1A] border border-white/10 rounded-xl overflow-hidden lg:col-span-2 flex flex-col">
+          <div
+            className={`bg-[#1A1A1A] border border-white/10 rounded-xl overflow-hidden lg:col-span-2 flex flex-col ${
+              selectedId ? "flex" : "hidden lg:flex"
+            }`}
+          >
             {!selectedConversation ? (
               <div className="flex-1 flex items-center justify-center text-brand-silver p-12 text-sm">
                 Select a conversation to view it.
               </div>
             ) : (
               <>
-                <div className="p-4 border-b border-white/10 flex items-center justify-between">
-                  <div>
-                    <div className="font-bold">{selectedConversation.displayName || selectedConversation.externalUserId}</div>
-                    <div className="text-xs text-brand-silver">{selectedConversation.externalUserId}</div>
+                {/* Sticky so the name and the pause control stay reachable
+                    while scrolling a long thread on a phone. */}
+                <div className="p-3 border-b border-white/10 flex items-center gap-3 sticky top-0 bg-[#1A1A1A] z-10">
+                  <button
+                    onClick={() => setSelectedId(null)}
+                    aria-label="Back to conversations"
+                    className="lg:hidden text-brand-silver hover:text-white shrink-0 p-1 -ml-1"
+                  >
+                    <FaArrowLeft />
+                  </button>
+                  <div
+                    className={`w-9 h-9 rounded-full ${theme.bubbleOut} border border-white/10 flex items-center justify-center text-xs font-bold shrink-0`}
+                  >
+                    {initialsFor(selectedConversation.displayName || selectedConversation.externalUserId)}
                   </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold truncate text-sm">
+                      {selectedConversation.displayName || selectedConversation.externalUserId}
+                    </div>
+                    <div className="text-[11px] text-brand-silver truncate">
+                      {selectedConversation.status === "handed_off" ? "Bot paused — you're replying" : "Bot is answering"}
+                    </div>
+                  </div>
+                  {/* Icon-only on phones; the label returns once there's room. */}
                   <button
                     onClick={() => toggleStatus(selectedConversation.id, selectedConversation.status)}
-                    className="bg-white/5 hover:bg-white/10 px-3 py-2 rounded flex items-center gap-2 text-xs uppercase font-bold border border-white/10"
+                    title={selectedConversation.status === "handed_off" ? "Resume bot" : "Pause bot"}
+                    className="bg-white/5 hover:bg-white/10 px-3 py-2 rounded flex items-center gap-2 text-xs uppercase font-bold border border-white/10 shrink-0"
                   >
                     {selectedConversation.status === "handed_off" ? (
                       <>
-                        <FaPlay /> Resume Bot
+                        <FaPlay /> <span className="hidden sm:inline">Resume Bot</span>
                       </>
                     ) : (
                       <>
-                        <FaPause /> Pause Bot
+                        <FaPause /> <span className="hidden sm:inline">Pause Bot</span>
                       </>
                     )}
                   </button>
                 </div>
 
-                <div className="flex-1 max-h-[55vh] overflow-y-auto p-4 space-y-3">
+                <div className="flex-1 max-h-[calc(100vh-20rem)] lg:max-h-[55vh] overflow-y-auto p-3 space-y-1.5">
                   {loadingThread && <div className="text-brand-silver text-sm">Loading...</div>}
-                  {messages.map((m) => (
-                    <div key={m.id} className={`flex ${m.role === "user" ? "justify-start" : "justify-end"}`}>
-                      <div
-                        className={`max-w-[75%] rounded-lg px-4 py-2 text-sm ${
-                          m.role === "user" ? "bg-white/5 border border-white/10" : `${theme.bubbleOut} border border-white/10`
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 mb-1 text-[10px] uppercase font-bold text-brand-silver">
-                          {m.role === "user" ? <FaUser /> : m.provider === "human" ? <FaUser /> : <FaRobot />}
-                          {m.role === "user" ? "Customer" : m.provider === "human" ? "You (manual)" : `Bot (${m.provider || "?"})`}
+                  {messages.map((m, i) => (
+                    <div key={m.id}>
+                      {/* Date separator, WhatsApp-style — a long thread is
+                          unreadable without knowing where yesterday ended. */}
+                      {shouldShowDateSeparator(messages, i) && (
+                        <div className="flex justify-center my-3">
+                          <span className="text-[10px] uppercase tracking-wide text-brand-silver bg-white/5 rounded-full px-3 py-1">
+                            {formatDateSeparator(m.created_at)}
+                          </span>
                         </div>
+                      )}
+                      <div className={`flex ${m.role === "user" ? "justify-start" : "justify-end"}`}>
+                        <div
+                          className={`max-w-[85%] sm:max-w-[75%] px-3 py-2 text-sm ${
+                            m.role === "user"
+                              ? "bg-white/5 border border-white/10 rounded-2xl rounded-bl-sm"
+                              : `${theme.bubbleOut} border border-white/10 rounded-2xl rounded-br-sm`
+                          }`}
+                        >
+                          {/* Only outgoing messages carry a label, and only to
+                              distinguish a bot reply from one you typed —
+                              which side it's on already says who sent it, so
+                              labelling every bubble was just noise. */}
+                          {m.role !== "user" && (
+                            <div className="flex items-center gap-1.5 mb-1 text-[10px] uppercase font-bold text-brand-silver/80">
+                              {m.provider === "human" ? <FaUser className="w-2.5 h-2.5" /> : <FaRobot className="w-2.5 h-2.5" />}
+                              {m.provider === "human" ? "You" : m.provider || "bot"}
+                            </div>
+                          )}
                         {m.media_url && m.media_type === "image" && (
                           <div className="relative group mb-2 inline-block">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -782,7 +901,14 @@ export default function ChannelChatDashboard({ channel, theme }: { channel: stri
                             </button>
                           </div>
                         )}
-                        {m.content}
+                          <div className="whitespace-pre-wrap break-words">{m.content}</div>
+                          {/* Timestamp inside the bubble, bottom-right —
+                              WhatsApp's placement, and it keeps a long thread
+                              from doubling in height with separate time rows. */}
+                          <div className="text-[10px] text-brand-silver/70 text-right mt-1 -mb-0.5">
+                            {formatClockTime(m.created_at)}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ))}
