@@ -586,8 +586,8 @@ export default function ChatWidget({ children }: { children: React.ReactNode }) 
       : "Hi, I have a question about Rig Builders."
   )}`;
 
-  // Staff-only area — never show the widget there.
-  const hideWidget = pathname?.startsWith("/admin") ?? false;
+  // Staff-only / partner areas — never show the customer chat widget there.
+  const hideWidget = pathname?.startsWith("/admin") || pathname?.startsWith("/distributor") || false;
 
   return (
     <>

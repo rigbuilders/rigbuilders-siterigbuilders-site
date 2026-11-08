@@ -203,13 +203,11 @@ export default function ProductForm({
                         onChange={e => setFormData({...formData, breadcrumb_name: e.target.value})} 
                     />
                     
-                    {/* NEW CONFIGURATOR NAME FIELD */}
-                    <input 
-                        placeholder="Configurator Name (e.g. Samsung 990 Pro 1TB)" 
-                        className="w-full bg-brand-purple/10 p-2 rounded border border-brand-white/30 text-xs text-white placeholder-brand-white/50 focus:border-brand-white outline-none font-bold" 
-                        value={formData.configurator_name} 
-                        onChange={e => setFormData({...formData, configurator_name: e.target.value})} 
-                    />
+                    {/* Configurator name is auto-mirrored from the breadcrumb name by a
+                        DB trigger (0018). Do NOT set it here — it would be overwritten. */}
+                    <p className="text-[10px] text-brand-silver/60 italic px-1 py-1">
+                        Configurator name is set automatically from the breadcrumb name.
+                    </p>
                 </div>
             </div>
 
@@ -230,8 +228,17 @@ export default function ProductForm({
             {/* 3. PRICING & WARRANTY */}
             <div className="space-y-3 bg-[#121212] p-3 rounded border border-white/5">
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="relative"><span className="absolute left-3 top-3 text-green-500">₹</span><input required type="number" placeholder="Selling Price" className="w-full bg-[#1A1A1A] p-3 pl-6 rounded border border-green-500/30 focus:border-green-500" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} /></div>
+                    <div className="relative"><span className="absolute left-3 top-3 text-amber-500">₹</span><input required type="number" placeholder="Your Cost (buying price)" className="w-full bg-[#1A1A1A] p-3 pl-6 rounded border border-amber-500/40 focus:border-amber-500" value={formData.distributor_price} onChange={e => setFormData({...formData, distributor_price: e.target.value})} /></div>
                     <div className="relative"><span className="absolute left-3 top-3 text-white/30">₹</span><input type="number" placeholder="MRP" className="w-full bg-[#1A1A1A] p-3 pl-6 rounded border border-white/10" value={formData.mrp} onChange={e => setFormData({...formData, mrp: e.target.value})} /></div>
+                </div>
+                {/* Selling price is DERIVED from cost by DB triggers (category margin +
+                    49/99 rounding). Read-only — anything written here is overwritten. */}
+                <div className="relative">
+                    <span className="absolute left-3 top-3 text-green-500/60">₹</span>
+                    <input type="text" readOnly tabIndex={-1}
+                        value={formData.price ? Number(formData.price).toLocaleString('en-IN') : 'auto-calculated on save'}
+                        className="w-full bg-black/40 p-3 pl-6 rounded border border-white/10 text-green-400/80 cursor-not-allowed" />
+                    <span className="absolute right-3 top-3 text-[10px] uppercase tracking-wider text-brand-silver/50">Selling · derived</span>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                     <input placeholder="Warranty (e.g. 3 Years)" className="w-full bg-[#1A1A1A] p-3 rounded border border-white/10" value={formData.warranty} onChange={e => setFormData({...formData, warranty: e.target.value})} />

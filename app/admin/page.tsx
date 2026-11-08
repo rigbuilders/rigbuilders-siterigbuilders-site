@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import {
   FaBox, FaClipboardList, FaPlusCircle, FaShoppingCart, FaTools,
   FaFileInvoice, FaChartPie, FaPenNib, FaTags, FaShieldAlt, FaArrowRight,
-  FaComments, FaLayerGroup, FaTruck, FaKey, FaImages
+  FaComments, FaLayerGroup, FaTruck, FaKey, FaImages, FaHandshake
 } from "react-icons/fa";
 
 export default function AdminDashboard() {
@@ -130,6 +130,13 @@ export default function AdminDashboard() {
           icon: <FaChartPie />,
           desc: "Real-time P&L analysis. Track revenue vs costs and export for CA.",
           color: "text-emerald-400 border-emerald-400/20 hover:bg-emerald-400/10"
+        },
+        {
+          title: "Distributors",
+          href: "/admin/distributors",
+          icon: <FaHandshake />,
+          desc: "Manage supplier accounts, review their product submissions, and audit cost-price changes.",
+          color: "text-cyan-400 border-cyan-400/20 hover:bg-cyan-400/10"
         },
       ]
     },

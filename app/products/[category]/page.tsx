@@ -6,6 +6,13 @@ import { onlyVisible } from '@/lib/productVisibility';
 import CategoryClient from './CategoryClient';
 import { getCategoryBySlug, getCanonicalRedirectDB } from '@/lib/categories.server';
 
+// Pricing is derived by DB triggers the instant a distributor saves a new cost.
+// revalidate = 0 keeps this page dynamically rendered so a hard-reload always
+// reflects the latest price — no ISR/CDN staleness. If category traffic ever
+// makes per-request rendering costly, switch to a small `revalidate = <sec>`
+// and call revalidatePath('/products/[category]') on-demand when a price changes.
+export const revalidate = 0;
+
 type SearchParams = { [key: string]: string | string[] | undefined };
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);

@@ -60,6 +60,19 @@ export function isHandoffRequest(text: string): boolean {
 export const HANDOFF_ACK_MESSAGE =
   "Sure thing — connecting you with a member of the Rig Builders team now. They'll reply to you right here shortly.";
 
+/**
+ * Used when the assistant escalated because it couldn't confirm something —
+ * most often a product that isn't in the catalogue.
+ *
+ * Worded differently from HANDOFF_ACK_MESSAGE on purpose. "Connecting you
+ * with someone" answers a request the customer made; this answers a question
+ * they asked, and saying we'll check tells them what's actually happening.
+ * The alternative — which the assistant used to do — was to invent a plausible
+ * product rather than admit it didn't know.
+ */
+export const CONFIRM_ACK_MESSAGE =
+  "Let me check that with the team and confirm — someone will come back to you right here shortly with the details.";
+
 // Re-exported for backward compatibility — the actual email-sending logic
 // now lives in admin-alerts.ts, shared with watchlist.ts's notification.
 export { notifyAdminOfHandoff } from "./admin-alerts";

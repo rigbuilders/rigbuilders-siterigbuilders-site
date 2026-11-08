@@ -1,5 +1,6 @@
 import {
   appendMessage,
+  claimHandoff,
   findOrCreateActiveConversation,
   findOrCreateUser,
   getRecentHistory,
@@ -10,7 +11,7 @@ import { findRelevantProducts, buildProductContext, findMentionedProduct } from 
 import { SYSTEM_PROMPT } from "./system-prompt";
 import { generateReply } from "./llm/router";
 import { stripFormatting } from "./text-sanitizer";
-import { isHandoffRequest, HANDOFF_ACK_MESSAGE } from "./handoff";
+import { isHandoffRequest, HANDOFF_ACK_MESSAGE, CONFIRM_ACK_MESSAGE } from "./handoff";
 import { notifyAdminOfHandoff, notifyWatchedNumberMessage } from "./admin-alerts";
 import { notifyAdminOfNewMessage } from "./push-notify";
 import { getWatched } from "./watchlist";
@@ -42,6 +43,20 @@ const SITE_URL = "https://www.rigbuilders.in";
 function toAbsoluteUrl(path: string): string {
   if (/^https?:\/\//i.test(path)) return path;
   return `${SITE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
+}
+
+/**
+ * Rough test for "this message names a product or asks about availability".
+ *
+ * Only used to pick the wording of an escalation we're already sending, so a
+ * wrong guess costs a slightly off sentence, never a wrong action. Hence
+ * keyword matching rather than another model call.
+ */
+const PRODUCT_QUESTION_HINTS =
+  /\b(rtx|gtx|radeon|ryzen|intel|core i[3579]|nvidia|amd|gpu|cpu|graphics card|processor|ram|ssd|nvme|motherboard|psu|price|cost|stock|available|availability|how much)\b/i;
+
+function looksLikeProductQuestion(text: string): boolean {
+  return PRODUCT_QUESTION_HINTS.test(text);
 }
 
 /**
@@ -378,7 +393,8 @@ export async function handleMessage(
   // pausing a conversation from /admin/chatbot (conversation-store.ts) —
   // this is the customer-triggered path.
   if (isHandoffRequest(effectiveText)) {
-    await updateConversationStatus(conversation.id, "handed_off");
+    // Same race guard as the NEEDS_HUMAN path below — see claimHandoff.
+    if (!(await claimHandoff(conversation.id))) return null;
     await clearMenuState(conversation.id);
     await appendMessage(conversation.id, "assistant", HANDOFF_ACK_MESSAGE, "handoff");
     await notifyTelegramEscalation({
@@ -480,22 +496,33 @@ export async function handleMessage(
     // sentence the bot used to produce with nothing behind it. Now it pauses
     // the bot, raises a loud Telegram alert, and tells the customer the truth.
     if (modelWantsHuman(rawText)) {
-      await updateConversationStatus(conversation.id, "handed_off");
+      // When the escalation came from a product question we had no catalogue
+      // data for, "let me check and confirm" is the honest description of what
+      // happens next — and it's the reply that replaces the assistant
+      // inventing a product rather than admitting it didn't know.
+      const askedAboutAProduct = candidateProducts.length === 0 && looksLikeProductQuestion(effectiveText);
+      const ack = askedAboutAProduct ? CONFIRM_ACK_MESSAGE : HANDOFF_ACK_MESSAGE;
+
+      // Only the invocation that actually flips the status speaks. Two
+      // messages a second apart otherwise produce two identical apologies.
+      if (!(await claimHandoff(conversation.id))) return null;
       await clearMenuState(conversation.id);
-      await appendMessage(conversation.id, "assistant", HANDOFF_ACK_MESSAGE, "handoff");
+      await appendMessage(conversation.id, "assistant", ack, "handoff");
       await notifyTelegramEscalation({
         channel: msg.channel,
         externalUserId: msg.externalUserId,
         text: effectiveText,
         conversationId: conversation.id,
-        reason: "Assistant decided this needs a person",
+        reason: askedAboutAProduct
+          ? "Asked about a product that isn't in the catalogue — needs confirming"
+          : "Assistant decided this needs a person",
       });
       await notifyAdminOfHandoff({
         channel: msg.channel,
         externalUserId: msg.externalUserId,
         message: effectiveText,
       });
-      return { text: HANDOFF_ACK_MESSAGE };
+      return { text: ack };
     }
 
     // Tier 3 — the model signalled it couldn't help (see system-prompt.ts and
@@ -504,9 +531,16 @@ export async function handleMessage(
     if (modelGaveUp(rawText)) {
       if (menuExhausted) {
         // Twice already. A third menu is not the answer — get a person.
-        await updateConversationStatus(conversation.id, "handed_off");
+        if (!(await claimHandoff(conversation.id))) return null;
         await clearMenuState(conversation.id);
         await appendMessage(conversation.id, "assistant", HANDOFF_ACK_MESSAGE, "handoff");
+        await notifyTelegramEscalation({
+          channel: msg.channel,
+          externalUserId: msg.externalUserId,
+          text: effectiveText,
+          conversationId: conversation.id,
+          reason: "Menu failed twice — assistant couldn't help either",
+        });
         await notifyAdminOfHandoff({
           channel: msg.channel,
           externalUserId: msg.externalUserId,

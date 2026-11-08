@@ -16,7 +16,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { FaTimes, FaSlidersH } from "react-icons/fa";
 
-export type FilterOption = string | { value: string; count?: number };
+export type FilterOption = string | { value: string; label?: string; count?: number };
 
 export type FilterGroupDef =
   | { key: string; label: string; type: "checkbox"; options: FilterOption[]; defaultOpen?: boolean }
@@ -36,6 +36,7 @@ export interface FilterSidebarProps {
 }
 
 const optValue = (o: FilterOption) => (typeof o === "string" ? o : o.value);
+const optLabel = (o: FilterOption) => (typeof o === "string" ? o : (o.label ?? o.value));
 const optCount = (o: FilterOption) => (typeof o === "string" ? undefined : o.count);
 const fmt = (n: number, prefix = "") => `${prefix}${n.toLocaleString("en-IN")}`;
 
@@ -46,9 +47,10 @@ function useChips(groups: FilterGroupDef[], value: Record<string, any>, onChange
     for (const g of groups) {
       const v = value[g.key];
       if (g.type === "checkbox" && Array.isArray(v)) {
-        v.forEach((opt: string) =>
-          chips.push({ key: `${g.key}:${opt}`, label: opt, remove: () => onChange(g.key, v.filter((x: string) => x !== opt)) })
-        );
+        v.forEach((opt: string) => {
+          const found = (g.options as FilterOption[]).find((o) => optValue(o) === opt);
+          chips.push({ key: `${g.key}:${opt}`, label: found ? optLabel(found) : opt, remove: () => onChange(g.key, v.filter((x: string) => x !== opt)) });
+        });
       } else if (g.type === "range" && Array.isArray(v)) {
         const [lo, hi] = v;
         if (lo > g.min || hi < g.max) {
@@ -89,7 +91,7 @@ function Section({ group, value, onChange }: { group: FilterGroupDef; value: Rec
                       <span className={`w-3.5 h-3.5 rounded-[3px] border flex items-center justify-center shrink-0 transition-all ${checked ? "bg-rb-orange border-rb-orange" : "border-rb-line group-hover/i:border-rb-silver"}`}>
                         {checked && <span className="w-1.5 h-1.5 bg-rb-orange-ink rounded-[1px]" />}
                       </span>
-                      <span className={`text-xs font-saira truncate ${checked ? "text-rb-white" : "text-rb-silver group-hover/i:text-rb-white"}`}>{val}</span>
+                      <span className={`text-xs font-saira truncate ${checked ? "text-rb-white" : "text-rb-silver group-hover/i:text-rb-white"}`}>{optLabel(o)}</span>
                     </span>
                     {optCount(o) !== undefined && <span className="text-[10px] text-rb-silver/50 shrink-0">{optCount(o)}</span>}
                     <input type="checkbox" className="hidden" checked={checked}

@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rig Builders — Distributor Portal</title>
+<!--
+  Single-file distributor portal. Send this file, or host it anywhere static.
+
+  SECURITY MODEL — read before sharing.
+
+  The Supabase URL and anon key below are NOT secrets: they already ship in
+  the public JavaScript of rigbuilders.in, so putting them here discloses
+  nothing new. What keeps a distributor out of your data is the database,
+  not this page:
+
+    * they must sign in with a Supabase Auth account you created
+    * that account must have a row in distributor_users
+    * they can read exactly one view (distributor_products), which omits
+      your retail price, and call exactly two functions
+
+  No table access is granted. Everything else stays unreachable no matter
+  what is typed into a console or seen in the network tab.
+
+  RUN supabase/0010_distributor_portal.sql FIRST, and check the verification
+  query at the bottom of it. CODE_AUDIT.md flags that RLS has never been
+  verified on this project — until that check passes, handing out any
+  client-side access risks exposing orders and customer addresses.
+-->
+<style>
+  :root { --line:#e5e5e5; --muted:#777; --accent:#7c3aed; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, Segoe UI, sans-serif; margin:0; padding:20px; background:#fafafa; color:#1a1a1a; }
+  header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:16px; }
+  h1 { font-size:18px; margin:0; }
+  .muted { color:var(--muted); font-size:12px; }
+  button { background:var(--accent); color:#fff; border:0; padding:8px 14px; border-radius:6px; font-weight:600; font-size:13px; cursor:pointer; }
+  button.secondary { background:#eee; color:#333; }
+  button:disabled { opacity:.5; cursor:default; }
+  input, select { border:1px solid #ccc; border-radius:5px; padding:7px 9px; font-size:13px; font-family:inherit; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:14px; }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(230px,1fr)); gap:12px; }
+  .product { background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:8px; }
+  .thumb { height:140px; background:#f4f4f6; border-radius:6px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .thumb img { max-width:100%; max-height:100%; object-fit:contain; }
+  .name { font-size:13px; font-weight:600; line-height:1.35; min-height:36px; }
+  .row { display:flex; gap:6px; align-items:center; }
+  .row input { width:100%; }
+  .status { font-size:11px; min-height:14px; }
+  .ok { color:#15803d; } .err { color:#b91c1c; }
+  .hidden { display:none; }
+  #login { max-width:340px; margin:60px auto; }
+</style>
+</head>
+<body>
+
+<div id="login" class="card">
+  <h1>Distributor portal</h1>
+  <p class="muted">Sign in with the account Rig Builders created for you.</p>
+  <div style="display:flex; flex-direction:column; gap:8px; margin-top:12px">
+    <input id="email" type="email" placeholder="you@company.com" />
+    <input id="password" type="password" placeholder="password" />
+    <button id="signIn">Sign in</button>
+    <span class="status err" id="loginError"></span>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <header>
+    <div>
+      <h1>Distributor portal</h1>
+      <span class="muted" id="who"></span>
+    </div>
+    <button class="secondary" id="signOut">Sign out</button>
+  </header>
+
+  <div class="card">
+    <div class="bar">
+      <input id="search" placeholder="search name or nickname" style="min-width:220px" />
+      <select id="category"><option value="">All categories</option></select>
+      <input id="minPrice" type="number" placeholder="min ₹" style="width:100px" />
+      <input id="maxPrice" type="number" placeholder="max ₹" style="width:100px" />
+      <button class="secondary" id="clear">Clear</button>
+      <span class="muted" id="count"></span>
+      <span style="flex:1"></span>
+      <button id="toggleAdd">Add a product</button>
+    </div>
+
+    <div id="addForm" class="hidden" style="margin-top:12px; border-top:1px solid var(--line); padding-top:12px">
+      <div class="bar">
+        <input id="newNickname" placeholder="product name / model" style="min-width:240px" />
+        <select id="newCategory"></select>
+        <input id="newPrice" type="number" placeholder="your price ₹" style="width:130px" />
+        <input id="newMrp" type="number" placeholder="MRP ₹ (optional)" style="width:140px" />
+        <button id="addProduct">Add</button>
+        <span class="status" id="addStatus"></span>
+      </div>
+      <p class="muted" style="margin:8px 0 0">Added products go to Rig Builders for review — they don't appear on the website until checked.</p>
+    </div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+  <p class="muted" id="empty"></p>
+</div>
+
+<script type="module">
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+// Fill these in before sending. Both are public values — the same pair is
+// already in the website's JavaScript bundle.
+const SUPABASE_URL = "https://hucbeapsarsidrmbalrj.supabase.co/";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh1Y2JlYXBzYXJzaWRybWJhbHJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUzNzcyOTYsImV4cCI6MjA4MDk1MzI5Nn0.vX0JuMMjvIQLwPq9b6rPQjWAqBEnulWUIBxyPugmnvs";
+
+const CATEGORIES = ["cpu","gpu","motherboard","ram","storage","psu","cabinet","cooler","os",
+  "prebuilt","monitor","keyboard","mouse","combo","mousepad","usb"];
+
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+  ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const money = (n) => n == null ? "—" : "₹" + Number(n).toLocaleString("en-IN");
+
+let products = [];
+
+for (const select of [$("category"), $("newCategory")]) {
+  if (select.id === "newCategory") select.innerHTML = `<option value="">category…</option>`;
+  for (const c of CATEGORIES) {
+    const o = document.createElement("option");
+    o.value = c; o.textContent = c;
+    select.appendChild(o);
+  }
+}
+
+// --- auth -------------------------------------------------------------------
+
+$("signIn").addEventListener("click", signIn);
+$("password").addEventListener("keydown", (e) => { if (e.key === "Enter") signIn(); });
+
+async function signIn() {
+  const err = $("loginError");
+  err.textContent = "";
+  $("signIn").disabled = true;
+  const { error } = await db.auth.signInWithPassword({
+    email: $("email").value.trim(),
+    password: $("password").value,
+  });
+  $("signIn").disabled = false;
+  if (error) { err.textContent = error.message; return; }
+  await start();
+}
+
+$("signOut").addEventListener("click", async () => {
+  await db.auth.signOut();
+  location.reload();
+});
+
+async function start() {
+  const { data: { user } } = await db.auth.getUser();
+  if (!user) return;
+  $("login").classList.add("hidden");
+  $("app").classList.remove("hidden");
+  $("who").textContent = user.email;
+  await loadProducts();
+}
+
+// --- products ---------------------------------------------------------------
+
+async function loadProducts() {
+  // Reads the view, never the table — so the retail price isn't merely
+  // hidden by this page, it was never sent.
+  const { data, error } = await db
+    .from("distributor_products")
+    .select("*")
+    .order("category")
+    .order("display_name");
+
+  if (error) {
+    $("empty").textContent = "Couldn't load products: " + error.message;
+    return;
+  }
+  products = data || [];
+  render();
+}
+
+function visible() {
+  const q = $("search").value.trim().toLowerCase();
+  const cat = $("category").value;
+  const min = parseFloat($("minPrice").value);
+  const max = parseFloat($("maxPrice").value);
+
+  return products.filter((p) => {
+    if (cat && p.category !== cat) return false;
+    if (q && !(`${p.display_name} ${p.nickname ?? ""}`.toLowerCase().includes(q))) return false;
+    const price = p.distributor_price;
+    if (!Number.isNaN(min) && (price == null || price < min)) return false;
+    if (!Number.isNaN(max) && (price == null || price > max)) return false;
+    return true;
+  });
+}
+
+function render() {
+  const list = visible();
+  $("count").textContent = `${list.length} of ${products.length}`;
+  $("empty").textContent = list.length ? "" : "Nothing matches those filters.";
+
+  $("grid").innerHTML = list.map((p) => `
+    <div class="product" data-id="${esc(p.id)}">
+      <div class="thumb">
+        ${p.image_url ? `<img src="${esc(p.image_url)}" alt="" loading="lazy" />`
+                      : `<span class="muted">no image yet</span>`}
+      </div>
+      <div class="name">${esc(p.display_name)}</div>
+      <div class="muted">${esc(p.category)}${p.mrp ? ` · MRP ${money(p.mrp)}` : ""}</div>
+      <div class="row">
+        <input class="price" type="number" value="${p.distributor_price ?? ""}" placeholder="your price" />
+        <select class="stock">
+          <option value="true" ${p.in_stock ? "selected" : ""}>In stock</option>
+          <option value="false" ${!p.in_stock ? "selected" : ""}>Out</option>
+        </select>
+      </div>
+      <div class="row">
+        <button class="save">Save</button>
+        <span class="status"></span>
+      </div>
+    </div>`).join("");
+
+  for (const card of document.querySelectorAll(".product")) {
+    card.querySelector(".save").addEventListener("click", () => save(card));
+  }
+}
+
+async function save(card) {
+  const id = card.dataset.id;
+  const price = parseFloat(card.querySelector(".price").value);
+  const inStock = card.querySelector(".stock").value === "true";
+  const status = card.querySelector(".status");
+  const button = card.querySelector(".save");
+
+  if (!Number.isFinite(price) || price <= 0) {
+    status.className = "status err";
+    status.textContent = "enter a price";
+    return;
+  }
+
+  button.disabled = true;
+  status.className = "status";
+  status.textContent = "saving…";
+
+  const { error } = await db.rpc("distributor_update_price", {
+    p_id: id,
+    p_distributor_price: price,
+    p_in_stock: inStock,
+  });
+
+  button.disabled = false;
+  if (error) {
+    status.className = "status err";
+    status.textContent = error.message;
+    return;
+  }
+  status.className = "status ok";
+  status.textContent = "saved";
+  setTimeout(() => (status.textContent = ""), 2500);
+
+  const row = products.find((p) => p.id === id);
+  if (row) { row.distributor_price = price; row.in_stock = inStock; }
+}
+
+// --- add --------------------------------------------------------------------
+
+$("toggleAdd").addEventListener("click", () => $("addForm").classList.toggle("hidden"));
+
+$("addProduct").addEventListener("click", async () => {
+  const status = $("addStatus");
+  const nickname = $("newNickname").value.trim();
+  const category = $("newCategory").value;
+  const price = parseFloat($("newPrice").value);
+  const mrp = parseFloat($("newMrp").value);
+
+  if (!nickname || !category || !Number.isFinite(price)) {
+    status.className = "status err";
+    status.textContent = "name, category and price are all needed";
+    return;
+  }
+
+  status.className = "status";
+  status.textContent = "adding…";
+  const { error } = await db.rpc("distributor_add_product", {
+    p_nickname: nickname,
+    p_category: category,
+    p_distributor_price: price,
+    p_mrp: Number.isFinite(mrp) ? mrp : null,
+  });
+
+  if (error) {
+    status.className = "status err";
+    status.textContent = error.message;
+    return;
+  }
+  status.className = "status ok";
+  status.textContent = "sent for review";
+  $("newNickname").value = ""; $("newPrice").value = ""; $("newMrp").value = "";
+  await loadProducts();
+});
+
+// --- filters ----------------------------------------------------------------
+
+for (const id of ["search", "category", "minPrice", "maxPrice"]) {
+  $(id).addEventListener("input", render);
+}
+$("clear").addEventListener("click", () => {
+  for (const id of ["search", "minPrice", "maxPrice"]) $(id).value = "";
+  $("category").value = "";
+  render();
+});
+
+// Resume an existing session so a refresh doesn't force another sign-in.
+db.auth.getSession().then(({ data }) => { if (data.session) start(); });
+</script>
+</body>
+</html>

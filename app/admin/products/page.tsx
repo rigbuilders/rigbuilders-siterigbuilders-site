@@ -32,7 +32,7 @@ export default function ProductManager() {
 
   // --- FORM DATA ---
   const [formData, setFormData] = useState({
-    id: "", name: "", breadcrumb_name: "", price: "", mrp: "", warranty: "",
+    id: "", name: "", breadcrumb_name: "", price: "", distributor_price: "", mrp: "", warranty: "",
     configurator_name: "",
     category: "cpu", group: "components", series: "", tier: "", brand: "", feed_image_url: "",
     image_url: "", in_stock: true, description: "", features_text: "",
@@ -129,14 +129,16 @@ export default function ProductManager() {
     allComponentIds.forEach(id => {
         const item = inventory.find(p => p.id === id);
         if (item) {
-            totalCost += Number(item.price) || 0;
-            totalMrp += Number(item.mrp) || Number(item.price * 1.18) || 0;
+            // Sum component COSTS (distributor_price), not selling prices — the
+            // build's retail price is derived from this cost by the DB triggers.
+            totalCost += Number(item.distributor_price) || Number(item.price) || 0;
+            totalMrp += Number(item.mrp) || Number((item.price || 0) * 1.18) || 0;
         }
     });
-    
+
     setFormData(prev => {
-        if (prev.price === totalCost.toString() && prev.mrp === totalMrp.toString()) return prev;
-        return { ...prev, price: totalCost.toString(), mrp: totalMrp.toString() };
+        if (prev.distributor_price === totalCost.toString() && prev.mrp === totalMrp.toString()) return prev;
+        return { ...prev, distributor_price: totalCost.toString(), mrp: totalMrp.toString() };
     });
   }, [
     formData.recipe_cpu, formData.recipe_mobo, formData.recipe_psu, formData.recipe_cooler, formData.recipe_cabinet, formData.recipe_os,
@@ -153,7 +155,7 @@ export default function ProductManager() {
 
   const resetForm = () => {
     setFormData({
-      id: "", name: "", breadcrumb_name: "", price: "", mrp: "", warranty: "", configurator_name: "",
+      id: "", name: "", breadcrumb_name: "", price: "", distributor_price: "", mrp: "", warranty: "", configurator_name: "",
       category: "cpu", group: "components", series: "", tier: "", brand: "", image_url: "", in_stock: true,
       cod_policy: "full_cod", description: "", features_text: "", gallery_urls: [],
       cat_name: "", cat_subtitle: "", cat_description: "", cat_image: "", 
@@ -255,9 +257,12 @@ export default function ProductManager() {
 
       const payload: any = {
         name: formData.name,
-        configurator_name: formData.configurator_name || null,
+        // configurator_name is NOT written here — a DB trigger (0018) mirrors it
+        // from breadcrumb_name. products.price is NOT written either — DB triggers
+        // derive it from distributor_price (cost) with margin rules + 49/99 rounding.
+        // We write the cost; the retail price is computed in the same transaction.
         breadcrumb_name: formData.breadcrumb_name || null,
-        price: parseFloat(formData.price),
+        distributor_price: formData.distributor_price ? parseFloat(formData.distributor_price) : null,
         mrp: formData.mrp ? parseFloat(formData.mrp) : null,
 
         variant_group_id: formData.variant_group_id || null,
@@ -314,7 +319,7 @@ export default function ProductManager() {
 
     setFormData({
       ...formData,
-      id: p.id, name: p.name, breadcrumb_name: p.breadcrumb_name || "", price: p.price.toString(),configurator_name: p.configurator_name || "",
+      id: p.id, name: p.name, breadcrumb_name: p.breadcrumb_name || "", price: p.price != null ? p.price.toString() : "", distributor_price: p.distributor_price != null ? p.distributor_price.toString() : "", configurator_name: p.configurator_name || "",
 
       variant_group_id: p.variant_group_id || "",
       specs: s, 
@@ -425,6 +430,7 @@ export default function ProductManager() {
         // UNIQUE (Reset these so user types new ones)
         name: `${parentProduct.name} (Variant)`,
         price: parentProduct.price?.toString() || "",
+        distributor_price: parentProduct.distributor_price?.toString() || "",
         mrp: parentProduct.mrp?.toString() || "",
         id: "", // Empty ID = Creates New Item
         

@@ -90,7 +90,11 @@ export const MENU_NODES: Record<string, MenuNode> = {
     prompt: "Pick whichever is closest:",
     options: [
       { id: "build", label: "Build a custom PC", hint: "Use case, budget, quote", next: "build-use-case" },
-      { id: "prebuilt", label: "Shop prebuilt rigs", hint: "Browse our four ranges", next: "prebuilt-range" },
+      // "Shop prebuilt rigs" used to sit here and was removed: Rig Builders
+      // builds to order and has no prebuilt products in the catalogue, so the
+      // branch led to an empty list — and worse, offering it invited the
+      // assistant to describe ready-made configurations that don't exist.
+      // A menu must never advertise something we don't sell.
       { id: "parts", label: "Parts and upgrades", hint: "CPU, GPU, RAM, more", next: "parts-category" },
       { id: "track", label: "Track my order", hint: "Status and delivery", next: "track-what" },
       { id: "warranty", label: "Warranty and repairs", hint: "Faults and claims", next: "warranty-issue" },
@@ -125,18 +129,10 @@ export const MENU_NODES: Record<string, MenuNode> = {
     ],
   },
 
-  // ---- Prebuilt rigs -----------------------------------------------------
-  "prebuilt-range": {
-    id: "prebuilt-range",
-    prompt: "Which range are you interested in?",
-    options: [
-      { id: "ascend", label: "Ascend", hint: "Gaming", setFilters: { series: "ascend", category: "prebuilt" }, next: "parts-list" },
-      { id: "creator", label: "Creator", hint: "Editing and streaming", setFilters: { series: "creator", category: "prebuilt" }, next: "parts-list" },
-      { id: "workpro", label: "WorkPro", hint: "CAD and rendering", setFilters: { series: "workpro", category: "prebuilt" }, next: "parts-list" },
-      { id: "signature", label: "Signature", hint: "Limited edition", setFilters: { series: "signature", category: "prebuilt" }, next: "parts-list" },
-      { id: "help", label: "Help me pick", next: "build-use-case" },
-    ],
-  },
+  // The prebuilt-range node was deleted along with its entry in the root
+  // menu — see the comment there. If ready-made rigs are ever listed in the
+  // catalogue, this is where that branch goes back, but it should be gated on
+  // those products actually existing rather than assumed.
 
   // ---- Parts and upgrades ------------------------------------------------
   "parts-category": {

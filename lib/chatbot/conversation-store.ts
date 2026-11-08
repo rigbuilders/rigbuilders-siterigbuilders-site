@@ -196,6 +196,35 @@ export async function updateConversationStatus(
   if (error) throw new Error(`Failed to update conversation status: ${error.message}`);
 }
 
+/**
+ * Atomically flips a conversation to handed_off, returning true only for the
+ * caller that actually made the change.
+ *
+ * Two messages arriving within a second of each other ("Cost for 4060?" then
+ * "Rtx 4060") are processed by two concurrent invocations. Both read status
+ * 'active' before either writes, so both decide to hand off and the customer
+ * gets the same apology twice. The `.neq` makes the update itself the lock:
+ * whoever gets there first changes a row and is told so, the loser matches
+ * nothing and stays quiet.
+ *
+ * Returns false on error too — failing to send a duplicate is the safe
+ * direction when we can't tell.
+ */
+export async function claimHandoff(conversationId: string): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
+    .from("chatbot_conversations")
+    .update({ status: "handed_off", updated_at: new Date().toISOString() })
+    .eq("id", conversationId)
+    .neq("status", "handed_off")
+    .select("id");
+
+  if (error) {
+    console.error(`[chatbot] claimHandoff failed for ${conversationId}: ${error.message}`);
+    return false;
+  }
+  return (data ?? []).length > 0;
+}
+
 export async function appendMessage(
   conversationId: string,
   role: ChatRole,
