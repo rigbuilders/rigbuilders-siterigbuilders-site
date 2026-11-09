@@ -60,8 +60,8 @@ export default function GlobalSearch({
       }
     };
 
-    // Wait 400ms after user stops typing to avoid spamming the DB
-    const delayDebounceFn = setTimeout(fetchResults, 2000);
+    // Wait ~350ms after user stops typing to avoid spamming the DB.
+    const delayDebounceFn = setTimeout(fetchResults, 350);
 
     return () => clearTimeout(delayDebounceFn);
   }, [query]);
@@ -120,7 +120,7 @@ export default function GlobalSearch({
 
       {/* Results Dropdown */}
       {results.length > 0 && (
-        <div className="absolute top-full left-0 w-full bg-[#1A1A1A] border border-white/10 mt-1 rounded shadow-xl z-[60] overflow-hidden">
+        <div className="absolute top-full left-0 w-full bg-[#1A1A1A] border border-white/10 mt-1 rounded shadow-xl z-[60] max-h-[min(60vh,420px)] overflow-y-auto overscroll-contain">
           {results.map((product) => (
             <Link 
                 href={`/product/${product.id}`} 

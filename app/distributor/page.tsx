@@ -283,7 +283,7 @@ export default function DistributorPortal() {
                     </div>
 
                     <div className="p-5 flex flex-col flex-grow relative z-10">
-                      <span className="text-[10px] font-bold text-rb-orange tracking-[0.2em] uppercase mb-2 block">{p.brand || pretty(p.category)}</span>
+                      <span className="text-[10px] font-bold text-rb-silver tracking-[0.2em] uppercase mb-2 block">{p.brand || pretty(p.category)}</span>
                       <h4 className="text-rb-white font-saira text-sm leading-tight line-clamp-2 uppercase mb-2 min-h-[36px]">{p.display_name}</h4>
                       <div className="text-[11px] text-rb-silver/70 mb-4">{pretty(p.category)}{p.mrp ? ` · MRP ${money(p.mrp)}` : ""}</div>
 

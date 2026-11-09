@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { onlyVisible } from "@/lib/productVisibility";
 import { Reveal } from "@/components/ui/MotionWrappers";
 import { FaArrowRight, FaMicrochip, FaMemory, FaHdd, FaBolt } from "react-icons/fa";
 
@@ -15,11 +16,9 @@ export default function SignaturePage() {
 
   useEffect(() => {
     const fetchSignature = async () => {
-      const { data } = await supabase
-        .from("products")
-        .select("*")
-        .eq("series", "signature")
-        .order("price", { ascending: false });
+      const { data } = await onlyVisible(
+        supabase.from("products").select("*").eq("series", "signature")
+      ).order("price", { ascending: false });
       if (data) setProducts(data);
       setLoading(false);
     };

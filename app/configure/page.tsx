@@ -5,6 +5,7 @@ import Footer from "@/components/Footer";
 import { useState, useEffect, useMemo } from "react";
 import { useCart } from "../context/CartContext";
 import { supabase } from "@/lib/supabaseClient";
+import { onlyVisible } from "@/lib/productVisibility";
 import { useRouter } from "next/navigation";
 import { Reveal } from "@/components/ui/MotionWrappers";
 import { toast } from "sonner";
@@ -42,7 +43,9 @@ export default function ConfiguratorPage() {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
-      const { data } = await supabase.from('products').select('*');
+      // Only published + complete products reach the configurator — never drafts
+      // or unlisted items (same visibility rule as the storefront).
+      const { data } = await onlyVisible(supabase.from('products').select('*'));
       if (data) {
         setInventory(data.map(p => ({
             ...p,

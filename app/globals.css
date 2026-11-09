@@ -248,7 +248,7 @@ body {
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--rb-orange-deep);
+  background: #4a4a4a;
 }
 
 /* ============================================================
@@ -295,8 +295,10 @@ body {
   transition: border-color 0.25s ease, color 0.25s ease, transform 0.25s ease;
 }
 .rb-ghost:hover {
-  border-color: var(--rb-orange);
-  color: var(--rb-orange);
+  /* Brighten to white on hover rather than turning orange — keeps orange as a
+     true ~5% accent reserved for primary CTAs / active states, not every hover. */
+  border-color: rgba(255, 255, 255, 0.42);
+  color: var(--rb-white);
   transform: translateY(-2px);
 }
 
@@ -311,8 +313,11 @@ body {
               border-color 0.35s ease, box-shadow 0.35s ease, background 0.35s ease;
 }
 .rb-surface-card:hover {
+  /* White hairline lift on hover instead of an orange-tinted border — a grid of
+     cards shouldn't glow orange on every hover (that reads as a wash). Orange
+     stays reserved for the card's actual CTA. */
   background: var(--rb-raised);
-  border-color: rgba(var(--rb-orange-rgb), 0.45);
+  border-color: rgba(255, 255, 255, 0.22);
   transform: translateY(-4px);
   box-shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.8);
 }

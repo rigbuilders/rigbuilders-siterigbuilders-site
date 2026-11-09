@@ -5,6 +5,7 @@ import Footer from "@/components/Footer";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { onlyVisible } from "@/lib/productVisibility";
 import { Reveal } from "@/components/ui/MotionWrappers";
 import { FaArrowRight, FaMicrochip, FaBolt, FaMemory } from "react-icons/fa";
 
@@ -22,11 +23,9 @@ export default function SeriesTierProducts({ series, label, subtitle, tier }: Pr
   useEffect(() => {
     const fetchTier = async () => {
       setLoading(true);
-      const { data } = await supabase
-        .from("products")
-        .select("*")
-        .eq("series", series)
-        .eq("tier", tier);
+      const { data } = await onlyVisible(
+        supabase.from("products").select("*").eq("series", series).eq("tier", tier)
+      );
       setProducts(data || []);
       setLoading(false);
     };

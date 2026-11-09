@@ -229,7 +229,7 @@ export default function CategoryClient({
                       </Link>
 
                       <div className="p-6 flex flex-col flex-grow relative z-10">
-                        <span className="text-[10px] font-bold text-rb-orange tracking-[0.2em] uppercase mb-2 block">{product.brand}</span>
+                        <span className="text-[10px] font-bold text-rb-silver tracking-[0.2em] uppercase mb-2 block">{product.brand}</span>
 
                         <Link href={`/product/${product.id}`} className="block mb-4">
                           <h4 className="text-rb-white font-saira text-base leading-tight group-hover:text-rb-orange transition-colors line-clamp-2 uppercase">
