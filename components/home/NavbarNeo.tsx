@@ -253,7 +253,7 @@ export default function NavbarNeo({ overlay = false }: { overlay?: boolean }) {
 
           {/* ══════════ DETACHED DROPDOWN PANELS (A) ══════════ */}
           {/* PRODUCTS */}
-          <MegaWrap show={activeMenu === "products"} onEnter={() => openMenu("products")} onLeave={scheduleClose} className="left-0 right-0">
+          <MegaWrap show={activeMenu === "products"} onEnter={() => openMenu("products")} onLeave={scheduleClose} className="left-0 right-0" clip={false}>
             <div className="grid grid-cols-4 divide-x divide-rb-line">
               <MegaCol title="PC Components" icon={FaMicrochip}>
                 {menu.components.map((c) => (
@@ -361,7 +361,7 @@ export default function NavbarNeo({ overlay = false }: { overlay?: boolean }) {
           </MegaWrap>
 
           {/* SEARCH (detached so the glass blur is effective) */}
-          <MegaWrap show={activeMenu === "search"} onEnter={() => openMenu("search")} onLeave={scheduleClose} className="right-0 w-[380px] max-w-[calc(100vw-2rem)]">
+          <MegaWrap show={activeMenu === "search"} onEnter={() => openMenu("search")} onLeave={scheduleClose} className="right-0 w-[380px] max-w-[calc(100vw-2rem)]" clip={false}>
             <div className="mb-5">
               <GlobalSearch placeholder="Search rigbuilders.in…" variant="standard" onSearchSubmit={scheduleClose} />
             </div>
@@ -458,9 +458,9 @@ export default function NavbarNeo({ overlay = false }: { overlay?: boolean }) {
 
 /* ── Dropdown shell: detached, rounded, blurred panel under the capsule ── */
 function MegaWrap({
-  show, children, onEnter, onLeave, className = "", pad = "p-6",
+  show, children, onEnter, onLeave, className = "", pad = "p-6", clip = true,
 }: {
-  show: boolean; children: React.ReactNode; onEnter: () => void; onLeave: () => void; className?: string; pad?: string;
+  show: boolean; children: React.ReactNode; onEnter: () => void; onLeave: () => void; className?: string; pad?: string; clip?: boolean;
 }) {
   return (
     <div
@@ -470,7 +470,9 @@ function MegaWrap({
         show ? "opacity-100 visible translate-y-0" : "opacity-0 invisible -translate-y-2 pointer-events-none"
       } ${className}`}
     >
-      <div className={`relative overflow-hidden rounded-2xl bg-rb-black/90 backdrop-blur-2xl backdrop-saturate-150 border border-white/10 ring-1 ring-inset ring-white/5 shadow-[0_28px_70px_-24px_rgba(0,0,0,0.95)] ${pad}`}>
+      {/* `clip={false}` for the search panel so its scrollable results dropdown
+          isn't cut off by the panel's rounded overflow-hidden box. */}
+      <div className={`relative ${clip ? "overflow-hidden" : "overflow-visible"} rounded-2xl bg-rb-black/90 backdrop-blur-2xl backdrop-saturate-150 border border-white/10 ring-1 ring-inset ring-white/5 shadow-[0_28px_70px_-24px_rgba(0,0,0,0.95)] ${pad}`}>
         {/* glass sheen across the top edge */}
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
         {children}

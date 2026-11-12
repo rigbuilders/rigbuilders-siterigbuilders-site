@@ -1,6 +1,15 @@
 import type { Metadata } from "next";
 import ProductHubClient from "./ProductHubClient";
+import SearchResults from "./SearchResults";
 import { getHubCategories } from "@/lib/categories.server";
+
+type SearchParams = { [key: string]: string | string[] | undefined };
+
+const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+
+// Results reflect live stock and pricing, so this can't be statically cached
+// the way the category hub alone could be.
+export const revalidate = 0;
 
 // 1. SET PROPER SEO METADATA
 export const metadata: Metadata = {
@@ -23,7 +32,13 @@ export const metadata: Metadata = {
 };
 
 // 2. RENDER THE CLIENT UI (categories fetched server-side, DB-driven with fallback)
-export default async function ProductHubPage() {
+export default async function ProductHubPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  // GlobalSearch.tsx navigates here on Enter, and the site's JSON-LD
+  // SearchAction points Google at this URL too — both were silently ignored
+  // until now, dropping the query and showing the generic hub.
+  const query = one((await searchParams).search)?.trim();
+  if (query) return <SearchResults query={query} />;
+
   const hubCategories = await getHubCategories();
   const cards = hubCategories.map((c) => ({
     id: c.slug,
