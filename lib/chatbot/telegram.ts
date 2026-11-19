@@ -166,7 +166,7 @@ export async function notifyTelegramEscalation(params: {
     `‼️ <b>NEEDS A PERSON</b> — ${escapeHtml(label)}\n` +
     `<b>Why:</b> ${escapeHtml(params.reason)}${contactLine}\n\n` +
     `${escapeHtml(params.text?.trim() || "(no text)")}\n\n` +
-    `<i>Reply to this message to answer them directly.</i>\n` +
+    `<i>Reply to this message to answer them directly, or reply /resume to hand it back to the bot.</i>\n` +
     `<a href="${escapeHtml(inboxUrl)}">Open inbox</a>`;
 
   const sent = await callTelegram("sendMessage", {

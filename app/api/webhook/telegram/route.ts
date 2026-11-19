@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTelegramConfig } from "@/lib/chatbot/config";
 import { findTelegramLink, replyInTelegram } from "@/lib/chatbot/telegram";
 import { resolveReplyTarget, sendAgentReply } from "@/lib/chatbot/agent-reply";
+import { updateConversationStatus } from "@/lib/chatbot/conversation-store";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -87,6 +88,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const target = await resolveReplyTarget(link.conversationId);
   if (!target) {
     await replyInTelegram(message.message_id, "That conversation no longer exists.");
+    return ok();
+  }
+
+  // Answering a customer pauses the bot on that conversation, which is right
+  // — but nothing turned it back on except opening the admin dashboard, so
+  // handled conversations stayed silent and every later message from that
+  // customer got "a team member will reply shortly" instead of an answer.
+  // Replying /resume to any alert hands the thread back to the assistant.
+  const command = message.text.trim().toLowerCase();
+  if (command === "/resume" || command === "/bot on" || command === "resume bot") {
+    await updateConversationStatus(link.conversationId, "active");
+    await replyInTelegram(
+      message.message_id,
+      `Bot resumed on this ${link.channel} conversation — it'll answer the customer again from their next message.`
+    );
     return ok();
   }
 

@@ -1,5 +1,6 @@
 import {
   appendMessage,
+  claimHandoff,
   findOrCreateActiveConversation,
   findOrCreateUser,
   getRecentHistory,
@@ -7,7 +8,7 @@ import {
 } from "./conversation-store";
 import { getGeminiConfig, getLlmApiConfig } from "./config";
 import { isExcluded } from "./exclusions";
-import { isHandoffRequest, HANDOFF_ACK_MESSAGE } from "./handoff";
+import { isHandoffRequest, HANDOFF_ACK_MESSAGE, CONFIRM_ACK_MESSAGE } from "./handoff";
 import { notifyAdminOfHandoff, notifyWatchedNumberMessage } from "./admin-alerts";
 import { notifyAdminOfNewMessage } from "./push-notify";
 import { getWatched } from "./watchlist";
@@ -17,7 +18,8 @@ import { buildProductContext, findRelevantProducts, toProductCards, type Product
 import { detectBuildIntent, buildQuoteContext, type BuildQuote } from "./build-recommender";
 import { tryHandleQuotationRequest } from "./quotation-flow";
 import { SYSTEM_PROMPT } from "./system-prompt";
-import { menuIntro, modelGaveUp, preLlmMenuTrigger } from "./menu-trigger";
+import { menuIntro, modelGaveUp, modelWantsHuman, preLlmMenuTrigger } from "./menu-trigger";
+import { notifyTelegramEscalation } from "./telegram";
 import { stripFormatting, createSanitizingTransform } from "./text-sanitizer";
 import type { NormalizedMessage } from "./types";
 
@@ -71,6 +73,68 @@ function withProductsHeader(
  * an error fallback) — the widget's fetch-and-read client code stays
  * identical either way.
  */
+/**
+ * Reads just enough of a stream to inspect its opening, then hands back a
+ * stream that still replays everything from the start.
+ *
+ * Needed because the model's control signals (NEEDS_HUMAN, NEEDS_MENU) arrive
+ * as the first thing in the reply, and on a streaming channel the first
+ * tokens are on the customer's screen before anything downstream could react.
+ * Without this the website literally streamed the word "NEEDS_HUMAN" to
+ * customers — the sentinel checks existed only on the non-streaming Gemini
+ * fallback, so the primary path had no idea what it was forwarding.
+ *
+ * Buffering ~48 characters costs a fraction of a second on normal replies and
+ * nothing at all on the ones we end up discarding.
+ */
+async function peekStream(
+  stream: ReadableStream<Uint8Array>,
+  minChars = 48
+): Promise<{ prefix: string; stream: ReadableStream<Uint8Array> }> {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  const buffered: Uint8Array[] = [];
+  let prefix = "";
+  let upstreamDone = false;
+
+  while (prefix.length < minChars) {
+    const { done, value } = await reader.read();
+    if (done) {
+      upstreamDone = true;
+      break;
+    }
+    if (value) {
+      buffered.push(value);
+      prefix += decoder.decode(value, { stream: true });
+    }
+  }
+
+  const replayed = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      // Replay what we consumed, then continue from where the reader is.
+      if (buffered.length > 0) {
+        controller.enqueue(buffered.shift() as Uint8Array);
+        return;
+      }
+      if (upstreamDone) {
+        controller.close();
+        return;
+      }
+      const { done, value } = await reader.read();
+      if (done) {
+        controller.close();
+        return;
+      }
+      controller.enqueue(value);
+    },
+    async cancel() {
+      await reader.cancel().catch(() => {});
+    },
+  });
+
+  return { prefix, stream: replayed };
+}
+
 function staticStream(text: string): ReadableStream<Uint8Array> {
   return new ReadableStream<Uint8Array>({
     start(controller) {
@@ -269,13 +333,48 @@ export async function handleWebsiteMessage(
     // page even though nothing downstream could claw them back once sent.
     if (llmConfig) {
       try {
-        const stream = await streamOpenAICompatReply(
+        const raw = await streamOpenAICompatReply(
           llmConfig,
           systemPrompt,
           history,
           text,
           persist(llmConfig.label)
         );
+
+        // Inspect the opening before any of it reaches the visitor — the
+        // control signals are always the first thing in the reply. Discarding
+        // the stream here cancels it upstream, which deliberately skips the
+        // persist callback so the sentinel never lands in the transcript.
+        const { prefix, stream } = await peekStream(raw);
+
+        if (modelWantsHuman(prefix)) {
+          await stream.cancel().catch(() => {});
+          const askedAboutAProduct = products.length === 0;
+          const ack = askedAboutAProduct ? CONFIRM_ACK_MESSAGE : HANDOFF_ACK_MESSAGE;
+
+          if (await claimHandoff(conversation.id)) {
+            await appendMessage(conversation.id, "assistant", ack, "handoff");
+            await notifyTelegramEscalation({
+              channel: "website",
+              externalUserId: visitorId,
+              text,
+              conversationId: conversation.id,
+              reason: askedAboutAProduct
+                ? "Asked about a product that isn't in the catalogue — needs confirming"
+                : "Assistant decided this needs a person",
+            });
+            await notifyAdminOfHandoff({ channel: "website", externalUserId: visitorId, message: text });
+          }
+          return withProductsHeader([], null, staticStream(ack));
+        }
+
+        if (modelGaveUp(prefix)) {
+          await stream.cancel().catch(() => {});
+          const intro = menuIntro("model-gave-up", false);
+          await appendMessage(conversation.id, "assistant", intro, "menu");
+          return withProductsHeader([], null, staticStream(intro), { openMenu: true });
+        }
+
         return withProductsHeader(cards, buildQuote, stream.pipeThrough(createSanitizingTransform()));
       } catch (err) {
         console.error(`[chatbot:website] ${llmConfig.label} failed, falling back to gemini: ${(err as Error).message}`);
