@@ -28,6 +28,7 @@ import { menuIntro, modelGaveUp, modelWantsHuman, preLlmMenuTrigger, type MenuTr
 import { notifyTelegramEscalation } from "./telegram";
 import { getProductDetail } from "./menu-data";
 import { IMAGE_ACK_MESSAGE, buildImageContext, describeImage } from "./vision";
+import { answerBrief, isBriefInProgress, looksLikeBuildRequest, startBrief } from "./build-brief-flow";
 import type { MediaType, NormalizedMessage, ReplyMeta } from "./types";
 
 const SITE_URL = "https://www.rigbuilders.in";
@@ -432,6 +433,35 @@ export async function handleMessage(
   }
   if (quotation) {
     return quotation;
+  }
+
+  // Build enquiries with no specific parts named — "a gaming PC under 1 lakh".
+  // Handled by the questionnaire rather than the model: the answers are a
+  // fixed set the team needs before anyone can price anything, and a
+  // conversation that drifts around them produces a lead nobody can act on.
+  //
+  // Checked AFTER quotation-flow on purpose: a request that names real parts
+  // can be priced straight from the catalogue, so there's nothing to ask.
+  try {
+    const briefContext = { channel: msg.channel, customer: msg.externalUserId };
+
+    if (await isBriefInProgress(conversation.id)) {
+      const step = await answerBrief(conversation.id, effectiveText, briefContext);
+      if (step) {
+        await appendMessage(conversation.id, "assistant", step.text, "build-brief");
+        return { text: step.text, menu: step.menu };
+      }
+    } else if (looksLikeBuildRequest(effectiveText)) {
+      const step = await startBrief(conversation.id, effectiveText, briefContext);
+      if (step) {
+        await appendMessage(conversation.id, "assistant", step.text, "build-brief");
+        return { text: step.text, menu: step.menu };
+      }
+    }
+  } catch (err) {
+    // A broken questionnaire must not swallow the enquiry — fall through and
+    // let the assistant answer conversationally.
+    console.error(`[chatbot:orchestrator] build brief failed: ${(err as Error).message}`);
   }
 
   // getRecentHistory already includes the inbound message appended above, and

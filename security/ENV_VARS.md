@@ -66,6 +66,12 @@ switching vendor or model needs no code change.
 | `TELEGRAM_CHAT_ID` | telegram | disables Telegram alerts — your private chat id, or a group id (negative number) once more than one person answers |
 | `TELEGRAM_WEBHOOK_SECRET` | webhook/telegram | unset = no header check. **Set it.** Without it the reply endpoint is an open relay to your customers |
 | `ADMIN_EMAIL_ALERTS` | admin-alerts | `on`. Set to `off` once Telegram is covering every message and the handoff emails are just noise |
+| `QUOTE_ALERT_PHONES` | quote-routing | `917986553947,917814389247`. Comma-separated. Receives BOTH alert types — unmatched parts and completed build briefs. Only used when `QUOTE_ALERT_TEMPLATE` is also set — see below |
+| `EMAIL_WEBHOOK_SECRET` | webhook/email | unset = endpoint returns 403 to everything. Must match the `X-Webhook-Secret` header the local n8n workflow sends. **Set it** — this endpoint can send mail to customers |
+| `DISTRIBUTOR_PHONES` | internal-contacts | `917986553947`. Comma-separated. **Messages from these numbers never reach the customer pipeline** — they're parsed as distributor quotes instead |
+| `APPROVER_PHONES` | internal-contacts | `917814389247`. Comma-separated. Also excluded from the customer pipeline; their "send" / "updated quotation" decides a sourcing request |
+| `QUOTE_ALERT_TEMPLATE` | quote-routing | unset = alerts go to Telegram only. WhatsApp cannot message an arbitrary number without an **approved Message Template**; set this to one with a single body parameter to turn the WhatsApp send on as well |
+| `QUOTE_ALERT_TEMPLATE_LANG` | quote-routing | `en` |
 | `OLLAMA_BASE_URL` | llm/providers/ollama | **TEMPORARY** — unset means "use Together"; set to `http://localhost:11434` for local Ollama testing only, delete when done |
 | `OLLAMA_MODEL` | llm/providers/ollama | `llama3:latest ` (only read if `OLLAMA_BASE_URL` is set) |
 

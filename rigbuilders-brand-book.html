@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rig Builders — Brand Book</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Saira:wght@300;400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --black:#121212; --surface:#181818; --elevated:#1E1E1E; --raised:#262626;
+  --line:#2E2E2E; --silver:#8A8F90; --mist:#C7CBCC; --white:#F4F5F5;
+  --orange:#FF5A1F; --orange-deep:#E24410; --ink:#160603;
+  --success:#22C55E; --danger:#E5484D;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--black);color:var(--white);font-family:'Saira','Helvetica Neue',Arial,sans-serif;line-height:1.65;-webkit-font-smoothing:antialiased;}
+h1,h2,h3,h4,.orb{font-family:'Orbitron','Helvetica Neue',Arial,sans-serif;}
+.wrap{max-width:900px;margin:0 auto;padding:0 32px;}
+.kicker{font-size:11px;letter-spacing:.32em;text-transform:uppercase;color:var(--orange);font-weight:700;}
+.muted{color:var(--silver);}
+.mist{color:var(--mist);}
+a{color:var(--orange);text-decoration:none;}
+
+/* cover */
+.cover{min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:80px 0;position:relative;overflow:hidden;}
+.cover:before{content:"";position:absolute;top:-10%;right:-15%;width:60%;height:60%;background:radial-gradient(circle,rgba(255,90,31,.14),transparent 60%);pointer-events:none;}
+.logo{display:flex;align-items:center;gap:14px;margin-bottom:60px;}
+.logo .mark{width:52px;height:58px;}
+.logo .wm{font-size:22px;font-weight:900;letter-spacing:.14em;}
+.logo .wm b{color:var(--orange);}
+.cover h1{font-size:clamp(44px,8vw,92px);font-weight:900;line-height:.95;letter-spacing:-2px;text-transform:uppercase;}
+.cover h1 .amp{color:var(--orange);}
+.cover .sub{font-size:19px;color:var(--mist);max-width:620px;margin-top:28px;font-weight:300;}
+.cover .meta{margin-top:60px;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--silver);}
+
+/* sections */
+section{padding:72px 0;border-top:1px solid var(--line);}
+.sec-no{font-family:'Orbitron';font-size:13px;color:var(--orange);letter-spacing:.2em;font-weight:700;}
+section h2{font-size:clamp(28px,4vw,40px);font-weight:800;text-transform:uppercase;letter-spacing:-.5px;margin:10px 0 26px;}
+section h3{font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--white);margin:30px 0 12px;}
+p{margin-bottom:16px;color:var(--mist);font-size:15.5px;}
+p.lead{font-size:18px;color:var(--white);font-weight:300;}
+strong{color:var(--white);font-weight:600;}
+ul{margin:0 0 18px 0;list-style:none;}
+li{color:var(--mist);font-size:15px;padding-left:22px;position:relative;margin-bottom:9px;}
+li:before{content:"";position:absolute;left:0;top:10px;width:7px;height:7px;background:var(--orange);border-radius:1px;}
+
+.card{background:var(--elevated);border:1px solid var(--line);border-radius:14px;padding:26px;margin:16px 0;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+.card h4{font-size:14px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;}
+.card .big{font-family:'Orbitron';font-size:30px;font-weight:900;color:var(--orange);line-height:1;margin-bottom:8px;}
+.quote{font-family:'Orbitron';font-size:clamp(22px,3.5vw,32px);font-weight:700;line-height:1.3;color:var(--white);border-left:3px solid var(--orange);padding-left:24px;margin:26px 0;}
+.quote span{color:var(--orange);}
+
+/* swatches */
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;}
+.sw{border:1px solid var(--line);border-radius:10px;overflow:hidden;}
+.sw .chip{height:90px;}
+.sw .info{padding:10px 12px;font-size:11px;}
+.sw .info b{display:block;font-size:12px;letter-spacing:.05em;margin-bottom:2px;}
+.sw .info code{color:var(--silver);font-family:'Saira';}
+.bar60{display:flex;height:46px;border-radius:8px;overflow:hidden;margin:14px 0;font-size:11px;font-weight:700;}
+.bar60 div{display:flex;align-items:center;justify-content:center;letter-spacing:.1em;}
+
+/* type specimen */
+.type-row{border-top:1px solid var(--line);padding:18px 0;display:flex;align-items:baseline;gap:20px;flex-wrap:wrap;}
+.type-row .tag{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--silver);width:120px;flex-shrink:0;}
+
+/* do/dont */
+.dd{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.dd .do{border:1px solid rgba(34,197,94,.3);background:rgba(34,197,94,.06);border-radius:12px;padding:20px;}
+.dd .dont{border:1px solid rgba(229,72,77,.3);background:rgba(229,72,77,.06);border-radius:12px;padding:20px;}
+.dd h4{font-size:12px;letter-spacing:.15em;}
+.dd .do h4{color:var(--success);} .dd .dont h4{color:var(--danger);}
+.dd li:before{display:none;} .dd li{padding-left:0;font-size:14px;}
+
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px;}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top;}
+th{font-family:'Orbitron';font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--silver);}
+td{color:var(--mist);} td strong{color:var(--white);}
+
+.footer{padding:60px 0;border-top:1px solid var(--orange);text-align:center;}
+.footer .q{font-family:'Orbitron';font-size:18px;text-transform:uppercase;letter-spacing:.1em;}
+@media(max-width:680px){.grid2,.grid3,.dd{grid-template-columns:1fr;}}
+
+/* ===== A4 PRINT / PDF — MARGIN-PROOF ===== */
+/* The content prints as ONE continuous dark column with a uniform light frame on
+   a white page. Whatever margin the browser reserves simply widens that frame,
+   so it always looks intentional — no gray borders, at any Margins setting. */
+@media print{
+  @page{ size:A4; margin:0; }
+  html,body{ background:#ffffff !important; }
+  *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+  body::after{ display:none !important; }
+
+  /* Top-level blocks stack tight into one dark column with an 11mm side frame. */
+  .cover, section, .footer{
+    background:#141414 !important;
+    margin:0 11mm !important;
+    border-top:0 !important;
+    padding:15mm 14mm !important;
+    break-before:auto !important;
+  }
+  .cover{
+    height:auto; min-height:0; overflow:hidden;
+    margin-top:11mm !important;
+    border-radius:16px 16px 0 0;
+    padding:26mm 14mm !important;
+  }
+  .cover:before{ opacity:1; }
+  .footer{ margin-bottom:11mm !important; border-radius:0 0 16px 16px; }
+  .wrap{ max-width:none; width:100%; margin:0; padding:0; }
+
+  /* Keep blocks whole across page breaks; keep headings with their content. */
+  .card,.quote,.dd .do,.dd .dont,.sw,.type-row,.bar60,tr,li,img,svg{ break-inside:avoid; }
+  .sec-no,h2,h3,h4{ break-after:avoid; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===================== COVER ===================== -->
+<div class="cover">
+  <div class="wrap">
+    <div class="logo">
+      <svg class="mark" viewBox="0 0 52 58"><path fill="none" stroke="#FF5A1F" stroke-width="2.5" d="M26 3 L48 15 L48 43 L26 55 L4 43 L4 15 Z"/><text x="26" y="36" font-size="20" font-weight="900" fill="#F4F5F5" text-anchor="middle" font-family="Orbitron,Arial">RB</text></svg>
+      <span class="wm">RIG<b>BUILDERS</b></span>
+    </div>
+    <div class="kicker" style="margin-bottom:18px;">Brand Book · v1.0 · 2026</div>
+    <h1>Commissioned.<br>Not assembled<span class="amp">.</span></h1>
+    <p class="sub">The brand strategy, identity and voice of India's proof-built custom PC brand — one reference for how Rig Builders thinks, speaks and looks.</p>
+    <div class="meta">Rig Builders · Bathinda, Punjab, India · rigbuilders.in</div>
+  </div>
+</div>
+
+<!-- ===================== 01 BRAND HOUSE ===================== -->
+<section><div class="wrap">
+  <div class="sec-no">01</div>
+  <h2>The Brand House</h2>
+  <p class="lead">Everything Rig Builders says and builds ladders up to a single idea: <strong>peace-of-mind performance</strong>. We don't sell boxes of parts — we commission proven machines, and we stay accountable for them.</p>
+
+  <div class="quote">"We don't assemble PCs.<br>We <span>commission</span> them — and prove it."</div>
+
+  <h3>Brand Idea (Essence)</h3>
+  <p><strong>Engineered confidence.</strong> A Rig Builders machine removes the doubt from buying a high-performance PC — expertly specced, built, stress-tested, documented and delivered insured, so the customer never has to wonder whether it was done right.</p>
+
+  <div class="grid2">
+    <div class="card">
+      <h4>Vision</h4>
+      <p>To make proof-built, premium custom PCs the trusted default across India — so that owning a high-performance machine is a confident, stress-free experience, never a gamble.</p>
+    </div>
+    <div class="card">
+      <h4>Mission</h4>
+      <p>We commission custom PCs — expertly guided, engineered, stress-tested and documented — and deliver them insured nationwide, each one proven for exactly how its owner plays, creates or works, and backed by people who stay after the sale.</p>
+    </div>
+  </div>
+
+  <h3>Brand Promise</h3>
+  <p class="lead">Proven for exactly how you use it — guided before you buy, engineered when we build, and supported long after it ships.</p>
+
+  <h3>Core Values</h3>
+  <ul>
+    <li><strong>Proof over promises.</strong> Reliability is documented — stress tests, thermal validation, QC — not claimed.</li>
+    <li><strong>Engineering discipline.</strong> Component harmony, cable management and airflow are standard, not upsells.</li>
+    <li><strong>Peace of mind.</strong> We own the stress so the customer doesn't — before, during and after the purchase.</li>
+    <li><strong>Premium through restraint.</strong> Quiet confidence, not hype. The work speaks; we don't shout.</li>
+    <li><strong>Accountability.</strong> 3-year warranty, lifetime technical support, insured delivery — we stand behind every build.</li>
+  </ul>
+
+  <h3>Brand Personality</h3>
+  <p>Archetype: <strong>The Engineer meets the Expert Guide</strong> (Maker × Sage). Precise, calm, confident and premium — the trusted specialist who explains, proves, and never oversells. Rig Builders is the friend who actually knows hardware and would never let you buy the wrong thing.</p>
+</div></section>
+
+<!-- ===================== 02 POSITIONING ===================== -->
+<section><div class="wrap">
+  <div class="sec-no">02</div>
+  <h2>Brand Positioning</h2>
+
+  <h3>Positioning Statement</h3>
+  <div class="card">
+    <p style="font-size:17px;color:var(--white);">For discerning buyers across India who want a high-performance PC and value <strong>reliability and a premium, guided experience over the lowest price</strong>, <strong>Rig Builders</strong> is the custom-PC brand that <strong>commissions</strong> every system — expertly specced, engineered, stress-tested and documented, then delivered insured nationwide. Unlike mass-market prebuilt brands that ship assembled boxes, we hand-build and <strong>prove</strong> each machine for exactly how you use it, and stand behind it with lifetime support.</p>
+  </div>
+
+  <h3>Competitive Frame</h3>
+  <p>We compete against <strong>national prebuilt / custom-PC brands</strong> — not the local assembler down the street. That sets the bar high: our rivals are credible and nationwide, so our edge is <strong>experience and proof</strong>, not merely "custom."</p>
+
+  <h3>Point of Difference</h3>
+  <table>
+    <tr><th>National prebuilt brands</th><th>Rig Builders</th></tr>
+    <tr><td>Configure-and-ship; a tool picks parts</td><td><strong>Expert human guidance</strong> — we spec it with you, not for a cart</td></tr>
+    <tr><td>"Tested" as a claim</td><td><strong>Documented proof</strong> — stress &amp; thermal validation you can see</td></tr>
+    <tr><td>Assembled to an order</td><td><strong>Commissioned &amp; engineered</strong> — cable-managed, airflow-designed, QC'd</td></tr>
+    <tr><td>Transaction ends at delivery</td><td><strong>Relationship</strong> — 3-yr warranty + lifetime support + remote help</td></tr>
+    <tr><td>Generic courier</td><td><strong>Insured, shock-protected pan-India delivery</strong></td></tr>
+  </table>
+
+  <h3>Reasons to Believe</h3>
+  <ul>
+    <li>The commission process: procurement → professional assembly → stress testing → quality inspection → secure packaging → insured dispatch.</li>
+    <li>3-Year system warranty, lifetime technical support and remote troubleshooting.</li>
+    <li>Every build hand-assembled and quality-checked by a named builder — signed, not anonymous.</li>
+    <li>Live compatibility, power and thermal checks in the configurator — proof starts before you buy.</li>
+    <li>5.0 Google rating and real customer reviews; transparent, documented hand-off.</li>
+  </ul>
+
+  <h3>Price Positioning</h3>
+  <p><strong>Premium.</strong> Rig Builders sits deliberately above price-led competitors. We never win on being cheapest; we win on reliability, proof and experience. The premium is the point — it's what pays for the stress-testing, the engineering, the warranty and the human on the other end.</p>
+</div></section>
+
+<!-- ===================== 03 AUDIENCE & SEGMENTATION ===================== -->
+<section><div class="wrap">
+  <div class="sec-no">03</div>
+  <h2>Audience &amp; Segmentation</h2>
+  <p class="lead">Rig Builders is <strong>not segmented by use case</strong>. A gamer, an editor and a business buyer can all be our customer — or none of them, depending on mindset. We segment by <strong>attitude</strong>.</p>
+
+  <h3>Primary Segment — The Peace-of-Mind Premium Buyer</h3>
+  <p>The person who buys from Rig Builders shares a mindset, not a job title:</p>
+  <ul>
+    <li>Prefers a <strong>premium, seamless customer experience</strong> over a cheap, uncertain one.</li>
+    <li>Wants <strong>expert guidance</strong> — to be advised, not left to pick random parts alone.</li>
+    <li>Values <strong>stresslessness</strong> before, during and after the purchase.</li>
+    <li>Prioritises a <strong>stable, reliable system</strong> over squeezing out the last rupee of saving.</li>
+    <li>Is <strong>willing to spend a little more</strong> in exchange for reliability, trust and proof of the build.</li>
+  </ul>
+
+  <h3>Need-State Lenses (how that mindset shows up)</h3>
+  <p>The same peace-of-mind buyer arrives with different jobs-to-be-done — which map to our product lines:</p>
+  <div class="grid2">
+    <div class="card"><h4>Play</h4><p class="muted">Wants a gaming rig that just works at the resolution they play — tuned, reliable, no guesswork. → <strong>Ascend</strong>.</p></div>
+    <div class="card"><h4>Create</h4><p class="muted">Needs a creation machine that won't bottleneck renders or streams, built right. → <strong>Creator</strong>.</p></div>
+    <div class="card"><h4>Work</h4><p class="muted">Needs stability, uptime and support for professional or business workloads. → <strong>WorkPro</strong>.</p></div>
+    <div class="card"><h4>Statement</h4><p class="muted">Wants the flagship, bespoke best — a signature build with nothing compromised. → <strong>Signature</strong>.</p></div>
+  </div>
+
+  <h3>Who It's For / Not For</h3>
+  <div class="dd">
+    <div class="do"><h4>✓ For</h4><ul>
+      <li>Buyers who'd rather be guided than gamble</li>
+      <li>People who value reliability and will pay a premium for it</li>
+      <li>Anyone who wants proof, not promises</li>
+      <li>Customers who want a brand that stays after the sale</li>
+    </ul></div>
+    <div class="dont"><h4>✕ Not for</h4><ul>
+      <li>Pure bargain-hunters chasing the lowest price</li>
+      <li>Hardcore DIY tinkerers who self-build to save money</li>
+      <li>Buyers indifferent to support, warranty or proof</li>
+      <li>Anyone who sees a PC as a disposable commodity</li>
+    </ul></div>
+  </div>
+
+  <h3>Illustrative Personas</h3>
+  <div class="card"><h4>“Done Guessing” — the upgrader</h4><p class="muted">Has built or bought before and been burned by instability, bad cable jobs or no support. Will happily pay more to never deal with that again. Wants someone to just get it right and prove it.</p></div>
+  <div class="card"><h4>“Can't Afford Downtime” — the professional</h4><p class="muted">Edits, renders, streams or runs a business on the machine. A crash is lost money. Buys reliability, uptime and a support line, not spec-sheet bragging rights.</p></div>
+  <div class="card"><h4>“Do It Right” — the discerning enthusiast</h4><p class="muted">Knows enough to care about quality, not enough to want the risk of self-building a ₹2L rig. Wants expert partnership and a build they're proud to show.</p></div>
+</div></section>
+
+<!-- ===================== 04 BRAND ARCHITECTURE ===================== -->
+<section><div class="wrap">
+  <div class="sec-no">04</div>
+  <h2>Brand Architecture</h2>
+  <p class="lead">A <strong>branded house</strong>: one masterbrand, Rig Builders, with endorsed product lines. The lines describe the <em>job</em>; the masterbrand carries the <em>trust</em>.</p>
+
+  <table>
+    <tr><th>Tier</th><th>Name</th><th>Role</th></tr>
+    <tr><td><strong>Masterbrand</strong></td><td>Rig Builders</td><td>The trust, the proof system, the promise — present on everything.</td></tr>
+    <tr><td rowspan="4"><strong>Desktop lines</strong></td><td>Ascend</td><td>Gaming — high-FPS esports to 4K ray-tracing.</td></tr>
+    <tr><td>Creator</td><td>Creation — streaming, editing, rendering.</td></tr>
+    <tr><td>WorkPro</td><td>Workstation — stability, uptime, business &amp; compute.</td></tr>
+    <tr><td>Signature</td><td>Flagship — bespoke, no-compromise builds.</td></tr>
+    <tr><td><strong>Custom</strong></td><td>Configurator</td><td>Build-your-own with live compatibility, power &amp; thermal checks.</td></tr>
+    <tr><td><strong>Retail</strong></td><td>Components &amp; Accessories</td><td>Genuine parts and peripherals, same proof &amp; support ethos.</td></tr>
+  </table>
+
+  <h3>Naming Principles</h3>
+  <ul>
+    <li>Line names are single, confident words that signal the <strong>outcome</strong> (Ascend, Creator, WorkPro, Signature) — never spec jargon.</li>
+    <li>Always written as "Rig Builders <em>[Line]</em>" or "<em>[Line]</em> Series" — the masterbrand is never dropped.</li>
+    <li>Products within lines use the manufacturer's real model name for parts; builds get the line + tier.</li>
+  </ul>
+</div></section>
+
+<!-- ===================== 05 MESSAGING & VOICE ===================== -->
+<section><div class="wrap">
+  <div class="sec-no">05</div>
+  <h2>Messaging &amp; Voice</h2>
+
+  <h3>Taglines</h3>
+  <div class="grid2">
+    <div class="card"><h4>Primary</h4><p class="orb" style="color:var(--white);font-size:20px;">“Commissioned. Not assembled.”</p></div>
+    <div class="card"><h4>Supporting</h4><p class="orb" style="color:var(--white);font-size:18px;">“Engineered for Performance. Built to Last.”</p></div>
+  </div>
+
+  <h3>Value Pillars (the four things we always say)</h3>
+  <div class="grid2">
+    <div class="card"><div class="big">01</div><h4>Guided, not guesswork</h4><p class="muted">Expert advice before a single part is picked.</p></div>
+    <div class="card"><div class="big">02</div><h4>Proof-built, not just assembled</h4><p class="muted">Stress-tested, thermally validated, documented.</p></div>
+    <div class="card"><div class="big">03</div><h4>Delivery without compromise</h4><p class="muted">Shock-protected, insured, pan-India.</p></div>
+    <div class="card"><div class="big">04</div><h4>A relationship, not a transaction</h4><p class="muted">3-yr warranty, lifetime support, real humans.</p></div>
+  </div>
+
+  <h3>Boilerplate</h3>
+  <div class="card"><p class="muted"><strong>Short:</strong> Rig Builders is India's proof-built custom PC brand. We commission — not assemble — gaming PCs, workstations and creator rigs: expertly guided, engineered, stress-tested and delivered insured across India, each one proven for exactly how you use it.</p></div>
+
+  <h3>Voice &amp; Tone</h3>
+  <p>We sound like a <strong>confident engineer who respects your intelligence</strong>: precise, calm, premium, honest. We prove rather than hype. We use the language of engineering — commissioned, validated, proven, documented — and we practise restraint.</p>
+  <div class="dd">
+    <div class="do"><h4>✓ Do</h4><ul>
+      <li>Lead with proof and specifics ("thermally validated", "stress-tested")</li>
+      <li>Be calm, precise and confident</li>
+      <li>Explain and guide — treat the reader as smart</li>
+      <li>Use "commissioned", "engineered", "proven"</li>
+      <li>Let whitespace and restraint signal premium</li>
+    </ul></div>
+    <div class="dont"><h4>✕ Don't</h4><ul>
+      <li>Hype, shout, or use ALL-CAPS hard-sell</li>
+      <li>Compete on being cheapest or run desperate discounts</li>
+      <li>Over-promise or claim what we can't document</li>
+      <li>Drown pages in orange or exclamation marks</li>
+      <li>Sound like a generic e-tailer listing</li>
+    </ul></div>
+  </div>
+</div></section>
+
+<!-- ===================== 06 VISUAL IDENTITY ===================== -->
+<section><div class="wrap">
+  <div class="sec-no">06</div>
+  <h2>Visual Identity</h2>
+
+  <h3>Logo</h3>
+  <p>The RB monogram (hex-cut mark) sits with the "RIG<b style="color:var(--orange)">BUILDERS</b>" wordmark. Keep clear space of at least the height of the "R" around it. Use the white/monochrome wordmark on dark; the solid black wordmark on light (invoices, print). Never recolour, stretch, add effects, or place on a busy background without a scrim.</p>
+
+  <h3>Colour — the 60 · 30 · 10 rule</h3>
+  <p>Monochrome base, one accent. Matte black carries ~60% of any surface, white ~30%, and <strong>Molten Orange only ~5–10%</strong> — reserved for CTAs, active states, key figures and the logo mark. Orange is premium precisely because it's rare; it is never a wash.</p>
+  <div class="bar60">
+    <div style="background:var(--black);color:var(--silver);flex:60;border:1px solid var(--line);">60% · MATTE BLACK</div>
+    <div style="background:var(--white);color:var(--black);flex:30;">30% · WHITE</div>
+    <div style="background:var(--orange);color:var(--ink);flex:10;">10% · ORANGE</div>
+  </div>
+  <div class="swatches">
+    <div class="sw"><div class="chip" style="background:#121212;"></div><div class="info"><b>Matte Black</b><code>#121212</code></div></div>
+    <div class="sw"><div class="chip" style="background:#181818;"></div><div class="info"><b>Surface</b><code>#181818</code></div></div>
+    <div class="sw"><div class="chip" style="background:#1E1E1E;"></div><div class="info"><b>Elevated</b><code>#1E1E1E</code></div></div>
+    <div class="sw"><div class="chip" style="background:#2E2E2E;"></div><div class="info"><b>Hairline</b><code>#2E2E2E</code></div></div>
+    <div class="sw"><div class="chip" style="background:#8A8F90;"></div><div class="info"><b>Silver (muted)</b><code>#8A8F90</code></div></div>
+    <div class="sw"><div class="chip" style="background:#F4F5F5;"></div><div class="info"><b>White</b><code>#F4F5F5</code></div></div>
+    <div class="sw"><div class="chip" style="background:#FF5A1F;"></div><div class="info"><b>Molten Orange ★</b><code>#FF5A1F</code></div></div>
+    <div class="sw"><div class="chip" style="background:#E24410;"></div><div class="info"><b>Orange Deep</b><code>#E24410</code></div></div>
+    <div class="sw"><div class="chip" style="background:#22C55E;"></div><div class="info"><b>Success</b><code>#22C55E</code></div></div>
+    <div class="sw"><div class="chip" style="background:#E5484D;"></div><div class="info"><b>Danger</b><code>#E5484D</code></div></div>
+  </div>
+
+  <h3>Typography</h3>
+  <p><strong>Orbitron</strong> — display &amp; headlines: engineered, geometric, confident. Used uppercase for impact. <strong>Saira</strong> — body, UI and running text: clean, modern, highly legible.</p>
+  <div class="card">
+    <div class="type-row"><span class="tag">Orbitron / Display</span><span class="orb" style="font-size:34px;font-weight:900;text-transform:uppercase;">Commissioned.</span></div>
+    <div class="type-row"><span class="tag">Orbitron / Heading</span><span class="orb" style="font-size:22px;font-weight:700;text-transform:uppercase;">Proof-Built Performance</span></div>
+    <div class="type-row"><span class="tag">Saira / Body</span><span style="font-size:16px;color:var(--mist);">Every system is stress-tested, thermally validated and documented before it ships.</span></div>
+    <div class="type-row"><span class="tag">Saira / Kicker</span><span class="kicker">Engineered &amp; Proven</span></div>
+  </div>
+
+  <h3>Imagery &amp; UI Principles</h3>
+  <ul>
+    <li><strong>Dark, premium product shots</strong> — builds on matte black, a single warm ember of light, lots of negative space.</li>
+    <li><strong>Proof imagery</strong> — clean interiors, cable management, validation screens — show the engineering.</li>
+    <li><strong>Restraint in motion</strong> — subtle ember glows and hairline accents; nothing busy or flashing.</li>
+    <li><strong>Hairline structure</strong> — thin #2E2E2E lines and generous whitespace carry the premium feel, not colour.</li>
+  </ul>
+</div></section>
+
+<!-- ===================== 07 EXPERIENCE & PROOF ===================== -->
+<section><div class="wrap">
+  <div class="sec-no">07</div>
+  <h2>The Proof System</h2>
+  <p class="lead">Our differentiation isn't a slogan — it's a repeatable process the customer can see. This is the brand, operationalised.</p>
+  <div class="grid3">
+    <div class="card"><div class="big">1</div><h4>Guided Spec</h4><p class="muted">Expert advice + live compatibility, power &amp; thermal checks.</p></div>
+    <div class="card"><div class="big">2</div><h4>Procurement</h4><p class="muted">Genuine components from authorised sources only.</p></div>
+    <div class="card"><div class="big">3</div><h4>Assembly</h4><p class="muted">Professional build, cable-managed, airflow-designed.</p></div>
+    <div class="card"><div class="big">4</div><h4>Stress Test</h4><p class="muted">Pushed hard; thermals &amp; stability validated.</p></div>
+    <div class="card"><div class="big">5</div><h4>QC &amp; Sign-off</h4><p class="muted">Inspected and signed by a named builder.</p></div>
+    <div class="card"><div class="big">6</div><h4>Insured Dispatch</h4><p class="muted">Shock-protected, documented, delivered pan-India.</p></div>
+  </div>
+  <h3>The Promise, Kept</h3>
+  <ul>
+    <li>3-Year system warranty · Lifetime technical support · Remote troubleshooting.</li>
+    <li>A documented, signed hand-off with every build — proof travels with the machine.</li>
+    <li>Post-sale relationship: the brand stays reachable, human and accountable.</li>
+  </ul>
+</div></section>
+
+<!-- ===================== 08 GOVERNANCE ===================== -->
+<section><div class="wrap">
+  <div class="sec-no">08</div>
+  <h2>Using This Book</h2>
+  <p>This book is the single source of truth for how Rig Builders presents itself. Before any new page, post, ad, deck or packaging ships, check it against three questions:</p>
+  <ul>
+    <li><strong>Does it prove, not just promise?</strong> (the brand idea)</li>
+    <li><strong>Does it feel premium through restraint?</strong> (voice + the 60·30·10 rule)</li>
+    <li><strong>Would the peace-of-mind buyer trust it?</strong> (the audience)</li>
+  </ul>
+  <p class="muted">Contact for brand questions: <a href="mailto:info@rigbuilders.in">info@rigbuilders.in</a> · rigbuilders.in · @rig_builders</p>
+</div></section>
+
+<div class="footer"><div class="wrap">
+  <div class="q">Commissioned. Not assembled.</div>
+  <p class="muted" style="margin-top:14px;font-size:12px;">© 2026 Rig Builders. Brand Book v1.0.</p>
+</div></div>
+
+</body>
+</html>

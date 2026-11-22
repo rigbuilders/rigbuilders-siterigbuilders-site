@@ -1,0 +1,179 @@
+{
+  "name": "Rig Builders — Gmail quotations",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 5,
+              "unit": "minutes"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "q": "is:unread -from:me -label:rb-processed"
+        },
+        "options": {
+          "downloadAttachments": false
+        }
+      },
+      "id": "gmail-trigger",
+      "name": "Gmail — new mail",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.2,
+      "position": [-220, 0],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_YOUR_GMAIL_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Strips the quoted reply chain and signature so the assistant sees the\n// customer's actual message rather than the last five emails appended to it.\n// Gmail's plain-text body is used when present; otherwise the snippet.\n\nconst out = [];\n\nfor (const item of $input.all()) {\n  const mail = item.json;\n\n  const headers = mail.payload?.headers || [];\n  const header = (name) =>\n    headers.find((h) => (h.name || '').toLowerCase() === name.toLowerCase())?.value || '';\n\n  let body = mail.text || mail.textPlain || mail.snippet || '';\n\n  // Everything from the first quote marker onward is the previous thread.\n  const cutPoints = [\n    /^On .+ wrote:$/m,\n    /^-{2,}\\s*Original Message\\s*-{2,}/im,\n    /^_{5,}$/m,\n    /^From: .+$/m,\n    /^Sent from my /m,\n  ];\n  for (const marker of cutPoints) {\n    const match = body.match(marker);\n    if (match && match.index !== undefined) body = body.slice(0, match.index);\n  }\n\n  // Collapse the runs of blank lines Gmail leaves behind.\n  body = body.replace(/\\n{3,}/g, '\\n\\n').trim();\n\n  out.push({\n    json: {\n      id: mail.id,\n      threadId: mail.threadId,\n      messageId: header('Message-ID'),\n      from: header('From'),\n      subject: header('Subject'),\n      body,\n    },\n  });\n}\n\nreturn out;"
+      },
+      "id": "clean-body",
+      "name": "Strip reply chain",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has-body",
+              "leftValue": "={{ $json.body }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "has-sender",
+              "leftValue": "={{ $json.from }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "guard",
+      "name": "Has sender and body",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.rigbuilders.in/api/webhook/email",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "REPLACE_WITH_EMAIL_WEBHOOK_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ from: $json.from, subject: $json.subject, body: $json.body, messageId: $json.messageId, threadId: $json.threadId }) }}",
+        "options": {
+          "timeout": 60000,
+          "response": {
+            "response": {
+              "neverError": false
+            }
+          }
+        }
+      },
+      "id": "post-to-app",
+      "name": "Send to Rig Builders",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 0],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "stopWorkflow"
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Strip reply chain').item.json.id }}",
+        "labelIds": ["REPLACE_WITH_RB_PROCESSED_LABEL_ID"]
+      },
+      "id": "label-processed",
+      "name": "Label as processed",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [660, 0],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_YOUR_GMAIL_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "markAsRead",
+        "messageId": "={{ $('Strip reply chain').item.json.id }}"
+      },
+      "id": "mark-read",
+      "name": "Mark as read",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [880, 0],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_YOUR_GMAIL_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Gmail — new mail": {
+      "main": [[{ "node": "Strip reply chain", "type": "main", "index": 0 }]]
+    },
+    "Strip reply chain": {
+      "main": [[{ "node": "Has sender and body", "type": "main", "index": 0 }]]
+    },
+    "Has sender and body": {
+      "main": [[{ "node": "Send to Rig Builders", "type": "main", "index": 0 }]]
+    },
+    "Send to Rig Builders": {
+      "main": [[{ "node": "Label as processed", "type": "main", "index": 0 }]]
+    },
+    "Label as processed": {
+      "main": [[{ "node": "Mark as read", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  },
+  "pinData": {},
+  "tags": []
+}

@@ -3,6 +3,7 @@ import { getTelegramConfig } from "@/lib/chatbot/config";
 import { findTelegramLink, replyInTelegram } from "@/lib/chatbot/telegram";
 import { resolveReplyTarget, sendAgentReply } from "@/lib/chatbot/agent-reply";
 import { updateConversationStatus } from "@/lib/chatbot/conversation-store";
+import { parseApproval, updateRequest, findOpenRequestForApproval } from "@/lib/chatbot/sourcing";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -64,6 +65,27 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // else is someone who found the bot, not a team member.
   if (String(message.chat?.id ?? "") !== String(config.chatId)) {
     console.error(`[webhook:telegram] ignored message from unexpected chat ${message.chat?.id}`);
+    return ok();
+  }
+
+  // Sourcing decisions ("send" / "updated quotation") are their own thing:
+  // they act on the open sourcing request rather than messaging a customer,
+  // so they're recognised before the reply-to lookup — which means they work
+  // whether or not you replied to a specific alert.
+  const decision = parseApproval(message.text);
+  if (decision) {
+    const request = await findOpenRequestForApproval();
+    if (!request) {
+      await replyInTelegram(message.message_id, "No sourcing request is waiting on a decision right now.");
+      return ok();
+    }
+    await updateRequest(request.id, { status: decision === "approve" ? "approved" : "revision_requested" });
+    await replyInTelegram(
+      message.message_id,
+      decision === "approve"
+        ? `Approved — quote this to ${request.customerExternalId ?? "the customer"}.`
+        : "Noted. Send the replacement parts and I'll put the revised list to the distributor."
+    );
     return ok();
   }
 

@@ -5,6 +5,7 @@ import { whatsappAdapter } from "@/lib/chatbot/adapters/whatsapp";
 import { messengerAdapter } from "@/lib/chatbot/adapters/messenger";
 import { instagramAdapter } from "@/lib/chatbot/adapters/instagram";
 import { handleMessage } from "@/lib/chatbot/orchestrator";
+import { handleInternalMessage } from "@/lib/chatbot/internal-inbound";
 
 // Webhook payloads must never be cached or statically rendered.
 export const dynamic = "force-dynamic";
@@ -112,6 +113,24 @@ async function processInbound(adapter: ChannelAdapter, rawPayload: unknown): Pro
   console.log(
     `[webhook:${adapter.channelId}] inbound from ${message.externalUserId}: ${JSON.stringify(message.text).slice(0, 200)}`
   );
+
+  // Not everyone who messages us is a customer. The distributor and the
+  // approver are handled entirely separately and must never reach the
+  // customer pipeline — otherwise the distributor's "rx 550 available, 8500"
+  // gets greeted and sold a gaming PC.
+  try {
+    const handled = await handleInternalMessage({
+      externalUserId: message.externalUserId,
+      text: message.text,
+    });
+    if (handled) {
+      console.log(`[webhook:${adapter.channelId}] internal contact ${message.externalUserId} — handled outside the customer flow`);
+      return;
+    }
+  } catch (err) {
+    console.error(`[webhook:${adapter.channelId}] internal handling failed: ${(err as Error).message}`);
+    return; // Don't fall through — an internal number must never be sold to.
+  }
 
   if (adapter.markAsRead && message.messageId) {
     try {

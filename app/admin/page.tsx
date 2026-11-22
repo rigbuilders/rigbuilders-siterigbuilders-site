@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import {
   FaBox, FaClipboardList, FaPlusCircle, FaShoppingCart, FaTools,
   FaFileInvoice, FaChartPie, FaPenNib, FaTags, FaShieldAlt, FaArrowRight,
-  FaComments, FaLayerGroup, FaTruck, FaKey, FaImages, FaHandshake
+  FaComments, FaLayerGroup, FaTruck, FaKey, FaImages, FaHandshake, FaFileInvoiceDollar
 } from "react-icons/fa";
 
 export default function AdminDashboard() {
@@ -90,6 +90,13 @@ export default function AdminDashboard() {
           icon: <FaTruck />,
           desc: "Blue Dart account status, balance, live shipments and saved pickup addresses.",
           color: "text-orange-400 border-orange-400/20 hover:bg-orange-400/10"
+        },
+        {
+          title: "Quotation Builder",
+          href: "/admin/quotations",
+          icon: <FaFileInvoiceDollar />,
+          desc: "Build a customer quotation by category, add parts or new ones, set validity, print to PDF.",
+          color: "text-green-400 border-green-400/20 hover:bg-green-400/10"
         },
         {
           title: "Activation Keys",

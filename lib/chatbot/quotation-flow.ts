@@ -4,6 +4,9 @@ import { generateQuotationPDF, type QuotationItem } from "./quotation-pdf";
 import { generateReply } from "./llm/router";
 import { appendMessage } from "./conversation-store";
 import { notifyAdminOfQuotationRequest } from "./admin-alerts";
+import { routeUnmatchedParts } from "./quote-routing";
+import { openSourcingRequest } from "./sourcing";
+import { getBrief } from "./build-brief";
 import type { NormalizedMessage } from "./types";
 
 /**
@@ -106,6 +109,25 @@ export async function tryHandleQuotationRequest(
     console.log(
       `[chatbot:quotation] holding reply — requested: ${terms.join(", ")} — unresolved/out of stock: ${missing.join(", ")}`
     );
+    // Straight to whoever sources parts, not just an email that may go unread
+    // — this is a customer waiting on a price, and the list of exactly what
+    // needs checking is the whole job.
+    await routeUnmatchedParts({
+      channel: msg.channel,
+      customer: msg.externalUserId,
+      requested: terms,
+      missing,
+    });
+    // Opens the distributor round-trip so his reply has something to attach
+    // to — without this his message arrives as an orphan with no customer,
+    // no brief and nothing to check a substitution against.
+    await openSourcingRequest({
+      conversationId,
+      customerChannel: msg.channel,
+      customerExternalId: msg.externalUserId,
+      requestedParts: missing,
+      brief: await getBrief(conversationId),
+    });
     await notifyAdminOfQuotationRequest({
       channel: msg.channel,
       externalUserId: msg.externalUserId,
