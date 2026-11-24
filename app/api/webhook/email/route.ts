@@ -34,6 +34,28 @@ interface EmailPayload {
   body?: string;
   messageId?: string;
   threadId?: string;
+  /** When the mail was received. Only sent by the backlog workflow. */
+  receivedAt?: string;
+  /** True when this is a catch-up on mail that was never answered. */
+  backfill?: boolean;
+  /** Classify and report what WOULD be sent, without sending it. */
+  dryRun?: boolean;
+}
+
+/**
+ * Anything left this long deserves acknowledging rather than a reply that
+ * acts as though it arrived this morning.
+ */
+const APOLOGY_AFTER_DAYS = 7;
+
+const BACKLOG_APOLOGY =
+  "Apologies for the delayed reply — your message sat unanswered longer than it should have, and we're sorry about that.";
+
+function daysSince(iso: string | undefined): number | null {
+  if (!iso) return null;
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return null;
+  return (Date.now() - then) / 86_400_000;
 }
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
@@ -73,19 +95,42 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       messageId: payload?.messageId,
     });
 
-    // null means excluded, or a human already owns this thread — recorded in
-    // the inbox either way, so n8n should still mark the mail processed.
-    if (!reply) return NextResponse.json({ status: "ok", replied: false });
+    // null means excluded, spam, or a human already owns this thread —
+    // recorded in the inbox either way, so n8n should still mark it
+    // processed. Importantly this is also how the backlog run stays silent
+    // on old marketing mail: spam is spam whether it's an hour or a month
+    // old, and apologising to a cold pitch would be worse than ignoring it.
+    if (!reply) return NextResponse.json({ status: "ok", replied: false, reason: "no reply required" });
+
+    // Old mail gets the apology in front of whatever the normal answer is,
+    // rather than a separate message or a different pipeline.
+    const age = daysSince(payload?.receivedAt);
+    const overdue = age !== null && age >= APOLOGY_AFTER_DAYS;
+    const text = overdue ? `${BACKLOG_APOLOGY}\n\n${reply.text}` : reply.text;
+
+    // Dry run exists because the first backlog pass is the risky one: it can
+    // touch hundreds of threads at once, and seeing what would go out beats
+    // discovering it in the sent folder.
+    if (payload?.dryRun) {
+      return NextResponse.json({
+        status: "ok",
+        dryRun: true,
+        wouldSendTo: address,
+        ageDays: age !== null ? Math.round(age) : null,
+        apologyAdded: overdue,
+        preview: text.slice(0, 500),
+      });
+    }
 
     const sent = await sendEmailReply({
       to: address,
       subject: subject ? `Re: ${subject}` : "Your Rig Builders enquiry",
-      text: reply.text,
+      text,
       inReplyTo: payload?.messageId,
       attachmentUrl: reply.media?.url,
     });
 
-    return NextResponse.json({ status: "ok", replied: sent });
+    return NextResponse.json({ status: "ok", replied: sent, apologyAdded: overdue });
   } catch (err) {
     console.error(`[webhook:email] failed for ${address}: ${(err as Error).message}`);
     // 500 so n8n can retry rather than marking the mail handled — losing a

@@ -5,8 +5,17 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import { FaFileInvoice, FaPrint, FaSearch, FaTruck, FaHeart, FaPlus } from "react-icons/fa";
-import { PDFDownloadLink, PDFViewer } from "@react-pdf/renderer";
+import nextDynamic from "next/dynamic";
 import { OrderPDF } from "./OrderPDF";
+
+// Code-split the heavy @react-pdf renderer out of the page bundle: it only
+// downloads + runs in the browser when the live preview is actually opened,
+// so visiting the page (and just browsing orders) stays snappy. ssr:false
+// because @react-pdf's viewer is browser-only.
+const PDFViewer = nextDynamic(() => import("@react-pdf/renderer").then((m) => m.PDFViewer), {
+  ssr: false,
+  loading: () => <div className="flex items-center justify-center h-full text-gray-500 text-sm animate-pulse">Loading preview engine…</div>,
+});
 import { templateForOrder, ThankTemplate, GOOGLE_REVIEW_URL, SITE_URL } from "@/lib/thankyou";
 
 export default function DocumentsPage() {
@@ -46,6 +55,38 @@ export default function DocumentsPage() {
   const [thankTpl, setThankTpl] = useState<ThankTemplate>("components");
   const [newStaff, setNewStaff] = useState("");
   const [addingStaff, setAddingStaff] = useState(false);
+  // QR destination for the thank-you note. "auto" keeps the existing default
+  // (single product → its page, else Google review). The rest are overrides.
+  const [qrMode, setQrMode] = useState<"auto" | "product" | "review" | "home" | "custom">("auto");
+  const [qrProductId, setQrProductId] = useState("");
+  const [qrCustom, setQrCustom] = useState("");
+  const [qrCustomLabel, setQrCustomLabel] = useState("");
+  // Invoice preview/download — both render the PDF in the browser (local CPU),
+  // on demand only, so the page never renders a PDF until you ask it to.
+  const [showPreview, setShowPreview] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  // Switching orders hides the (heavy) live preview until re-opened.
+  useEffect(() => { setShowPreview(false); }, [selectedOrder?.id]);
+
+  // Generate the invoice PDF only when the button is clicked (not on every
+  // order select), using the browser's own CPU via a lazily-imported renderer.
+  const downloadInvoice = async () => {
+    if (!selectedOrder) return;
+    setDownloadingPdf(true);
+    try {
+      const { pdf } = await import("@react-pdf/renderer");
+      const blob = await pdf(<OrderPDF order={selectedOrder} />).toBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `Invoice_${selectedOrder.display_id}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      alert("Could not generate the PDF: " + (e?.message || e));
+    }
+    setDownloadingPdf(false);
+  };
 
   const authToken = async () => (await supabase.auth.getSession()).data.session?.access_token || null;
 
@@ -91,6 +132,19 @@ export default function DocumentsPage() {
   const productItemsOf = (order: any) =>
     (order?.items || []).filter((i: any) => i.id && !i.custom && !i.configurator_name);
 
+  // The effective QR target, honoring the operator's override (defaults to auto).
+  const effectiveQr = (order: any) => {
+    if (qrMode === "review") return { url: GOOGLE_REVIEW_URL, label: "SCAN TO REVIEW US" };
+    if (qrMode === "home") return { url: SITE_URL, label: "SCAN TO VISIT US" };
+    if (qrMode === "product" && qrProductId) return { url: `${SITE_URL}/product/${qrProductId}`, label: "SCAN FOR YOUR PRODUCT" };
+    if (qrMode === "custom" && qrCustom.trim()) {
+      let u = qrCustom.trim();
+      if (!/^https?:\/\//i.test(u)) u = `https://${u}`;
+      return { url: u, label: (qrCustomLabel.trim() || "SCAN HERE").toUpperCase() };
+    }
+    return qrTargetOf(order); // auto (or incomplete override) → default behavior
+  };
+
   // QR target: exactly one distinct catalog product → its page; else Google reviews.
   const qrTargetOf = (order: any) => {
     const ids = Array.from(new Set(productItemsOf(order).map((i: any) => i.id)));
@@ -104,6 +158,8 @@ export default function DocumentsPage() {
     const cats = (order?.items || []).map((i: any) => i.category || (i.configurator_name ? "custom" : ""));
     setThankTpl(templateForOrder(cats));
     if (!thankBy && staff.length) setThankBy(staff[0].name);
+    // Reset the QR override to the default each time the note is opened.
+    setQrMode("auto"); setQrProductId(""); setQrCustom(""); setQrCustomLabel("");
     setThankOrder(order);
   };
 
@@ -127,7 +183,9 @@ export default function DocumentsPage() {
 
   const printThankYou = () => {
     if (!thankBy) { alert("Select or add who assembled/packaged this order."); return; }
-    const { url, label } = qrTargetOf(thankOrder);
+    if (qrMode === "custom" && !qrCustom.trim()) { alert("Enter the custom URL for the QR, or pick another destination."); return; }
+    if (qrMode === "product" && !qrProductId) { alert("Pick which product the QR should point to."); return; }
+    const { url, label } = effectiveQr(thankOrder);
     const qs = new URLSearchParams({ tpl: thankTpl, by: thankBy, qr: url, ql: label });
     window.open(`/api/thankyou?${qs.toString()}`, "_blank");
   };
@@ -491,22 +549,33 @@ export default function DocumentsPage() {
                                 <FaHeart /> Thank-You Note
                             </button>
 
-                            {/* DOWNLOAD BUTTON */}
-                            <PDFDownloadLink
-                                document={<OrderPDF order={selectedOrder} />} 
-                                fileName={`Invoice_${selectedOrder.display_id}.pdf`}
-                                className="bg-brand-purple hover:bg-brand-purple/80 text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2"
+                            {/* DOWNLOAD BUTTON — renders the PDF on click only */}
+                            <button
+                                onClick={downloadInvoice}
+                                disabled={downloadingPdf}
+                                className="bg-brand-purple hover:bg-brand-purple/80 text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2 disabled:opacity-50"
                             >
-                                {({ loading }) => loading ? 'Generating...' : <><FaPrint /> Download PDF</>}
-                            </PDFDownloadLink>
+                                <FaPrint /> {downloadingPdf ? "Generating…" : "Download PDF"}
+                            </button>
                         </div>
                     </div>
 
                     <div className="flex-grow w-full h-full">
-                        <PDFViewer width="100%" height="100%" className="w-full h-full">
-                            {/* Using the order object directly since user confirmed addresses are fine */}
-                            <OrderPDF order={selectedOrder} />
-                        </PDFViewer>
+                        {showPreview ? (
+                            <PDFViewer width="100%" height="100%" className="w-full h-full">
+                                {/* Using the order object directly since user confirmed addresses are fine */}
+                                <OrderPDF order={selectedOrder} />
+                            </PDFViewer>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center h-full text-gray-400 border border-dashed border-white/10 rounded-lg">
+                                <FaFileInvoice className="text-5xl mb-4 opacity-20" />
+                                <p className="text-sm mb-4">Live preview is off to keep the page fast.</p>
+                                <button onClick={() => setShowPreview(true)} className="bg-brand-purple/90 hover:bg-brand-purple text-white px-5 py-2.5 rounded text-sm font-bold flex items-center gap-2">
+                                    <FaSearch /> Show live preview
+                                </button>
+                                <p className="text-[11px] text-gray-600 mt-3">Downloading always works without the preview.</p>
+                            </div>
+                        )}
                     </div>
                 </>
             ) : (
@@ -522,8 +591,10 @@ export default function DocumentsPage() {
 
       {/* THANK-YOU NOTE — pick assembler + template, open print view */}
       {thankOrder && (() => {
-        const { url, label } = qrTargetOf(thankOrder);
-        const isReview = url === GOOGLE_REVIEW_URL;
+        const auto = qrTargetOf(thankOrder);
+        const { url } = effectiveQr(thankOrder);
+        const products = productItemsOf(thankOrder);
+        const uniqProducts = Array.from(new Map(products.map((p: any) => [p.id, p])).values());
         return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setThankOrder(null)} />
@@ -560,13 +631,51 @@ export default function DocumentsPage() {
               </button>
             </div>
 
-            {/* QR target info */}
-            <div className="mt-4 bg-black/40 border border-white/5 rounded-lg p-3 text-xs text-gray-400">
-              <span className="font-bold text-gray-300">QR points to: </span>
-              {isReview
-                ? <>Google review page <span className="text-gray-500">(order has {productItemsOf(thankOrder).length === 0 ? "no single catalog product" : "multiple products"})</span></>
-                : <>the product page <span className="text-gray-500">(single product order)</span></>}
-              {isReview && GOOGLE_REVIEW_URL.includes("REPLACE_WITH_PLACE_ID") && (
+            {/* QR destination */}
+            <label className="text-[10px] uppercase tracking-wider text-gray-400 mt-4 block">QR code points to</label>
+            <div className="grid grid-cols-2 gap-2 mt-1">
+              {([
+                ["auto", "Auto (default)"],
+                ["product", "A product page"],
+                ["review", "Google review"],
+                ["home", "Website home"],
+                ["custom", "Custom link"],
+              ] as const).map(([m, lbl]) => (
+                <button key={m} onClick={() => setQrMode(m)}
+                  className={`py-2 rounded text-xs font-bold border transition-colors ${qrMode === m ? "bg-[#FF5A1F] text-black border-[#FF5A1F]" : "border-white/15 text-gray-300 hover:bg-white/5"}`}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+
+            {qrMode === "product" && (
+              <select value={qrProductId} onChange={e => setQrProductId(e.target.value)}
+                className="w-full mt-2 bg-black border border-white/10 p-2.5 rounded text-sm focus:border-amber-500 outline-none">
+                <option value="">Select a product from this order…</option>
+                {uniqProducts.map((p: any) => <option key={p.id} value={p.id}>{p.name || p.product_name || p.id}</option>)}
+              </select>
+            )}
+            {qrMode === "custom" && (
+              <div className="mt-2 space-y-2">
+                <input value={qrCustom} onChange={e => setQrCustom(e.target.value)} placeholder="https://… (any link)"
+                  className="w-full bg-black border border-white/10 p-2.5 rounded text-sm focus:border-amber-500 outline-none" />
+                <input value={qrCustomLabel} onChange={e => setQrCustomLabel(e.target.value)} placeholder="Caption under the QR (optional, e.g. SCAN FOR SETUP GUIDE)"
+                  className="w-full bg-black border border-white/10 p-2.5 rounded text-sm focus:border-amber-500 outline-none" />
+              </div>
+            )}
+
+            {/* Live target preview */}
+            <div className="mt-3 bg-black/40 border border-white/5 rounded-lg p-3 text-xs text-gray-400 break-all">
+              <span className="font-bold text-gray-300">Resolves to: </span>
+              {url}
+              {qrMode === "auto" && (
+                <div className="text-gray-500 mt-1">
+                  {auto.url === GOOGLE_REVIEW_URL
+                    ? `Google review page (order has ${products.length === 0 ? "no single catalog product" : "multiple products"}).`
+                    : "The single product's page."}
+                </div>
+              )}
+              {url === GOOGLE_REVIEW_URL && GOOGLE_REVIEW_URL.includes("REPLACE_WITH_PLACE_ID") && (
                 <div className="mt-2 text-amber-400">⚠ Set your Google review link in lib/thankyou.ts first.</div>
               )}
             </div>

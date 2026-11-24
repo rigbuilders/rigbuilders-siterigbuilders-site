@@ -195,6 +195,59 @@ export async function notifyTelegramEscalation(params: {
   }
 }
 
+/**
+ * A categorised message — "SUPPLIER OFFER", "BULK / CORPORATE" and so on.
+ *
+ * The heading is what makes a busy chat scannable: you can tell at a glance
+ * whether something needs you now or can wait, without reading the message.
+ * The summary underneath is what the sender actually wants, so a decision can
+ * be made from the notification alone.
+ *
+ * Linked like any other alert, so replying to it answers the sender.
+ */
+export async function notifyTelegramCategorised(params: {
+  heading: string;
+  summary: string;
+  channel: string;
+  externalUserId: string;
+  conversationId: string;
+}): Promise<void> {
+  const config = getTelegramConfig();
+  if (!config) return;
+
+  const label = CHANNEL_LABEL[params.channel] ?? params.channel;
+  const inboxUrl = `${SITE_URL}/admin/chatbot/${CHANNEL_ROUTE[params.channel] ?? ""}`;
+
+  const message =
+    `<b>${escapeHtml(params.heading.toUpperCase())}</b>\n` +
+    `${escapeHtml(label)} — <code>${escapeHtml(params.externalUserId)}</code>\n\n` +
+    `${escapeHtml(params.summary)}\n\n` +
+    `<i>Reply to this message to answer them.</i>\n` +
+    `<a href="${escapeHtml(inboxUrl)}">Open inbox</a>`;
+
+  const sent = await callTelegram("sendMessage", {
+    chat_id: config.chatId,
+    text: message,
+    parse_mode: "HTML",
+    disable_web_page_preview: true,
+  });
+
+  const messageId = sent?.result?.message_id;
+  if (!messageId) return;
+
+  try {
+    await supabaseAdmin.from("telegram_message_links").insert({
+      telegram_chat_id: String(config.chatId),
+      telegram_message_id: messageId,
+      conversation_id: params.conversationId,
+      channel: params.channel,
+      external_user_id: params.externalUserId,
+    });
+  } catch (err) {
+    console.error(`[chatbot:telegram] categorised link insert failed: ${(err as Error).message}`);
+  }
+}
+
 /** Plain confirmation back into the Telegram thread (delivery receipts, errors). */
 export async function replyInTelegram(replyToMessageId: number, text: string): Promise<void> {
   const config = getTelegramConfig();

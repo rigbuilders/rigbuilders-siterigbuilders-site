@@ -38,6 +38,19 @@ export const generateOrderId = async (
 };
 
 /**
+ * Next Quotation Number: RB-QO-{YYYY}-{XXX}  e.g. RB-QO-2026-001
+ *
+ * Uses the full 4-digit year (per spec) and the shared atomic `counters` table
+ * via the `rb_qo` counter, so numbers are sequential and collision-free. Assigned
+ * only when a quotation is finalized (status → final/"quoted"), then kept stable.
+ */
+export const generateQuotationNo = async (supabase: SupabaseClient) => {
+  const year = new Date().getFullYear().toString();
+  const seq = await nextCounter(supabase, "rb_qo");
+  return `RB-QO-${year}-${seq}`;
+};
+
+/**
  * Next Invoice Number: INV-RB-{YY}-{XXX}  e.g. INV-RB-26-001
  */
 export const generateInvoiceId = async (supabase: SupabaseClient) => {

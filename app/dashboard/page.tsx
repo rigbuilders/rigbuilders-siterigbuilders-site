@@ -6,9 +6,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import { FaBoxOpen, FaSave, FaMicrochip, FaTrash, FaMapMarkerAlt, FaImage, FaSignOutAlt } from "react-icons/fa";
+import { FaBoxOpen, FaSave, FaMicrochip, FaTrash, FaMapMarkerAlt, FaImage, FaSignOutAlt, FaFileInvoiceDollar, FaDownload, FaTimes, FaCheckCircle } from "react-icons/fa";
 import OrderTimeline from "@/components/OrderTimeline";
 import AddressBook from "@/components/account/AddressBook";
+import { toast } from "sonner";
+
+const inr = (n: any) => Number(n || 0).toLocaleString("en-IN");
 
 // Statuses a customer may still cancel (mirrors the API's allow-list).
 const CANCELLABLE = ["pending", "paid", "payment_received", "processing", "procurement"];
@@ -20,11 +23,16 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const [savedConfigs, setSavedConfigs] = useState<any[]>([]);
+  const [quotations, setQuotations] = useState<any[]>([]);
+  const [viewQuote, setViewQuote] = useState<any | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [showWelcome, setShowWelcome] = useState(false);
 
-  // Open a specific tab when arrived via ?tab= (e.g. redirect from /account/addresses).
+  // Open a specific tab when arrived via ?tab= (e.g. redirect from /account/addresses
+  // or the quotation login link, which lands on ?tab=quotations&welcome=1).
   useEffect(() => {
     const t = new URLSearchParams(window.location.search).get("tab");
-    if (t && ["orders", "saved", "addresses"].includes(t)) setActiveTab(t);
+    if (t && ["orders", "saved", "addresses", "quotations"].includes(t)) setActiveTab(t);
   }, []);
 
   useEffect(() => {
@@ -75,6 +83,23 @@ export default function DashboardPage() {
         .order("created_at", { ascending: false });
 
       setSavedConfigs(savedData || []);
+
+      // 3. FETCH QUOTATIONS (finalized only; RLS restricts to this user).
+      const { data: quoteData } = await supabase
+        .from("quotations")
+        .select("id, quotation_no, title, customer, total, valid_until, created_at, delivery, gst_location, gst_inclusive, data")
+        .eq("user_id", user.id)
+        .eq("status", "final")
+        .order("created_at", { ascending: false });
+      setQuotations(quoteData || []);
+
+      // First-time welcome: the account was auto-created from a quotation and the
+      // customer hasn't been onboarded yet (or arrived via the login link).
+      const meta = user.user_metadata || {};
+      if (meta.source === "quotation" && meta.onboarded !== true) {
+        setShowWelcome(true);
+      }
+
       setLoading(false);
 
       // --- REAL-TIME LISTENERS ---
@@ -138,6 +163,59 @@ export default function DashboardPage() {
     else alert("Could not delete: " + error.message);
   };
 
+  // Download a quotation PDF (server-rendered, ownership-checked).
+  const handleDownloadQuote = async (q: any) => {
+    setDownloadingId(q.id);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) { toast.error("Your session expired — please sign in again."); return; }
+      const res = await fetch(`/api/quotations/${q.id}/pdf`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || "Download failed"); }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${q.quotation_no || "RigBuilders_Quotation"}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      toast.error(e.message || "Could not download the quotation.");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  // Mark the customer onboarded so the welcome popup doesn't reappear.
+  const dismissWelcome = async () => {
+    setShowWelcome(false);
+    try { await supabase.auth.updateUser({ data: { onboarded: true } }); } catch { /* best-effort */ }
+  };
+  const resendLoginLink = async () => {
+    try {
+      if (!user?.email) return;
+      await fetch("/api/auth/forgot-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: user.email }) });
+      toast.success("Login link sent", { description: `Check ${user.email} for a secure sign-in link.` });
+    } catch { toast.error("Could not send the link. Please try again."); }
+  };
+
+  // Line items + totals for the on-page quotation viewer (mirrors the PDF math).
+  const quoteLines = (q: any) => {
+    const lines: { label: string; name: string; qty: number; price: number }[] = [];
+    for (const c of q?.data?.cats || []) for (const p of c.parts || []) if (p?.name) lines.push({ label: c.label || c.dbCat, name: p.name, qty: Number(p.qty) || 1, price: Number(p.price) || 0 });
+    return lines;
+  };
+  const quoteTotals = (q: any) => {
+    const face = quoteLines(q).reduce((s, l) => s + l.price * l.qty, 0);
+    const showGst = q?.data?.showGst !== false;
+    const allIn = q?.gst_inclusive ? face : face * 1.18;
+    const taxable = allIn / 1.18;
+    const gst = allIn - taxable;
+    const delivery = Number(q?.delivery) || 0;
+    const goods = showGst ? allIn : face;
+    return { face, showGst, taxable, gst, gstHalf: gst / 2, delivery, grand: goods + delivery };
+  };
+
   const getProgressWidth = (status: string) => {
     const s = (status || "").toLowerCase();
     if (s.includes("delivered") || s.includes("completed")) return "100%";
@@ -174,6 +252,7 @@ export default function DashboardPage() {
 
           <nav className="rb-surface-card p-2 space-y-1">
             <SidebarBtn icon={<FaBoxOpen />} label="My Orders" isActive={activeTab === "orders"} onClick={() => setActiveTab("orders")} />
+            <SidebarBtn icon={<FaFileInvoiceDollar />} label="Quotations" isActive={activeTab === "quotations"} onClick={() => setActiveTab("quotations")} badge={quotations.length || undefined} />
             <SidebarBtn icon={<FaSave />} label="Saved Configs" isActive={activeTab === "saved"} onClick={() => setActiveTab("saved")} />
             <SidebarBtn icon={<FaMapMarkerAlt />} label="Address Book" isActive={activeTab === "addresses"} onClick={() => setActiveTab("addresses")} />
             <button onClick={handleSignOut} className="w-full text-left px-5 py-3.5 rounded-lg text-rb-silver hover:bg-rb-danger/10 hover:text-rb-danger transition-colors flex items-center gap-3">
@@ -315,20 +394,180 @@ export default function DashboardPage() {
             </div>
           )}
 
+          {activeTab === "quotations" && (
+            <div className="space-y-6">
+              <div>
+                <span className="rb-kicker">Your estimates</span>
+                <h2 className="mt-1 font-orbitron text-2xl sm:text-3xl font-black uppercase text-rb-white">Your <span className="rb-text-ember">Quotations</span></h2>
+              </div>
+
+              {quotations.length === 0 ? (
+                <div className="text-center py-16 border border-dashed border-rb-line rounded-xl">
+                  <p className="text-rb-silver">No quotations yet.</p>
+                  <p className="text-rb-silver/60 text-xs mt-1">When we prepare a quotation for you, it will appear here to view and download.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {quotations.map((q) => {
+                    const t = quoteTotals(q);
+                    const expired = q.valid_until && new Date(q.valid_until) < new Date();
+                    return (
+                      <div key={q.id} className="relative rb-surface-card !bg-rb-black p-5 group overflow-hidden">
+                        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-rb-orange to-rb-orange-deep" />
+                        <div className="flex justify-between items-start mb-4">
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-bold tracking-widest text-rb-orange uppercase">{q.quotation_no || "Quotation"}</p>
+                            <h3 className="font-orbitron font-bold text-rb-white text-lg truncate" title={q.title}>{q.title || "Custom Build"}</h3>
+                            <p className="text-xs text-rb-silver">Issued {new Date(q.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</p>
+                          </div>
+                          <div className="w-11 h-11 rounded-xl bg-rb-surface border border-rb-line flex items-center justify-center text-rb-orange shrink-0"><FaFileInvoiceDollar /></div>
+                        </div>
+
+                        <div className="flex items-end justify-between pt-3 border-t border-rb-line">
+                          <div>
+                            <p className="text-[10px] text-rb-silver uppercase tracking-wider">Final amount</p>
+                            <p className="font-orbitron font-black text-xl text-rb-white">₹{inr(q.total || t.grand)}</p>
+                            {q.valid_until && (
+                              <p className={`text-[10px] mt-1 font-bold uppercase tracking-wider ${expired ? "text-rb-danger" : "text-rb-silver"}`}>
+                                {expired ? "Expired" : "Valid until"} {new Date(q.valid_until).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => setViewQuote(q)} className="px-3 py-2 rounded-lg text-xs font-bold border border-rb-line text-rb-silver hover:text-rb-white hover:border-rb-orange/50 transition-colors">View</button>
+                            <button onClick={() => handleDownloadQuote(q)} disabled={downloadingId === q.id} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold bg-rb-orange text-rb-orange-ink hover:brightness-110 transition disabled:opacity-50">
+                              <FaDownload size={11} /> {downloadingId === q.id ? "…" : "PDF"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === "addresses" && <AddressBook />}
         </section>
       </div>
+
+      {/* QUOTATION VIEWER */}
+      {viewQuote && (() => {
+        const t = quoteTotals(viewQuote);
+        const lines = quoteLines(viewQuote);
+        return (
+          <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setViewQuote(null)}>
+            <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white text-[#161616] rounded-2xl shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <button onClick={() => setViewQuote(null)} className="absolute top-4 right-4 text-gray-400 hover:text-black transition-colors"><FaTimes size={18} /></button>
+              <div className="p-7 sm:p-9">
+                <div className="flex items-start justify-between border-b-2 border-[#161616] pb-4">
+                  <div>
+                    <p className="font-orbitron font-black text-lg tracking-wide">RIG<span className="text-rb-orange">BUILDERS</span></p>
+                    <p className="text-[10px] uppercase tracking-widest text-gray-500 mt-1">Custom Gaming PCs &amp; Workstations</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-orbitron font-bold text-lg uppercase">Quotation</p>
+                    {viewQuote.quotation_no && <p className="text-sm font-bold">{viewQuote.quotation_no}</p>}
+                    <p className="text-xs text-gray-500">{new Date(viewQuote.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</p>
+                  </div>
+                </div>
+
+                {(viewQuote.title || viewQuote.customer) && (
+                  <div className="mt-4">
+                    {viewQuote.title && <p className="font-bold text-sm">{viewQuote.title}</p>}
+                    {viewQuote.customer && <p className="text-xs text-gray-500">Prepared for {viewQuote.customer}</p>}
+                  </div>
+                )}
+
+                <table className="w-full mt-5 text-sm">
+                  <thead>
+                    <tr className="border-b-2 border-[#161616] text-[10px] uppercase tracking-wider text-gray-500">
+                      <th className="text-left py-2 font-bold">Component</th>
+                      <th className="text-left py-2 font-bold">Specification</th>
+                      <th className="text-right py-2 font-bold">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lines.map((l, i) => (
+                      <tr key={i} className="border-b border-gray-200">
+                        <td className="py-2.5 font-bold whitespace-nowrap pr-3">{l.label}{l.qty > 1 ? ` ×${l.qty}` : ""}</td>
+                        <td className="py-2.5 text-gray-700">{l.name}</td>
+                        <td className="py-2.5 text-right tabular-nums">₹{inr(l.price * l.qty)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                <div className="ml-auto w-full sm:w-72 mt-5 text-sm">
+                  {t.showGst ? (
+                    <>
+                      <Row label="Taxable value" value={`₹${inr(t.taxable)}`} muted />
+                      {viewQuote.gst_location === "outside"
+                        ? <Row label="IGST @ 18%" value={`₹${inr(t.gst)}`} muted />
+                        : <><Row label="CGST @ 9%" value={`₹${inr(t.gstHalf)}`} muted /><Row label="SGST @ 9%" value={`₹${inr(t.gstHalf)}`} muted /></>}
+                    </>
+                  ) : (
+                    <Row label="Subtotal" value={`₹${inr(t.face)}`} muted />
+                  )}
+                  {t.delivery > 0 && <Row label="Delivery (insured)" value={`₹${inr(t.delivery)}`} muted />}
+                  <div className="flex justify-between items-center border-t-2 border-[#161616] mt-2 pt-3">
+                    <span className="font-orbitron font-black">Final Amount</span>
+                    <span className="font-orbitron font-black text-rb-orange text-lg">₹{inr(viewQuote.total || t.grand)}</span>
+                  </div>
+                </div>
+
+                <button onClick={() => handleDownloadQuote(viewQuote)} disabled={downloadingId === viewQuote.id} className="w-full mt-7 flex items-center justify-center gap-2 bg-[#161616] text-white py-3 rounded-xl font-bold hover:bg-rb-orange hover:text-rb-orange-ink transition disabled:opacity-50">
+                  <FaDownload size={13} /> {downloadingId === viewQuote.id ? "Preparing…" : "Download PDF"}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* NEW-CUSTOMER WELCOME */}
+      {showWelcome && (
+        <div className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="relative w-full max-w-md bg-rb-surface border border-rb-line rounded-2xl shadow-2xl overflow-hidden">
+            <div className="h-1.5 bg-gradient-to-r from-rb-orange to-rb-orange-deep" />
+            <button onClick={dismissWelcome} className="absolute top-4 right-4 text-rb-silver hover:text-rb-white"><FaTimes size={16} /></button>
+            <div className="p-7 text-center">
+              <div className="w-14 h-14 rounded-full mx-auto mb-4 flex items-center justify-center text-rb-orange bg-rb-orange/10 text-2xl"><FaCheckCircle /></div>
+              <h3 className="font-orbitron font-black text-xl text-rb-white uppercase">Welcome aboard</h3>
+              <p className="text-rb-silver text-sm mt-3 leading-relaxed">
+                We created this account for you from your quotation. Everything we quote is right here — view the details and download a PDF anytime.
+              </p>
+              <p className="text-rb-silver/70 text-xs mt-2">Set a password so you can log back in whenever you like.</p>
+              <div className="mt-6 space-y-2.5">
+                <button onClick={() => { dismissWelcome(); router.push("/auth/update-password"); }} className="w-full bg-rb-orange text-rb-orange-ink py-3 rounded-xl font-bold hover:brightness-110 transition">Set a password</button>
+                <button onClick={resendLoginLink} className="w-full border border-rb-line text-rb-silver hover:text-rb-white py-2.5 rounded-xl text-sm font-bold transition">Email me a login link</button>
+                <button onClick={() => { dismissWelcome(); setActiveTab("quotations"); }} className="w-full text-rb-silver/70 hover:text-rb-white py-1.5 text-xs font-bold uppercase tracking-wider transition">Skip for now</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </main>
   );
 }
 
-function SidebarBtn({ icon, label, isActive, onClick }: any) {
+function Row({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
+  return (
+    <div className={`flex justify-between py-1.5 ${muted ? "text-gray-500" : "text-[#161616]"}`}>
+      <span>{label}</span><span className="tabular-nums">{value}</span>
+    </div>
+  );
+}
+
+function SidebarBtn({ icon, label, isActive, onClick, badge }: any) {
   return (
     <button onClick={onClick} className={`w-full text-left px-5 py-3.5 rounded-lg flex items-center gap-3 transition-all ${isActive ? "bg-rb-orange text-rb-orange-ink font-bold shadow-[0_0_20px_-6px_rgba(255,90,31,0.7)]" : "text-rb-silver hover:bg-white/5 hover:text-rb-white"}`}>
       <span className="text-base">{icon}</span>
-      <span className="font-saira">{label}</span>
+      <span className="font-saira flex-1">{label}</span>
+      {badge ? <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isActive ? "bg-rb-orange-ink/20 text-rb-orange-ink" : "bg-rb-orange/15 text-rb-orange"}`}>{badge}</span> : null}
     </button>
   );
 }

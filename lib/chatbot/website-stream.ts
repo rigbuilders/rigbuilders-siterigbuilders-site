@@ -20,6 +20,7 @@ import { tryHandleQuotationRequest } from "./quotation-flow";
 import { SYSTEM_PROMPT } from "./system-prompt";
 import { menuIntro, modelGaveUp, modelWantsHuman, preLlmMenuTrigger } from "./menu-trigger";
 import { notifyTelegramEscalation } from "./telegram";
+import { applyCategory } from "./category-actions";
 import { stripFormatting, createSanitizingTransform } from "./text-sanitizer";
 import type { NormalizedMessage } from "./types";
 
@@ -227,6 +228,27 @@ export async function handleWebsiteMessage(
       const intro = menuIntro(preTrigger, false);
       await appendMessage(conversation.id, "assistant", intro, "menu");
       return withProductsHeader([], null, staticStream(intro), { openMenu: true });
+    }
+
+    // Same categoriser as every other channel (see category-actions.ts), so
+    // a donation request or a cold pitch arriving through the widget is
+    // handled identically to one arriving by email.
+    try {
+      const outcome = await applyCategory({
+        text,
+        channel: "website",
+        externalUserId: visitorId,
+        conversationId: conversation.id,
+      });
+      if (outcome.handled) {
+        // Spam is the one case with no reply. The widget still needs a
+        // stream, so it gets a neutral line rather than an empty bubble —
+        // silence works on WhatsApp, but on a web page it reads as broken.
+        const reply = outcome.reply ?? "Thanks for your message.";
+        return withProductsHeader([], null, staticStream(reply));
+      }
+    } catch (err) {
+      console.error(`[chatbot:website] categorisation failed: ${(err as Error).message}`);
     }
 
     // Multi-product quotation request ("quote me a 7800X3D, an RTX 5060, and

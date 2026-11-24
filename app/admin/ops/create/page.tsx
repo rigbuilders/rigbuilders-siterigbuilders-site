@@ -4,9 +4,29 @@ import Navbar from "@/components/Navbar";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import { FaSearch, FaPlus, FaTrash, FaAmazon, FaStore, FaGlobe, FaUser, FaPhone, FaMapMarker, FaEnvelope, FaDesktop, FaGamepad, FaMicrochip } from "react-icons/fa";
+import { FaSearch, FaPlus, FaTrash, FaAmazon, FaStore, FaGlobe, FaUser, FaPhone, FaMapMarker, FaEnvelope, FaDesktop, FaGamepad, FaMicrochip, FaPen } from "react-icons/fa";
 import { toast } from "sonner";
 import { generateOrderId, generateActivationId, generateActivationBillingId } from "@/lib/id-generator";
+
+const CATS = ["cpu","gpu","motherboard","ram","storage","psu","cabinet","cooler","monitor","keyboard","mouse","combo","mousepad","usb","prebuilt"];
+const pretty = (s: string) => String(s || "").replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+const inr = (n: any) => Number(n || 0).toLocaleString("en-IN");
+
+// Exact replica of the DB's compute_selling_price(); includeFloor=false is the
+// "percent only" variant (floor forced to 0). Both keep the 49/99 rounding.
+type Rules = Record<string, { pct: number | null; floor: number }>;
+function computeSp(cost: any, category: string, includeFloor: boolean, rules: Rules, defaultPct: number): number {
+  const c = Number(cost) || 0;
+  if (c <= 0) return 0;
+  const rule = rules[category];
+  const pct = rule && rule.pct != null ? rule.pct : defaultPct;
+  const floor = includeFloor ? (rule ? rule.floor : 0) : 0;
+  const raw = c + Math.max(pct * c, floor);
+  const base = Math.floor(raw / 100) * 100;
+  if (base + 49 >= raw) return base + 49;
+  if (base + 99 >= raw) return base + 99;
+  return base + 149;
+}
 
 export default function CreateOrderPage() {
   const router = useRouter();
@@ -25,18 +45,39 @@ export default function CreateOrderPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [cart, setCart] = useState<any[]>([]);
-  // One-time / custom line item (billed once, never added to the products catalog).
-  const [customItem, setCustomItem] = useState({ name: "", price: "" });
 
-  // Auth Check
+  // Pricing engine (mirrors the Quotation Builder) — used both for new parts we
+  // save to the catalogue and for recomputing the SP when a cost is edited.
+  const [rules, setRules] = useState<Rules>({});
+  const [defaultPct, setDefaultPct] = useState(0.05);
+  const [includeFloor, setIncludeFloor] = useState(false); // false = percent only
+
+  // "Add item" form. save=false → billed once, never saved to products.
+  // save=true → inserted into products as a draft (nickname + distributor_price
+  // + category), priced by computeSp; useCalc=false lets you bill a manual SP.
+  const [newItem, setNewItem] = useState<any>({ name: "", save: false, category: "cpu", cost: "", useCalc: true, price: "", busy: false });
+
+  const sp = (cost: any, cat: string) => computeSp(cost, cat, includeFloor, rules, defaultPct);
+  const authToken = async () => (await supabase.auth.getSession()).data.session?.access_token || null;
+
+  // Auth Check + pricing config
   useEffect(() => {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         router.push("/");
-      } else {
-        setIsAdmin(true);
+        return;
       }
+      setIsAdmin(true);
+      try {
+        const token = (await supabase.auth.getSession()).data.session?.access_token;
+        const res = await fetch("/api/admin/pricing-config", { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        if (res.ok) {
+          const json = await res.json();
+          setRules(json.rules || {});
+          if (json.defaultPct != null) setDefaultPct(Number(json.defaultPct));
+        }
+      } catch { /* pricing config is best-effort */ }
     };
     checkUser();
   }, [router]);
@@ -65,16 +106,111 @@ export default function CreateOrderPage() {
     setCart(cart.filter(c => c.tempId !== tempId));
   };
 
-  // Add a one-time / custom item to this order only. It lives in the order's
-  // items + procurement rows — it is NOT written to the products table, so it
-  // never becomes a catalog listing.
-  const addCustomItem = () => {
-    const name = customItem.name.trim();
-    const price = Number(customItem.price);
+  // Add an item from the "Add item" form.
+  //  • save=false → one-time line: billed once, NOT written to products.
+  //  • save=true  → insert a draft product (nickname + distributor_price +
+  //    category) via /api/admin/quick-product, priced by computeSp. useCalc
+  //    bills the calculated SP; otherwise a manual one-time SP is billed while
+  //    the real catalogue price is still derived by the DB from the cost.
+  const addItem = async () => {
+    const name = newItem.name.trim();
     if (!name) { toast.error("Enter an item name"); return; }
-    if (!Number.isFinite(price) || price < 0) { toast.error("Enter a valid price"); return; }
-    setCart([...cart, { tempId: Math.random(), name, price, brand: "Custom", category: "custom", custom: true, image_url: null }]);
-    setCustomItem({ name: "", price: "" });
+
+    if (!newItem.save) {
+      const price = Number(newItem.price);
+      if (!Number.isFinite(price) || price < 0) { toast.error("Enter a valid price"); return; }
+      setCart([...cart, { tempId: Math.random(), name, price, brand: "Custom", category: "custom", custom: true, image_url: null }]);
+      setNewItem({ name: "", save: false, category: "cpu", cost: "", useCalc: true, price: "", busy: false });
+      return;
+    }
+
+    const cost = Number(newItem.cost);
+    if (!Number.isFinite(cost) || cost <= 0) { toast.error("Enter a valid distributor price (cost)"); return; }
+    const billPrice = newItem.useCalc ? sp(cost, newItem.category) : Number(newItem.price);
+    if (!newItem.useCalc && !(Number(newItem.price) > 0)) { toast.error("Enter the one-time selling price"); return; }
+
+    setNewItem((n: any) => ({ ...n, busy: true }));
+    try {
+      const token = await authToken();
+      const res = await fetch("/api/admin/quick-product", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ nickname: name, category: newItem.category, distributor_price: cost }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to add product");
+      setCart([...cart, {
+        tempId: Math.random(), id: json.product?.id, name,
+        price: billPrice, distributor_price: cost, brand: "", category: newItem.category,
+        draft: true, image_url: null,
+      }]);
+      setNewItem({ name: "", save: false, category: "cpu", cost: "", useCalc: true, price: "", busy: false });
+      toast.success("Part added to catalogue & order");
+    } catch (e: any) {
+      toast.error("Could not add part", { description: e.message });
+      setNewItem((n: any) => ({ ...n, busy: false }));
+    }
+  };
+
+  // Edit a cart product's distributor price → recompute its SP (current mode) +
+  // persist the cost to the catalogue (the DB trigger re-derives the real price).
+  // A one-time SP override (it.oneTimeSp) is left untouched — the operator set
+  // that price deliberately for this order only.
+  const updateCartCost = (tempId: number, value: string) => {
+    const cost = Number(value) || 0;
+    setCart((c) => c.map((it) => it.tempId === tempId ? { ...it, distributor_price: cost, price: (it.custom || it.oneTimeSp) ? it.price : sp(cost, it.category) } : it));
+  };
+
+  // Override the selling price for THIS order only — nothing is written to the
+  // catalogue (the listed product's real price is unchanged).
+  const setOneTimeSp = (tempId: number, value: string) => {
+    setCart((c) => c.map((it) => it.tempId === tempId ? { ...it, price: Number(value) || 0, oneTimeSp: true } : it));
+  };
+  // Drop the override and go back to the calculated SP from the cost.
+  const clearOneTimeSp = (tempId: number) => {
+    setCart((c) => c.map((it) => it.tempId === tempId ? { ...it, oneTimeSp: false, price: it.custom ? it.price : sp(it.distributor_price, it.category) } : it));
+  };
+  const persistCartCost = async (item: any) => {
+    if (!item.id || !(Number(item.distributor_price) > 0)) return;
+    try {
+      const token = await authToken();
+      const res = await fetch("/api/admin/update-product", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ id: item.id, distributor_price: Number(item.distributor_price) }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || "Failed");
+      toast.success("Cost updated in catalogue");
+    } catch (e: any) {
+      toast.error("Could not save cost", { description: e.message });
+    }
+  };
+
+  // Rename a cart product. Drafts → nickname (+ name); listed → breadcrumb_name
+  // (the configurator name is mirrored by a DB trigger). The on-screen label is
+  // updated to match, whichever field we wrote.
+  const renameCartItem = async (item: any) => {
+    if (!item.id) return;
+    const hasBread = !!item.breadcrumb_name;
+    const next = window.prompt(hasBread ? "Catalogue name (shown on the website):" : "Nickname (internal):", item.name);
+    if (next == null) return;
+    const nm = next.trim();
+    if (!nm || nm === item.name) return;
+    const patch: any = { id: item.id };
+    if (hasBread) { patch.breadcrumb_name = nm; } else { patch.nickname = nm; patch.name = nm; }
+    try {
+      const token = await authToken();
+      const res = await fetch("/api/admin/update-product", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || "Failed");
+      setCart((c) => c.map((it) => it.tempId === item.tempId ? { ...it, name: nm, breadcrumb_name: hasBread ? nm : it.breadcrumb_name, nickname: hasBread ? it.nickname : nm } : it));
+      toast.success("Name updated");
+    } catch (e: any) {
+      toast.error("Could not rename", { description: e.message });
+    }
   };
 
   // --- ID GENERATION ---
@@ -365,28 +501,80 @@ export default function CreateOrderPage() {
                         </div>
                     )}
 
-                    {/* One-time / custom line item — billed once, never saved to the catalog */}
+                    {/* Add item — one-time line, or save a new part to the catalogue */}
                     <div className="mt-4 pt-4 border-t border-white/10">
-                        <p className="text-[10px] uppercase tracking-wider text-brand-silver mb-2">One-time / custom item</p>
-                        <div className="flex gap-2">
-                            <input
-                                value={customItem.name}
-                                onChange={(e) => setCustomItem({ ...customItem, name: e.target.value })}
-                                placeholder="Item name (e.g. Service charge)"
-                                className="flex-1 bg-black border border-white/10 p-2.5 rounded text-sm focus:border-brand-purple outline-none"
-                            />
-                            <input
-                                value={customItem.price}
-                                onChange={(e) => setCustomItem({ ...customItem, price: e.target.value })}
-                                type="number"
-                                min="0"
-                                placeholder="₹"
-                                className="w-24 bg-black border border-white/10 p-2.5 rounded text-sm focus:border-brand-purple outline-none"
-                            />
-                            <button type="button" onClick={addCustomItem} className="px-4 bg-brand-purple hover:bg-white hover:text-black rounded text-sm font-bold transition-colors">
-                                Add
-                            </button>
+                        <div className="flex items-center justify-between mb-2">
+                            <p className="text-[10px] uppercase tracking-wider text-brand-silver">Add item</p>
+                            <label className="flex items-center gap-1.5 text-[10px] text-brand-silver cursor-pointer" title="Add the base-margin floor on top of the percentage (matches the live catalogue price). Off = percentage only.">
+                                <input type="checkbox" checked={includeFloor} onChange={(e) => setIncludeFloor(e.target.checked)} className="accent-brand-purple" />
+                                Apply base margin
+                            </label>
                         </div>
+
+                        <input
+                            value={newItem.name}
+                            onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+                            placeholder={newItem.save ? "Nickname (e.g. RTX 4060 Ventus)" : "Item name (e.g. Service charge)"}
+                            className="w-full bg-black border border-white/10 p-2.5 rounded text-sm focus:border-brand-purple outline-none mb-2"
+                        />
+
+                        <label className="flex items-center gap-2 text-xs text-brand-silver mb-2 cursor-pointer">
+                            <input type="checkbox" checked={newItem.save} onChange={(e) => setNewItem({ ...newItem, save: e.target.checked })} className="accent-brand-purple" />
+                            Save to catalogue (nickname + distributor price)
+                        </label>
+
+                        {!newItem.save ? (
+                            <div className="flex gap-2">
+                                <input
+                                    value={newItem.price}
+                                    onChange={(e) => setNewItem({ ...newItem, price: e.target.value })}
+                                    type="number" min="0" placeholder="Selling price ₹"
+                                    className="flex-1 bg-black border border-white/10 p-2.5 rounded text-sm focus:border-brand-purple outline-none"
+                                />
+                                <button type="button" onClick={addItem} className="px-4 bg-brand-purple hover:bg-white hover:text-black rounded text-sm font-bold transition-colors">Add</button>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                <div className="flex gap-2">
+                                    <select
+                                        value={newItem.category}
+                                        onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
+                                        className="flex-1 bg-black border border-white/10 p-2.5 rounded text-sm focus:border-brand-purple outline-none"
+                                    >
+                                        {CATS.map((c) => <option key={c} value={c}>{pretty(c)}</option>)}
+                                    </select>
+                                    <input
+                                        value={newItem.cost}
+                                        onChange={(e) => setNewItem({ ...newItem, cost: e.target.value })}
+                                        type="number" min="0" placeholder="Distributor ₹"
+                                        className="w-28 bg-black border border-white/10 p-2.5 rounded text-sm focus:border-brand-purple outline-none"
+                                    />
+                                </div>
+                                <div className="flex items-center gap-4 text-xs text-brand-silver">
+                                    <label className="flex items-center gap-1.5 cursor-pointer">
+                                        <input type="radio" checked={newItem.useCalc} onChange={() => setNewItem({ ...newItem, useCalc: true })} className="accent-brand-purple" />
+                                        Calculated SP {Number(newItem.cost) > 0 && <span className="text-white font-bold">₹{sp(newItem.cost, newItem.category).toLocaleString("en-IN")}</span>}
+                                    </label>
+                                    <label className="flex items-center gap-1.5 cursor-pointer">
+                                        <input type="radio" checked={!newItem.useCalc} onChange={() => setNewItem({ ...newItem, useCalc: false })} className="accent-brand-purple" />
+                                        One-time SP
+                                    </label>
+                                </div>
+                                <div className="flex gap-2">
+                                    {!newItem.useCalc && (
+                                        <input
+                                            value={newItem.price}
+                                            onChange={(e) => setNewItem({ ...newItem, price: e.target.value })}
+                                            type="number" min="0" placeholder="Bill this price ₹"
+                                            className="flex-1 bg-black border border-white/10 p-2.5 rounded text-sm focus:border-brand-purple outline-none"
+                                        />
+                                    )}
+                                    <button type="button" disabled={newItem.busy} onClick={addItem} className="px-4 ml-auto bg-brand-purple hover:bg-white hover:text-black rounded text-sm font-bold transition-colors disabled:opacity-50">
+                                        {newItem.busy ? "Saving…" : "Save & Add"}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -402,17 +590,57 @@ export default function CreateOrderPage() {
                             <div className="text-center text-brand-silver/30 text-xs py-10 italic">Cart is empty</div>
                         ) : (
                             cart.map((item) => (
-                                <div key={item.tempId} className="flex justify-between items-center bg-black/40 p-3 rounded border border-white/5">
-                                    <div className="flex items-center gap-3 overflow-hidden">
-                                        <button onClick={() => removeFromCart(item.tempId)} className="text-red-500/50 hover:text-red-500 transition-colors shrink-0">
-                                            <FaTrash size={12} />
-                                        </button>
-                                        <div className="truncate">
-                                            <div className="text-sm font-bold text-white truncate">{item.name}</div>
-                                            <div className="text-[10px] text-brand-silver uppercase">{item.brand} • {item.category}</div>
+                                <div key={item.tempId} className="bg-black/40 p-3 rounded border border-white/5">
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center gap-3 overflow-hidden">
+                                            <button onClick={() => removeFromCart(item.tempId)} className="text-red-500/50 hover:text-red-500 transition-colors shrink-0">
+                                                <FaTrash size={12} />
+                                            </button>
+                                            <div className="truncate">
+                                                <div className="text-sm font-bold text-white truncate flex items-center gap-2">
+                                                    {item.name}
+                                                    {item.id && (
+                                                        <button onClick={() => renameCartItem(item)} title="Rename (nickname / catalogue name)" className="text-brand-silver/50 hover:text-brand-purple shrink-0">
+                                                            <FaPen size={9} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <div className="text-[10px] text-brand-silver uppercase">{item.brand || (item.draft ? "Draft" : "")} • {item.category}</div>
+                                            </div>
+                                        </div>
+                                        <div className="text-right shrink-0">
+                                            <div className="font-saira font-bold text-sm">₹{Number(item.price).toLocaleString("en-IN")}</div>
+                                            {item.oneTimeSp && <div className="text-[9px] uppercase tracking-wider text-amber-400 font-bold">one-time price</div>}
                                         </div>
                                     </div>
-                                    <div className="font-saira font-bold text-sm shrink-0">₹{item.price.toLocaleString("en-IN")}</div>
+                                    {item.id && !item.custom && (
+                                        <div className="mt-2 pl-7 space-y-1.5">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] text-brand-silver uppercase w-20">Distributor ₹</span>
+                                                <input
+                                                    type="number" min="0"
+                                                    value={item.distributor_price ?? ""}
+                                                    onChange={(e) => updateCartCost(item.tempId, e.target.value)}
+                                                    onBlur={() => persistCartCost(item)}
+                                                    className="w-24 bg-black border border-white/10 px-2 py-1 rounded text-xs focus:border-brand-purple outline-none"
+                                                />
+                                                <span className="text-[10px] text-brand-silver/60">{item.oneTimeSp ? "saved to catalogue" : "→ SP recalculated"}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] text-brand-silver uppercase w-20">One-time SP ₹</span>
+                                                <input
+                                                    type="number" min="0"
+                                                    value={item.oneTimeSp ? (item.price ?? "") : ""}
+                                                    onChange={(e) => setOneTimeSp(item.tempId, e.target.value)}
+                                                    placeholder={`calc ${inr(sp(item.distributor_price, item.category))}`}
+                                                    className="w-24 bg-black border border-white/10 px-2 py-1 rounded text-xs focus:border-amber-400 outline-none"
+                                                />
+                                                {item.oneTimeSp
+                                                    ? <button onClick={() => clearOneTimeSp(item.tempId)} className="text-[10px] text-amber-400 hover:underline">reset to calculated</button>
+                                                    : <span className="text-[10px] text-brand-silver/60">overrides this order only</span>}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             ))
                         )}

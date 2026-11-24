@@ -29,6 +29,7 @@ import { notifyTelegramEscalation } from "./telegram";
 import { getProductDetail } from "./menu-data";
 import { IMAGE_ACK_MESSAGE, buildImageContext, describeImage } from "./vision";
 import { answerBrief, isBriefInProgress, looksLikeBuildRequest, startBrief } from "./build-brief-flow";
+import { applyCategory } from "./category-actions";
 import type { MediaType, NormalizedMessage, ReplyMeta } from "./types";
 
 const SITE_URL = "https://www.rigbuilders.in";
@@ -385,6 +386,31 @@ export async function handleMessage(
     if (menuReply) return menuReply;
     // No renderable menu (misconfigured tree) — fall through to the assistant
     // rather than going silent.
+  }
+
+  // What is this message actually about? Runs on every channel — WhatsApp
+  // today, Messenger and Instagram the moment their webhooks go live, with
+  // no per-channel work needed.
+  //
+  // Placed after the menu tiers (a tapped option needs no classifying) and
+  // before the handoff keywords, so a donation request gets its considered
+  // answer rather than tripping a keyword on its way past.
+  if (!msg.replyId) {
+    try {
+      const outcome = await applyCategory({
+        text: effectiveText,
+        channel: msg.channel,
+        externalUserId: msg.externalUserId,
+        conversationId: conversation.id,
+      });
+      if (outcome.handled) {
+        // A silent category (spam) returns handled with no reply — returning
+        // null here is what makes the bot genuinely say nothing.
+        return outcome.reply ? { text: outcome.reply } : null;
+      }
+    } catch (err) {
+      console.error(`[chatbot:orchestrator] categorisation failed: ${(err as Error).message}`);
+    }
   }
 
   // Customer explicitly asked for a human — pause the bot on this

@@ -76,8 +76,17 @@ const styles = StyleSheet.create({
   cDesc: { width: "72%" },
   cPrice: { width: "20%", textAlign: "right" },
 
-  totals: { width: 250, alignSelf: "flex-end", marginTop: 18 },
-  tGrand: { flexDirection: "row", justifyContent: "space-between", borderTop: `2px solid ${NAVY}`, marginTop: 5, paddingTop: 8 },
+  billTo: { marginTop: 4, marginBottom: 4, flexDirection: "row", justifyContent: "space-between" },
+  billBox: { width: "48%" },
+  billLabel: { fontSize: 7.5, color: "#888", letterSpacing: 0.6, marginBottom: 3, textTransform: "uppercase" },
+  billStrong: { fontSize: 10, color: "#111", fontWeight: "bold", marginBottom: 2 },
+  billMeta: { fontSize: 8.5, color: "#444", lineHeight: 1.5 },
+
+  totals: { width: 260, alignSelf: "flex-end", marginTop: 18 },
+  tRowSum: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 3 },
+  tSumLabel: { fontSize: 9, color: "#555" },
+  tSumVal: { fontSize: 9, color: "#222" },
+  tGrand: { flexDirection: "row", justifyContent: "space-between", borderTop: `2px solid ${NAVY}`, marginTop: 6, paddingTop: 8 },
   tGrandLabel: { fontSize: 12, fontWeight: "bold", color: NAVY },
   tGrandVal: { fontSize: 12, fontWeight: "bold", color: STEEL },
 
@@ -100,7 +109,25 @@ export interface QuotationItem {
 
 export interface QuotationOptions {
   customerName?: string;
+  // Richer fields used by the customer-dashboard download. All optional so the
+  // existing WhatsApp flow (just customerName) keeps working unchanged.
+  quotationNo?: string;
+  buildName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  validUntil?: string;      // ISO date
+  delivery?: number;        // ₹ delivery charges
+  gst?: {
+    show: boolean;
+    location: "punjab" | "outside";
+    inclusive: boolean;     // are the line prices already GST-inclusive?
+  };
 }
+
+const money = (n: number) => `Rs. ${Math.round(n).toLocaleString("en-IN")}`;
+const money2 = (n: number) => `Rs. ${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmtDate = (d?: string) => (d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "");
 
 // Maps a raw category value to the display heading shown above its group.
 // Falls back to the category string itself, uppercased, for anything not
@@ -185,8 +212,19 @@ function groupByCategory(items: QuotationItem[]): QuotationGroup[] {
 
 function buildDocument(items: QuotationItem[], options: QuotationOptions) {
   const groups = groupByCategory(items);
-  const total = items.reduce((sum, item) => sum + item.price, 0);
+  const faceTotal = items.reduce((sum, item) => sum + item.price, 0);
   const dateLine = new Date().toLocaleDateString("en-IN");
+
+  // GST math — mirrors the admin builder. `lineTotalAllIn` is the GST-inclusive
+  // goods value; `taxable` backs the 18% out of it.
+  const gst = options.gst;
+  const delivery = Number(options.delivery) || 0;
+  const lineTotalAllIn = gst?.inclusive ? faceTotal : faceTotal * 1.18;
+  const taxable = lineTotalAllIn / 1.18;
+  const gstAmount = lineTotalAllIn - taxable;
+  const gstHalf = gstAmount / 2;
+  const goodsTotal = gst?.show ? lineTotalAllIn : faceTotal;
+  const grandTotal = goodsTotal + delivery;
   let runningIndex = 0;
 
   const groupNodes = groups.map((group, gi) => {
@@ -210,12 +248,59 @@ function buildDocument(items: QuotationItem[], options: QuotationOptions) {
 
   const headerRight = [
     e(Text, { key: "title", style: styles.docTitle }, "QUOTATION"),
+    options.quotationNo
+      ? e(Text, { key: "no", style: styles.metaLine }, e(Text, { style: styles.metaLabel }, "No: "), options.quotationNo)
+      : null,
     e(Text, { key: "date", style: styles.metaLine }, e(Text, { style: styles.metaLabel }, "Date: "), dateLine),
-    options.customerName
-      ? e(Text, { key: "for", style: styles.metaLine }, e(Text, { style: styles.metaLabel }, "Prepared For: "), options.customerName)
+    options.validUntil
+      ? e(Text, { key: "valid", style: styles.metaLine }, e(Text, { style: styles.metaLabel }, "Valid until: "), fmtDate(options.validUntil))
       : null,
     e(Text, { key: "count", style: styles.metaLine }, e(Text, { style: styles.metaLabel }, "Items: "), String(items.length)),
   ].filter(Boolean);
+
+  // Optional "billed to" block — only the fields actually provided are shown
+  // (respecting the admin's per-field visibility toggles upstream).
+  const hasBillTo = options.customerName || options.customerAddress || options.customerPhone || options.customerEmail;
+  const billToNode = hasBillTo
+    ? e(
+        View,
+        { style: styles.billTo },
+        e(
+          View,
+          { style: styles.billBox },
+          e(Text, { style: styles.billLabel }, "Prepared for"),
+          options.customerName ? e(Text, { style: styles.billStrong }, options.customerName) : null,
+          options.customerAddress ? e(Text, { style: styles.billMeta }, options.customerAddress) : null,
+          options.customerPhone ? e(Text, { style: styles.billMeta }, `Phone: ${options.customerPhone}`) : null,
+          options.customerEmail ? e(Text, { style: styles.billMeta }, options.customerEmail) : null
+        ),
+        options.buildName
+          ? e(
+              View,
+              { style: [styles.billBox, { alignItems: "flex-end" }] },
+              e(Text, { style: styles.billLabel }, "Build"),
+              e(Text, { style: styles.billStrong }, options.buildName)
+            )
+          : null
+      )
+    : null;
+
+  // Totals rows — GST breakdown when requested, else a plain subtotal.
+  const sumRow = (label: string, value: string, key: string) =>
+    e(View, { key, style: styles.tRowSum }, e(Text, { style: styles.tSumLabel }, label), e(Text, { style: styles.tSumVal }, value));
+  const totalRows: any[] = [];
+  if (gst?.show) {
+    totalRows.push(sumRow("Taxable value", money2(taxable), "tax"));
+    if (gst.location === "punjab") {
+      totalRows.push(sumRow("CGST @ 9%", money2(gstHalf), "cgst"));
+      totalRows.push(sumRow("SGST @ 9%", money2(gstHalf), "sgst"));
+    } else {
+      totalRows.push(sumRow("IGST @ 18%", money2(gstAmount), "igst"));
+    }
+  } else {
+    totalRows.push(sumRow("Subtotal", money(faceTotal), "sub"));
+  }
+  if (delivery > 0) totalRows.push(sumRow("Delivery (insured)", money2(delivery), "del"));
 
   return e(
     Document,
@@ -239,6 +324,8 @@ function buildDocument(items: QuotationItem[], options: QuotationOptions) {
         ),
         e(View, { style: styles.headerRight }, ...headerRight)
       ),
+      // Billed-to
+      billToNode,
       // Table header
       e(
         View,
@@ -249,22 +336,25 @@ function buildDocument(items: QuotationItem[], options: QuotationOptions) {
       ),
       // Grouped line items
       ...groupNodes,
-      // Total
+      // Totals (GST breakdown + delivery + grand total)
       e(
         View,
         { style: styles.totals },
+        ...totalRows,
         e(
           View,
           { style: styles.tGrand },
-          e(Text, { key: "tl", style: styles.tGrandLabel }, "Estimated Total"),
-          e(Text, { key: "tv", style: styles.tGrandVal }, `Rs. ${total.toLocaleString("en-IN")}`)
+          e(Text, { key: "tl", style: styles.tGrandLabel }, "Final Amount"),
+          e(Text, { key: "tv", style: styles.tGrandVal }, money2(grandTotal))
         )
       ),
       // Note
       e(
         Text,
         { style: styles.note },
-        "This is an estimated quotation, not a tax invoice. Prices are subject to stock availability and may vary slightly at checkout once applicable taxes and shipping are added."
+        gst?.show
+          ? "This quotation includes GST at 18% as shown above. Prices are subject to stock availability."
+          : "This is an estimated quotation, not a tax invoice. Prices are subject to stock availability and may vary slightly at checkout once applicable taxes and shipping are added."
       ),
       // Footer — no repeated contact block here; that already lives once in
       // the header alongside the full address.

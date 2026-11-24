@@ -1,0 +1,113 @@
+{
+  "name": "Rig Builders — Email backlog (ONE-OFF)",
+  "nodes": [
+    {
+      "parameters": {
+        "postProcessAction": "nothing",
+        "format": "resolved",
+        "options": {
+          "customEmailConfig": "[\"UNANSWERED\"]",
+          "forceReconnect": 60
+        }
+      },
+      "id": "imap-backlog",
+      "name": "Unanswered mail",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2,
+      "position": [-240, 0],
+      "credentials": {
+        "imap": {
+          "id": "REPLACE_WITH_YOUR_IMAP_CREDENTIAL_ID",
+          "name": "info@rigbuilders.in"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Same cleanup as the live workflow, plus the received date — that date is\n// what decides whether the reply carries an apology, so it has to travel\n// with the message rather than being guessed at the other end.\n\nfunction htmlToText(html) {\n  return html\n    .replace(/<style[\\s\\S]*?<\\/style>/gi, ' ')\n    .replace(/<script[\\s\\S]*?<\\/script>/gi, ' ')\n    .replace(/<br\\s*\\/?>/gi, '\\n')\n    .replace(/<\\/p>/gi, '\\n\\n')\n    .replace(/<[^>]+>/g, ' ')\n    .replace(/&nbsp;/gi, ' ')\n    .replace(/&amp;/gi, '&');\n}\n\nconst out = [];\n\nfor (const item of $input.all()) {\n  const mail = item.json;\n\n  let body = mail.textPlain || '';\n  if (!body && mail.textHtml) body = htmlToText(mail.textHtml);\n\n  const cutPoints = [\n    /^On .+ wrote:$/m,\n    /^-{2,}\\s*Original Message\\s*-{2,}/im,\n    /^_{5,}$/m,\n    /^From: .+$/m,\n    /^Sent from my /m,\n  ];\n  for (const marker of cutPoints) {\n    const match = body.match(marker);\n    if (match && match.index !== undefined) body = body.slice(0, match.index);\n  }\n  body = body.replace(/\\r/g, '').replace(/\\n{3,}/g, '\\n\\n').trim();\n\n  let from = '';\n  if (typeof mail.from === 'string') from = mail.from;\n  else if (mail.from?.text) from = mail.from.text;\n  else if (mail.from?.value?.[0]?.address) from = mail.from.value[0].address;\n\n  out.push({\n    json: {\n      from,\n      subject: mail.subject || '',\n      body,\n      messageId: mail.messageId || '',\n      receivedAt: mail.date || null,\n    },\n  });\n}\n\nreturn out;"
+      },
+      "id": "clean-body",
+      "name": "Strip reply chain",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-20, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "version": 2 },
+          "conditions": [
+            {
+              "id": "has-body",
+              "leftValue": "={{ $json.body }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+            },
+            {
+              "id": "not-self",
+              "leftValue": "={{ $json.from.toLowerCase() }}",
+              "rightValue": "rigbuilders.in",
+              "operator": { "type": "string", "operation": "notContains" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "guard",
+      "name": "Real inbound mail",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "amount": 8,
+        "unit": "seconds"
+      },
+      "id": "throttle",
+      "name": "Wait 8s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [420, 0],
+      "webhookId": "rb-backlog-throttle"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.rigbuilders.in/api/webhook/email",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Webhook-Secret", "value": "REPLACE_WITH_EMAIL_WEBHOOK_SECRET" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ from: $json.from, subject: $json.subject, body: $json.body, messageId: $json.messageId, receivedAt: $json.receivedAt, backfill: true, dryRun: true }) }}",
+        "options": { "timeout": 60000 }
+      },
+      "id": "post-to-app",
+      "name": "Send to Rig Builders",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [640, 0],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "connections": {
+    "Unanswered mail": { "main": [[{ "node": "Strip reply chain", "type": "main", "index": 0 }]] },
+    "Strip reply chain": { "main": [[{ "node": "Real inbound mail", "type": "main", "index": 0 }]] },
+    "Real inbound mail": { "main": [[{ "node": "Wait 8s", "type": "main", "index": 0 }]] },
+    "Wait 8s": { "main": [[{ "node": "Send to Rig Builders", "type": "main", "index": 0 }]] }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  },
+  "pinData": {},
+  "tags": []
+}

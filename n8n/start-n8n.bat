@@ -11,7 +11,7 @@ REM Keeps saved Gmail credentials readable across restarts. Without a fixed
 REM key n8n generates a new one and every stored credential becomes
 REM undecryptable — you'd be re-authorising Gmail after every reboot.
 REM CHANGE THIS to your own long random string, then never change it again.
-set N8N_ENCRYPTION_KEY=CHANGE_ME_TO_A_LONG_RANDOM_STRING
+set N8N_ENCRYPTION_KEY=lidufgbuygdfbdjkfniperm85f8419gb84189gb1rb19187n1n89mn1y9m56
 
 REM Local only. Do not expose this port — the editor has no password by
 REM default and anyone reaching it can read your Gmail credential.

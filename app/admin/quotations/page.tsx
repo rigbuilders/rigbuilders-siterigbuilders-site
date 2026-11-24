@@ -4,155 +4,329 @@ import Navbar from "@/components/Navbar";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import { FaFileInvoiceDollar, FaPlus, FaTrash, FaPrint } from "react-icons/fa";
+import { FaFileInvoiceDollar, FaPlus, FaTrash, FaPrint, FaPen } from "react-icons/fa";
 
 const CATS = ["cpu","gpu","motherboard","ram","storage","psu","cabinet","cooler","monitor","keyboard","mouse","combo","mousepad","usb","prebuilt"];
 const inr = (n: any) => Number(n || 0).toLocaleString("en-IN");
+const inr2 = (n: any) => Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const uid = () => Math.random().toString(36).slice(2, 9);
 
-type Part = { id: string; productId: string | null; name: string; price: number; qty: number };
+// Exact replica of the DB's compute_selling_price(). includeFloor=false is the
+// "percent only" variant (floor forced to 0). Both keep the 49/99 rounding.
+type Rules = Record<string, { pct: number | null; floor: number }>;
+function computeSp(cost: any, category: string, includeFloor: boolean, rules: Rules, defaultPct: number): number {
+  const c = Number(cost) || 0;
+  if (c <= 0) return 0;
+  const rule = rules[category];
+  const pct = rule && rule.pct != null ? rule.pct : defaultPct;
+  const floor = includeFloor ? (rule ? rule.floor : 0) : 0;
+  const raw = c + Math.max(pct * c, floor);
+  const base = Math.floor(raw / 100) * 100;
+  if (base + 49 >= raw) return base + 49;
+  if (base + 99 >= raw) return base + 99;
+  return base + 149;
+}
+
+type CatalogItem = { id: string; label: string; nickname: string; breadcrumb: string; price: number; cost: number; draft: boolean };
+type Part = { id: string; productId: string | null; name: string; cost: number; price: number; qty: number; manual: boolean };
 type Cat = { id: string; dbCat: string; label: string; parts: Part[] };
 
 export default function QuotationBuilder() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
 
-  const [catalog, setCatalog] = useState<Record<string, any[]>>({});
+  const [catalog, setCatalog] = useState<Record<string, CatalogItem[]>>({});
   const [catLabels, setCatLabels] = useState<Record<string, string>>({});
+  const [rules, setRules] = useState<Rules>({});
+  const [defaultPct, setDefaultPct] = useState(0.05);
 
   const [title, setTitle] = useState("");
   const [customer, setCustomer] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerAddress, setCustomerAddress] = useState("");
+  const [showEmail, setShowEmail] = useState(true);
+  const [showPhone, setShowPhone] = useState(true);
+  const [showAddress, setShowAddress] = useState(true);
   const [validUntil, setValidUntil] = useState("");
   const [delivery, setDelivery] = useState<string>("");
+  const [includeFloor, setIncludeFloor] = useState(false); // false = percent only
+  const [gstLocation, setGstLocation] = useState<"punjab" | "outside">("punjab");
+  const [gstInclusive, setGstInclusive] = useState(false); // false = add 18% on top
+  const [showGst, setShowGst] = useState(true);            // show the GST breakdown on the quote
   const [cats, setCats] = useState<Cat[]>([]);
 
-  // inline "add new part" form per category
-  const [adding, setAdding] = useState<Record<string, { name: string; dist: string; sell: string; save?: boolean; busy?: boolean }>>({});
-  // searchable part picker
+  // saving / loading
+  const [quotationId, setQuotationId] = useState<string | null>(null);
+  const [quotationNo, setQuotationNo] = useState<string | null>(null);
+  const [status, setStatus] = useState<"draft" | "final">("draft");
+  const [saving, setSaving] = useState(false);
+  const [savedList, setSavedList] = useState<any[]>([]);
+
+  const [adding, setAdding] = useState<Record<string, { name: string; cost: string; sell: string; save?: boolean; busy?: boolean }>>({});
   const [partQuery, setPartQuery] = useState<Record<string, string>>({});
   const [openPart, setOpenPart] = useState<string | null>(null);
 
   const authToken = async () => (await supabase.auth.getSession()).data.session?.access_token || null;
   const pretty = (slug: string) => catLabels[slug] || slug.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  const sp = (cost: any, category: string) => computeSp(cost, category, includeFloor, rules, defaultPct);
 
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || user.email !== "rigbuilders123@gmail.com") { router.push("/"); return; }
+      const token = await authToken();
 
-      const [{ data: prods }, { data: labels }] = await Promise.all([
-        supabase.from("products").select("id, name, breadcrumb_name, nickname, category, price, distributor_price"),
+      const [{ data: prods }, { data: labels }, cfgRes] = await Promise.all([
+        supabase.from("products").select("id, name, breadcrumb_name, nickname, category, price, distributor_price, listing_status"),
         supabase.from("categories").select("id, name, short_name"),
+        fetch("/api/admin/pricing-config", { headers: { Authorization: `Bearer ${token}` } }),
       ]);
-      const byCat: Record<string, any[]> = {};
+
+      const byCat: Record<string, CatalogItem[]> = {};
       for (const p of prods || []) {
         const c = p.category || "other";
-        (byCat[c] ||= []).push({ id: p.id, label: p.breadcrumb_name || p.name || p.nickname || "Unnamed", price: Number(p.price) || 0, cost: Number(p.distributor_price) || 0 });
+        (byCat[c] ||= []).push({
+          id: p.id,
+          label: p.breadcrumb_name || p.name || p.nickname || "Unnamed",
+          nickname: p.nickname || "",
+          breadcrumb: p.breadcrumb_name || "",
+          price: Number(p.price) || 0,
+          cost: Number(p.distributor_price) || 0,
+          draft: p.listing_status !== "published",
+        });
       }
       for (const c of Object.keys(byCat)) byCat[c].sort((a, b) => a.label.localeCompare(b.label));
       setCatalog(byCat);
+
       const lm: Record<string, string> = {};
       for (const c of (labels as any[]) || []) lm[c.id] = c.name || c.short_name || c.id;
       setCatLabels(lm);
+
+      const cfg = await cfgRes.json().catch(() => ({}));
+      if (cfg?.rules) setRules(cfg.rules);
+      if (cfg?.defaultPct != null) setDefaultPct(Number(cfg.defaultPct));
+      await loadSavedList();
       setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Recompute every auto-priced line when the mode or the pricing config changes.
+  useEffect(() => {
+    setCats((cs) => cs.map((c) => ({ ...c, parts: c.parts.map((p) => (!p.manual && Number(p.cost) > 0 ? { ...p, price: computeSp(p.cost, c.dbCat, includeFloor, rules, defaultPct) } : p)) })));
+  }, [includeFloor, rules, defaultPct]);
+
   // ---- mutators ----
   const patchCat = (id: string, patch: Partial<Cat>) => setCats((cs) => cs.map((c) => (c.id === id ? { ...c, ...patch } : c)));
-  const addCategory = () => setCats((cs) => [...cs, { id: uid(), dbCat: "cpu", label: pretty("cpu"), parts: [{ id: uid(), productId: null, name: "", price: 0, qty: 1 }] }]);
+  const addCategory = () => setCats((cs) => [...cs, { id: uid(), dbCat: "cpu", label: pretty("cpu"), parts: [{ id: uid(), productId: null, name: "", cost: 0, price: 0, qty: 1, manual: false }] }]);
   const removeCategory = (id: string) => setCats((cs) => cs.filter((c) => c.id !== id));
-  const setCatDb = (cat: Cat, dbCat: string) => patchCat(cat.id, { dbCat, label: pretty(dbCat), parts: cat.parts.map((p) => ({ ...p, productId: null, name: "", price: 0 })) });
-
-  const addPart = (cat: Cat) => patchCat(cat.id, { parts: [...cat.parts, { id: uid(), productId: null, name: "", price: 0, qty: 1 }] });
+  const setCatDb = (cat: Cat, dbCat: string) => patchCat(cat.id, { dbCat, label: pretty(dbCat), parts: cat.parts.map((p) => ({ ...p, productId: null, name: "", cost: 0, price: 0, manual: false })) });
+  const addPart = (cat: Cat) => patchCat(cat.id, { parts: [...cat.parts, { id: uid(), productId: null, name: "", cost: 0, price: 0, qty: 1, manual: false }] });
   const removePart = (cat: Cat, pid: string) => patchCat(cat.id, { parts: cat.parts.filter((p) => p.id !== pid) });
-  const patchPart = (cat: Cat, pid: string, patch: Partial<Part>) =>
-    patchCat(cat.id, { parts: cat.parts.map((p) => (p.id === pid ? { ...p, ...patch } : p)) });
+  const patchPart = (cat: Cat, pid: string, patch: Partial<Part>) => patchCat(cat.id, { parts: cat.parts.map((p) => (p.id === pid ? { ...p, ...patch } : p)) });
 
   const selectProduct = (cat: Cat, part: Part, productId: string) => {
     const prod = (catalog[cat.dbCat] || []).find((x) => x.id === productId);
-    if (prod) patchPart(cat, part.id, { productId: prod.id, name: prod.label, price: prod.price });
-    else patchPart(cat, part.id, { productId: null, name: "", price: 0 });
+    if (prod) patchPart(cat, part.id, { productId: prod.id, name: prod.label, cost: prod.cost, price: sp(prod.cost, cat.dbCat), manual: false });
+    else patchPart(cat, part.id, { productId: null, name: "", cost: 0, price: 0 });
+  };
+
+  // Editing an existing part's cost → live recompute, and persist to products.distributor_price.
+  const editCost = (cat: Cat, part: Part, value: string) => patchPart(cat, part.id, { cost: Number(value) || 0, price: sp(Number(value) || 0, cat.dbCat) });
+  const persistCost = async (cat: Cat, part: Part) => {
+    if (!part.productId || !(part.cost > 0)) return;
+    try {
+      const token = await authToken();
+      const res = await fetch("/api/admin/update-product", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ id: part.productId, distributor_price: part.cost }) });
+      if (res.ok) setCatalog((c) => ({ ...c, [cat.dbCat]: (c[cat.dbCat] || []).map((x) => (x.id === part.productId ? { ...x, cost: part.cost } : x)) }));
+    } catch {}
+  };
+
+  // Rename the field actually read for the display name:
+  //  • listed product (has breadcrumb_name) → breadcrumb_name (configurator_name
+  //    mirrors it via trigger). Note: this is the public catalogue name too.
+  //  • draft / quick-add (no breadcrumb_name) → nickname + name (label reads name).
+  const renameItem = async (cat: Cat, item: CatalogItem) => {
+    const hasBread = !!item.breadcrumb;
+    const next = window.prompt(
+      hasBread ? "Rename this product — updates the catalogue name (also shown on the website):" : "Rename this part (saved to the catalogue):",
+      item.label
+    );
+    if (next == null) return;
+    const name = next.trim();
+    if (!name || name === item.label) return;
+
+    const patch: any = { id: item.id };
+    if (hasBread) patch.breadcrumb_name = name;
+    else { patch.nickname = name; patch.name = name; }
+
+    try {
+      const token = await authToken();
+      const res = await fetch("/api/admin/update-product", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(patch) });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || "Rename failed");
+      setCatalog((c) => ({ ...c, [cat.dbCat]: (c[cat.dbCat] || []).map((x) => (x.id === item.id ? { ...x, label: name, breadcrumb: hasBread ? name : x.breadcrumb, nickname: hasBread ? x.nickname : name } : x)).sort((a, b) => a.label.localeCompare(b.label)) }));
+      setCats((cs) => cs.map((cc) => ({ ...cc, parts: cc.parts.map((p) => (p.productId === item.id ? { ...p, name } : p)) })));
+    } catch (e: any) { alert(e.message); }
   };
 
   const submitNewPart = async (cat: Cat) => {
     const f = adding[cat.id];
-    const save = f?.save !== false; // default: save to catalogue
-    if (!f?.name?.trim() || !Number(f.sell)) { alert("Part name and selling price are required."); return; }
-    if (save && !Number(f.dist)) { alert("Distributor price is required to save to the catalogue (or uncheck ‘Save to catalogue’ for a one-time part)."); return; }
+    const save = f?.save !== false;
+    if (!f?.name?.trim()) { alert("Part name is required."); return; }
+    if (save && !Number(f.cost)) { alert("Distributor price (cost) is required to save to the catalogue."); return; }
+    if (!save && !Number(f.sell)) { alert("Selling price is required for a one-time part."); return; }
 
-    // One-time part: used only on this quotation, NOT written to the DB or the dropdown.
+    // One-time part — manual selling price, nothing written to the DB.
     if (!save) {
-      patchCat(cat.id, { parts: [...cat.parts, { id: uid(), productId: null, name: f.name.trim(), price: Number(f.sell), qty: 1 }] });
-      setAdding((a) => ({ ...a, [cat.id]: { name: "", dist: "", sell: "", save: true } }));
+      patchCat(cat.id, { parts: [...cat.parts, { id: uid(), productId: null, name: f.name.trim(), cost: 0, price: Number(f.sell), qty: 1, manual: true }] });
+      setAdding((a) => ({ ...a, [cat.id]: { name: "", cost: "", sell: "", save: true } }));
       return;
     }
 
+    // Save to catalogue — write nickname + cost; quote SP computed from cost.
     setAdding((a) => ({ ...a, [cat.id]: { ...f, busy: true } }));
     try {
       const token = await authToken();
-      const res = await fetch("/api/admin/quick-product", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ nickname: f.name.trim(), category: cat.dbCat, distributor_price: Number(f.dist) }),
-      });
+      const res = await fetch("/api/admin/quick-product", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ nickname: f.name.trim(), category: cat.dbCat, distributor_price: Number(f.cost) }) });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || "Failed to add part");
-      const prod = { id: json.product.id, label: f.name.trim(), price: Number(json.product.price) || 0, cost: Number(f.dist) };
-      // add to catalog so it appears in the search dropdown
-      setCatalog((c) => ({ ...c, [cat.dbCat]: [...(c[cat.dbCat] || []), prod].sort((a, b) => a.label.localeCompare(b.label)) }));
-      // add it to this category with the ONE-TIME selling price (not the DB price)
-      patchCat(cat.id, { parts: [...cat.parts, { id: uid(), productId: prod.id, name: f.name.trim(), price: Number(f.sell), qty: 1 }] });
-      setAdding((a) => ({ ...a, [cat.id]: { name: "", dist: "", sell: "", save: true } }));
+      const item: CatalogItem = { id: json.product.id, label: f.name.trim(), nickname: f.name.trim(), price: Number(json.product.price) || 0, cost: Number(f.cost), draft: true };
+      setCatalog((c) => ({ ...c, [cat.dbCat]: [...(c[cat.dbCat] || []), item].sort((a, b) => a.label.localeCompare(b.label)) }));
+      patchCat(cat.id, { parts: [...cat.parts, { id: uid(), productId: item.id, name: item.label, cost: item.cost, price: sp(item.cost, cat.dbCat), qty: 1, manual: false }] });
+      setAdding((a) => ({ ...a, [cat.id]: { name: "", cost: "", sell: "", save: true } }));
     } catch (e: any) { alert(e.message); setAdding((a) => ({ ...a, [cat.id]: { ...f, busy: false } })); }
   };
 
-  const lines = useMemo(() => cats.flatMap((c) => c.parts.filter((p) => p.name).map((p) => ({ label: c.label, name: p.name, qty: p.qty, total: p.price * p.qty }))), [cats]);
+  // ---- save / load ----
+  const loadSavedList = async () => {
+    const token = await authToken();
+    const res = await fetch("/api/admin/quotations", { headers: { Authorization: `Bearer ${token}` } });
+    if (res.ok) { const j = await res.json(); setSavedList(j.quotations || []); }
+  };
+  const saveQuotation = async (asStatus: "draft" | "final") => {
+    setSaving(true);
+    try {
+      const token = await authToken();
+      const payload = {
+        id: quotationId || undefined,
+        title, customer, valid_until: validUntil || null, status: asStatus,
+        customer_email: customerEmail || null, customer_phone: customerPhone || null, customer_address: customerAddress || null,
+        show_email: showEmail, show_phone: showPhone, show_address: showAddress,
+        include_floor: includeFloor, gst_location: gstLocation, gst_inclusive: gstInclusive,
+        delivery: Number(delivery) || 0, total: grandTotal, data: { cats, showGst },
+      };
+      const res = await fetch("/api/admin/quotations", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error || "Save failed");
+      setQuotationId(j.quotation.id); setStatus(asStatus);
+      if (j.quotation?.quotation_no) setQuotationNo(j.quotation.quotation_no);
+      await loadSavedList();
+      if (asStatus === "draft") {
+        alert("Saved as draft.");
+      } else {
+        const no = j.quotation_no || j.quotation?.quotation_no;
+        const parts = [`Quotation finalized${no ? ` as ${no}` : ""}.`];
+        if (j.emailed) parts.push(customerEmail ? `A login link was emailed to ${customerEmail}.` : "");
+        else if (customerEmail) parts.push("Customer account linked — the quotation is in their dashboard.");
+        alert(parts.filter(Boolean).join("\n"));
+      }
+    } catch (e: any) { alert(e.message); }
+    setSaving(false);
+  };
+  const loadQuotation = async (id: string) => {
+    if (!id) return;
+    const token = await authToken();
+    const res = await fetch(`/api/admin/quotations?id=${id}`, { headers: { Authorization: `Bearer ${token}` } });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) { alert(j.error || "Load failed"); return; }
+    const q = j.quotation;
+    setQuotationId(q.id); setQuotationNo(q.quotation_no || null); setStatus(q.status || "draft");
+    setTitle(q.title || ""); setCustomer(q.customer || ""); setValidUntil(q.valid_until || "");
+    setCustomerEmail(q.customer_email || ""); setCustomerPhone(q.customer_phone || ""); setCustomerAddress(q.customer_address || "");
+    setShowEmail(q.show_email !== false); setShowPhone(q.show_phone !== false); setShowAddress(q.show_address !== false);
+    setDelivery(q.delivery != null ? String(q.delivery) : "");
+    setIncludeFloor(!!q.include_floor); setGstLocation(q.gst_location || "punjab"); setGstInclusive(!!q.gst_inclusive);
+    setShowGst(q.data?.showGst !== false);
+    setCats(q.data?.cats || []);
+  };
+  const newQuotation = () => {
+    setQuotationId(null); setQuotationNo(null); setStatus("draft"); setTitle(""); setCustomer("");
+    setCustomerEmail(""); setCustomerPhone(""); setCustomerAddress(""); setShowEmail(true); setShowPhone(true); setShowAddress(true);
+    setValidUntil(""); setDelivery(""); setCats([]);
+  };
+
+  const lines = useMemo(() => cats.flatMap((c) => c.parts.filter((p) => p.name).map((p) => ({ label: c.label, name: p.name, qty: p.qty, price: p.price }))), [cats]);
   const itemCount = lines.length;
   const deliveryFee = Number(delivery) || 0;
-  const itemsTotal = lines.reduce((s, l) => s + l.total, 0);
-  const grandTotal = itemsTotal + deliveryFee;
+  // Per-line GST breakdown. `lineTotal` is the all-in (incl GST) amount per line;
+  // `face` is the price as entered (used when GST isn't shown/applied).
+  const perLine = lines.map((l) => {
+    const face = l.price * l.qty;
+    const lineTotal = gstInclusive ? face : face * 1.18; // all-in incl GST
+    const taxable = lineTotal / 1.18;
+    return { ...l, face, taxable, gst: lineTotal - taxable, lineTotal };
+  });
+  const goodsTotal = showGst ? perLine.reduce((s, x) => s + x.lineTotal, 0) : perLine.reduce((s, x) => s + x.face, 0);
+  const totalTaxable = perLine.reduce((s, x) => s + x.taxable, 0);
+  const totalGst = perLine.reduce((s, x) => s + x.gst, 0);
+  const gstHalf = totalGst / 2; // CGST / SGST split
+  const grandTotal = goodsTotal + deliveryFee;
 
+  const fmtD = (d: string) => new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   const inp = "bg-black border border-white/15 rounded px-3 py-2 text-sm text-white focus:border-[#ff5a1f] outline-none";
 
   if (loading) return <div className="min-h-screen bg-[#121212] flex items-center justify-center text-white font-orbitron animate-pulse">Loading…</div>;
 
   return (
     <div className="min-h-screen bg-[#121212] text-white font-saira pb-24 print:bg-white print:pb-0">
-      {/* quotation preview styles (scoped to .qp) + print rules */}
       <style>{`
-        .qp{ --accent:#ff5a1f; max-width:860px; margin:0 auto; }
-        .qp .brand{ text-align:center; font-size:15px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; margin-bottom:18px; }
+        /* Clean, professional light quotation — a white "sheet" that prints
+           perfectly on A4. Dark ink + orange accents; no white-on-white. */
+        .qp{ --accent:#ff5a1f; --ink:#161616; --muted:#6f6f6f; --line:#e6e6e6; max-width:820px; margin:0 auto; background:#fff; color:var(--ink); padding:46px 50px; border-radius:6px; box-shadow:0 24px 60px rgba(0,0,0,.45); font-family:var(--font-saira),'Saira',sans-serif; }
+        .qp .top{ display:flex; justify-content:space-between; align-items:flex-start; gap:20px; padding-bottom:18px; border-bottom:2px solid var(--ink); }
+        .qp .brandrow{ display:flex; align-items:center; gap:13px; }
+        .qp .bicon{ width:44px; height:44px; display:block; flex-shrink:0; }
+        .qp .brand{ font-size:16px; font-weight:700; letter-spacing:.05em; line-height:1; }
         .qp .brand span{ color:var(--accent); }
-        .qp .qh1{ text-align:center; font-size:30px; font-weight:800; text-transform:uppercase; margin:0 0 4px; }
-        .qp .subtitle{ text-align:center; color:#9a9a9a; margin-bottom:26px; font-size:12px; text-transform:uppercase; letter-spacing:.05em; }
-        .qp .card{ background:#1a1a1a; border:1px solid #2e2e2e; border-top:3px solid var(--accent); border-radius:12px; overflow:hidden; margin-bottom:22px; }
-        .qp .ch{ background:#161616; padding:15px 20px; font-size:14px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #2e2e2e; }
-        .qp .ch .badge{ font-size:11px; font-weight:500; color:var(--accent); }
-        .qp table{ width:100%; border-collapse:collapse; }
-        .qp th,.qp td{ text-align:left; padding:11px 20px; border-bottom:1px solid #2e2e2e; font-size:13.5px; color:#f5f5f5; }
-        .qp th{ color:#9a9a9a; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+        .qp .brand .tag{ display:block; font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:600; margin-top:6px; }
+        .qp .meta{ text-align:right; }
+        .qp .meta .qt{ font-size:19px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; line-height:1; }
+        .qp .meta .ml{ font-size:11px; color:var(--muted); margin-top:5px; }
+        .qp .qtitle{ margin-top:18px; font-size:14px; font-weight:700; }
+        .qp .billto{ margin-top:12px; }
+        .qp .billto .bl{ font-size:8.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); font-weight:700; margin-bottom:3px; }
+        .qp .billto .bn{ font-size:13px; font-weight:700; }
+        .qp .billto .bm{ font-size:11.5px; color:var(--muted); line-height:1.5; }
+        .qp table{ width:100%; border-collapse:collapse; margin-top:22px; }
+        .qp th{ text-align:left; font-size:9.5px; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); font-weight:700; padding:0 10px 9px; border-bottom:1.5px solid var(--ink); }
+        .qp td{ padding:11px 10px; border-bottom:1px solid var(--line); font-size:13px; }
+        .qp td.cmp{ font-weight:700; white-space:nowrap; }
         .qp td.price,.qp th.price{ text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
-        .qp .total-row td{ background:var(--accent); color:#0e0e0e; font-weight:800; font-size:15px; text-transform:uppercase; border-bottom:none; padding:15px 20px; }
-        .qp .gt{ text-align:center; padding:22px; border-radius:12px; background:#1a1a1a; border:1px solid #2e2e2e; border-top:3px solid var(--accent); margin-bottom:18px; }
-        .qp .gt .label{ color:#9a9a9a; font-size:12px; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
-        .qp .gt .amount{ font-size:28px; font-weight:800; color:var(--accent); }
-        .qp .note{ font-size:12px; color:#9a9a9a; text-align:center; margin-top:16px; line-height:1.6; }
-        .qp .ty{ text-align:center; border-top:1px solid #2e2e2e; margin-top:22px; padding-top:18px; font-size:12px; color:#9a9a9a; }
-        .qp .ty b{ color:#f5f5f5; font-size:14px; letter-spacing:.04em; }
-
+        .qp table.gst th,.qp table.gst td{ padding:8px 7px; font-size:11px; }
+        .qp .muted{ color:#bbb; }
+        .qp .summary{ margin:20px 0 0 auto; width:330px; }
+        .qp .summary .r{ display:flex; justify-content:space-between; font-size:13px; padding:7px 2px; }
+        .qp .summary .r.sub{ color:var(--muted); font-size:12px; }
+        .qp .summary .sep{ border-top:1px solid var(--line); margin:5px 0; }
+        .qp .summary .r.final{ border-top:2px solid var(--ink); margin-top:7px; padding-top:13px; font-size:17px; font-weight:800; }
+        .qp .summary .r.final .amt{ color:var(--accent); }
+        .qp .note{ margin-top:34px; border-top:1px solid var(--line); padding-top:16px; text-align:center; font-size:11px; color:var(--muted); line-height:1.6; }
+        .qp .note b{ color:var(--ink); font-size:13px; }
         @media print{
           @page{ size:A4; margin:14mm; }
-          body{ background:#fff !important; }
+          html,body{ background:#fff !important; }
+          /* Print ONLY the quotation — hide the builder, navbar, chat widget,
+             notification prompt and anything else injected by the layout. */
+          body *{ visibility:hidden !important; }
+          .qp-wrap, .qp-wrap *{ visibility:visible !important; }
+          .qp-wrap{ width:100%; padding:0 !important; background:#fff !important; }
+          .qp{ box-shadow:none !important; border-radius:0 !important; padding:0 !important; max-width:none !important; }
           .no-print{ display:none !important; }
-          .qp-wrap{ padding:0 !important; }
           *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
-          /* A card may flow onto the next page, but never split a row; the @page
-             margin keeps the padding identical on every page. */
-          .qp .card{ break-inside:auto; }
-          .qp tr{ break-inside:avoid; }
-          .qp .ch,.qp .gt,.qp .ty{ break-inside:avoid; }
+          .qp table{ break-inside:auto; }
+          .qp tr,.qp .summary,.qp .note,.qp .top{ break-inside:avoid; }
         }
       `}</style>
 
@@ -165,67 +339,137 @@ export default function QuotationBuilder() {
               <h1 className="font-orbitron text-3xl font-bold">QUOTATION BUILDER</h1>
               <p className="text-gray-400 text-sm">Build a customer quotation, then print or save as PDF</p>
             </div>
-            <button onClick={() => window.print()} className="ml-auto flex items-center gap-2 bg-[#ff5a1f] text-black px-5 py-2.5 rounded-lg text-sm font-bold hover:opacity-90">
-              <FaPrint /> Print / Save PDF
-            </button>
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              <select onChange={(e) => { loadQuotation(e.target.value); e.target.value = ""; }} value="" className={inp} title="Load a saved quotation">
+                <option value="">Load saved…</option>
+                {savedList.map((q) => <option key={q.id} value={q.id}>{(q.title || "Untitled")}{q.customer ? ` · ${q.customer}` : ""} · {q.status}</option>)}
+              </select>
+              <button onClick={newQuotation} className="px-3 py-2.5 border border-white/15 rounded-lg text-sm font-bold text-gray-300 hover:bg-white/5">New</button>
+              <button onClick={() => saveQuotation("draft")} disabled={saving} className="px-4 py-2.5 border border-white/15 rounded-lg text-sm font-bold text-gray-200 hover:bg-white/5 disabled:opacity-50">{saving ? "Saving…" : "Save draft"}</button>
+              <button onClick={() => saveQuotation("final")} disabled={saving} className="px-4 py-2.5 bg-cyan-500 text-black rounded-lg text-sm font-bold hover:bg-cyan-400 disabled:opacity-50">Save final</button>
+              <button onClick={() => window.print()} className="flex items-center gap-2 bg-[#ff5a1f] text-black px-5 py-2.5 rounded-lg text-sm font-bold hover:opacity-90"><FaPrint /> Print</button>
+            </div>
           </div>
+          {quotationId && <p className="text-[11px] text-gray-500 -mt-4 mb-6">Editing saved quotation · status: <span className={status === "final" ? "text-cyan-400" : "text-amber-400"}>{status}</span></p>}
 
           {/* Meta */}
-          <div className="bg-[#1A1A1A] border border-white/10 rounded-xl p-5 mb-6 grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div><label className="text-[10px] uppercase tracking-wider text-gray-400">Quotation title / build name</label><input className={`${inp} w-full mt-1`} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Nvidia Build (2x RTX 5060)" /></div>
-            <div><label className="text-[10px] uppercase tracking-wider text-gray-400">Customer (optional)</label><input className={`${inp} w-full mt-1`} value={customer} onChange={(e) => setCustomer(e.target.value)} placeholder="Customer name" /></div>
-            <div><label className="text-[10px] uppercase tracking-wider text-gray-400">Valid until</label><input type="date" className={`${inp} w-full mt-1`} value={validUntil} onChange={(e) => setValidUntil(e.target.value)} /></div>
-            <div>
-              <label className="text-[10px] uppercase tracking-wider text-gray-400">Delivery charges (₹)</label>
-              <div className="relative mt-1"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span><input type="number" min="0" className={`${inp} w-full pl-6`} value={delivery} onChange={(e) => setDelivery(e.target.value)} placeholder="0 = free / included" /></div>
+          <div className="bg-[#1A1A1A] border border-white/10 rounded-xl p-5 mb-6">
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div><label className="text-[10px] uppercase tracking-wider text-gray-400">Quotation title / build name</label><input className={`${inp} w-full mt-1`} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Nvidia Build (2x RTX 5060)" /></div>
+              <div><label className="text-[10px] uppercase tracking-wider text-gray-400">Customer name</label><input className={`${inp} w-full mt-1`} value={customer} onChange={(e) => setCustomer(e.target.value)} placeholder="Customer name" /></div>
+              <div><label className="text-[10px] uppercase tracking-wider text-gray-400">Valid until</label><input type="date" className={`${inp} w-full mt-1`} value={validUntil} onChange={(e) => setValidUntil(e.target.value)} /></div>
+              <div><label className="text-[10px] uppercase tracking-wider text-gray-400">Delivery charges (₹)</label><div className="relative mt-1"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span><input type="number" min="0" className={`${inp} w-full pl-6`} value={delivery} onChange={(e) => setDelivery(e.target.value)} placeholder="0 = free / included" /></div></div>
             </div>
+
+            {/* Customer contact — each field independently shown on the quote.
+                An email is what triggers the auto-created account + login link. */}
+            <div className="mt-5 pt-5 border-t border-white/10">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] uppercase tracking-wider text-gray-400 font-bold">Customer contact</span>
+                <span className="text-[11px] text-gray-500">Tick “show” to print a field on the quotation</span>
+              </div>
+              <div className="grid md:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-gray-400">Email {customerEmail && <span className="text-[#ff5a1f]">· creates account</span>}</label>
+                  <input type="email" className={`${inp} w-full mt-1`} value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="customer@email.com" />
+                  <label className="flex items-center gap-2 mt-2 text-[12px] text-gray-300 cursor-pointer"><input type="checkbox" className="accent-[#ff5a1f] w-4 h-4" checked={showEmail} onChange={(e) => setShowEmail(e.target.checked)} /> Show on quotation</label>
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-gray-400">Phone</label>
+                  <input className={`${inp} w-full mt-1`} value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="+91 …" />
+                  <label className="flex items-center gap-2 mt-2 text-[12px] text-gray-300 cursor-pointer"><input type="checkbox" className="accent-[#ff5a1f] w-4 h-4" checked={showPhone} onChange={(e) => setShowPhone(e.target.checked)} /> Show on quotation</label>
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-gray-400">Address</label>
+                  <input className={`${inp} w-full mt-1`} value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} placeholder="City / full address" />
+                  <label className="flex items-center gap-2 mt-2 text-[12px] text-gray-300 cursor-pointer"><input type="checkbox" className="accent-[#ff5a1f] w-4 h-4" checked={showAddress} onChange={(e) => setShowAddress(e.target.checked)} /> Show on quotation</label>
+                </div>
+              </div>
+              <p className="text-[11px] text-gray-500 mt-3">On <b className="text-gray-300">Save final</b>, a customer account is auto-created from the email and a seamless login link is emailed; the quotation appears in their dashboard.</p>
+            </div>
+          </div>
+
+          {/* Pricing mode */}
+          <div className="bg-[#1A1A1A] border border-white/10 rounded-xl p-4 mb-6 flex flex-wrap items-center gap-3">
+            <span className="text-[11px] uppercase tracking-wider text-gray-400 font-bold">Pricing mode</span>
+            <button onClick={() => setIncludeFloor(false)} className={`px-4 py-2 rounded-lg text-xs font-bold border transition-colors ${!includeFloor ? "bg-[#ff5a1f] text-black border-[#ff5a1f]" : "border-white/15 text-gray-300 hover:bg-white/5"}`}>Percent only</button>
+            <button onClick={() => setIncludeFloor(true)} className={`px-4 py-2 rounded-lg text-xs font-bold border transition-colors ${includeFloor ? "bg-[#ff5a1f] text-black border-[#ff5a1f]" : "border-white/15 text-gray-300 hover:bg-white/5"}`}>Include base margin</button>
+            <span className="text-[11px] text-gray-500">{includeFloor ? "SP = cost + max(percent, base margin), rounded 49/99 (same as website)." : "SP = cost + percent only, rounded 49/99 (ignores the base-margin floor)."}</span>
+          </div>
+
+          {/* GST */}
+          <div className="bg-[#1A1A1A] border border-white/10 rounded-xl p-4 mb-6 flex flex-wrap items-center gap-3">
+            <span className="text-[11px] uppercase tracking-wider text-gray-400 font-bold">GST (18%)</span>
+            <button onClick={() => setGstLocation("punjab")} className={`px-4 py-2 rounded-lg text-xs font-bold border transition-colors ${gstLocation === "punjab" ? "bg-[#ff5a1f] text-black border-[#ff5a1f]" : "border-white/15 text-gray-300 hover:bg-white/5"}`}>Customer in Punjab (CGST + SGST)</button>
+            <button onClick={() => setGstLocation("outside")} className={`px-4 py-2 rounded-lg text-xs font-bold border transition-colors ${gstLocation === "outside" ? "bg-[#ff5a1f] text-black border-[#ff5a1f]" : "border-white/15 text-gray-300 hover:bg-white/5"}`}>Outside Punjab (IGST)</button>
+            <label className="flex items-center gap-2 text-[12px] text-gray-300 cursor-pointer ml-2">
+              <input type="checkbox" className="accent-[#ff5a1f] w-4 h-4" checked={gstInclusive} onChange={(e) => setGstInclusive(e.target.checked)} />
+              Prices already include GST
+            </label>
+            <label className="flex items-center gap-2 text-[12px] text-gray-300 cursor-pointer">
+              <input type="checkbox" className="accent-[#ff5a1f] w-4 h-4" checked={showGst} onChange={(e) => setShowGst(e.target.checked)} />
+              Show GST breakdown on the quotation
+            </label>
           </div>
 
           {/* Categories */}
           {cats.map((cat) => (
             <div key={cat.id} className="bg-[#1A1A1A] border border-white/10 rounded-xl p-5 mb-4">
               <div className="flex flex-wrap items-center gap-3 mb-4">
-                <select value={cat.dbCat} onChange={(e) => setCatDb(cat, e.target.value)} className={inp}>
-                  {CATS.map((c) => <option key={c} value={c}>{pretty(c)}</option>)}
-                </select>
+                <select value={cat.dbCat} onChange={(e) => setCatDb(cat, e.target.value)} className={inp}>{CATS.map((c) => <option key={c} value={c}>{pretty(c)}</option>)}</select>
                 <input value={cat.label} onChange={(e) => patchCat(cat.id, { label: e.target.value })} className={`${inp} flex-1 min-w-[180px]`} placeholder="Label shown on quotation (e.g. Graphics Card)" />
                 <button onClick={() => removeCategory(cat.id)} className="text-gray-400 hover:text-red-400 px-2" title="Remove category"><FaTrash /></button>
               </div>
 
               {cat.parts.map((part) => (
                 <div key={part.id} className="flex flex-wrap items-center gap-2 mb-2">
-                  <div className="relative flex-1 min-w-[220px]">
-                    <input
-                      className={`${inp} w-full`}
-                      placeholder={`Search ${pretty(cat.dbCat).toLowerCase()}…`}
-                      value={openPart === part.id ? (partQuery[part.id] ?? part.name ?? "") : (part.name || "")}
-                      onFocus={() => { setOpenPart(part.id); setPartQuery((q) => ({ ...q, [part.id]: part.name || "" })); }}
-                      onChange={(e) => { setOpenPart(part.id); setPartQuery((q) => ({ ...q, [part.id]: e.target.value })); }}
-                      onBlur={() => setTimeout(() => setOpenPart((o) => (o === part.id ? null : o)), 160)}
-                    />
-                    {openPart === part.id && (() => {
-                      const q = (partQuery[part.id] ?? "").toLowerCase();
-                      const list = (catalog[cat.dbCat] || []).filter((p) => !q || p.label.toLowerCase().includes(q)).slice(0, 50);
-                      return (
-                        <div className="absolute z-30 left-0 right-0 mt-1 max-h-64 overflow-y-auto bg-[#1A1A1A] border border-white/15 rounded-lg shadow-2xl">
-                          {list.length === 0 && <div className="px-3 py-2 text-xs text-gray-500">No matches — use “Add a new part”.</div>}
-                          {list.map((p) => (
-                            <button key={p.id} type="button"
-                              onMouseDown={(e) => { e.preventDefault(); selectProduct(cat, part, p.id); setPartQuery((qq) => ({ ...qq, [part.id]: p.label })); setOpenPart(null); }}
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-white/5 flex justify-between gap-3">
-                              <span className="truncate">{p.label}</span>
-                              <span className="text-gray-400 shrink-0">₹{inr(p.price)}</span>
-                            </button>
-                          ))}
-                        </div>
-                      );
-                    })()}
-                  </div>
+                  {part.manual ? (
+                    <>
+                      <input value={part.name} onChange={(e) => patchPart(cat, part.id, { name: e.target.value })} className={`${inp} flex-1 min-w-[220px]`} placeholder="One-time part name" />
+                      <span className="text-[9px] uppercase tracking-wider text-cyan-400 font-bold">one-time</span>
+                    </>
+                  ) : (
+                    <div className="relative flex-1 min-w-[220px]">
+                      <input
+                        className={`${inp} w-full`}
+                        placeholder={`Search ${pretty(cat.dbCat).toLowerCase()} (name or nickname)…`}
+                        value={openPart === part.id ? (partQuery[part.id] ?? part.name ?? "") : (part.name || "")}
+                        onFocus={() => { setOpenPart(part.id); setPartQuery((q) => ({ ...q, [part.id]: part.name || "" })); }}
+                        onChange={(e) => { setOpenPart(part.id); setPartQuery((q) => ({ ...q, [part.id]: e.target.value })); }}
+                        onBlur={() => setTimeout(() => setOpenPart((o) => (o === part.id ? null : o)), 180)}
+                      />
+                      {openPart === part.id && (() => {
+                        const q = (partQuery[part.id] ?? "").toLowerCase();
+                        const list = (catalog[cat.dbCat] || []).filter((p) => !q || p.label.toLowerCase().includes(q) || p.nickname.toLowerCase().includes(q)).slice(0, 50);
+                        return (
+                          <div className="absolute z-30 left-0 right-0 mt-1 max-h-72 overflow-y-auto bg-[#1A1A1A] border border-white/15 rounded-lg shadow-2xl">
+                            {list.length === 0 && <div className="px-3 py-2 text-xs text-gray-500">No matches — use “Add a new part”.</div>}
+                            {list.map((p) => (
+                              <div key={p.id} className="flex items-center hover:bg-white/5">
+                                <button type="button" onMouseDown={(e) => { e.preventDefault(); selectProduct(cat, part, p.id); setPartQuery((qq) => ({ ...qq, [part.id]: p.label })); setOpenPart(null); }} className="flex-1 text-left px-3 py-2 text-sm flex justify-between gap-3 min-w-0">
+                                  <span className="truncate">{p.label}{p.draft ? <span className="text-[9px] text-amber-400 ml-1">draft</span> : null}</span>
+                                  <span className="text-gray-400 shrink-0">₹{inr(p.cost)} cost</span>
+                                </button>
+                                <button type="button" onMouseDown={(e) => { e.preventDefault(); renameItem(cat, p); }} className="px-2 text-gray-500 hover:text-cyan-400" title={p.draft ? "Rename (nickname, saved to catalogue)" : "Rename (catalogue name — affects website)"}><FaPen size={10} /></button>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+
                   <input type="number" min="1" value={part.qty} onChange={(e) => patchPart(cat, part.id, { qty: Math.max(1, Number(e.target.value) || 1) })} className={`${inp} w-16`} title="Qty" />
-                  <div className="relative">
-                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span>
-                    <input type="number" value={part.price || ""} onChange={(e) => patchPart(cat, part.id, { price: Number(e.target.value) || 0 })} className={`${inp} w-32 pl-6`} title="Selling price (one-time)" placeholder="price" />
-                  </div>
+
+                  {part.manual ? (
+                    <div className="relative"><span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span><input type="number" value={part.price || ""} onChange={(e) => patchPart(cat, part.id, { price: Number(e.target.value) || 0 })} className={`${inp} w-32 pl-6`} title="Selling price" placeholder="price" /></div>
+                  ) : (
+                    <>
+                      <div className="relative" title="Cost (distributor price) — saved to the catalogue on change"><span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span><input type="number" value={part.cost || ""} onChange={(e) => editCost(cat, part, e.target.value)} onBlur={() => persistCost(cat, part)} className={`${inp} w-28 pl-6`} placeholder="cost" /></div>
+                      <span className="text-xs text-gray-300 w-28 text-right">SP ₹{inr(part.price)}</span>
+                    </>
+                  )}
+
                   <span className="text-xs text-gray-500 w-24 text-right">= ₹{inr(part.price * part.qty)}</span>
                   <button onClick={() => removePart(cat, part.id)} className="text-gray-500 hover:text-red-400 px-1" title="Remove part"><FaTrash size={12} /></button>
                 </div>
@@ -233,91 +477,123 @@ export default function QuotationBuilder() {
 
               <div className="flex flex-wrap items-center gap-3 mt-3">
                 <button onClick={() => addPart(cat)} className="text-xs font-bold text-[#ff5a1f] hover:underline flex items-center gap-1"><FaPlus size={9} /> Add part</button>
-                <button onClick={() => setAdding((a) => ({ ...a, [cat.id]: a[cat.id] ? a[cat.id] : { name: "", dist: "", sell: "" } }))} className="text-xs font-bold text-cyan-400 hover:underline flex items-center gap-1"><FaPlus size={9} /> Add a new part (not in catalogue)</button>
+                <button onClick={() => setAdding((a) => ({ ...a, [cat.id]: a[cat.id] ? a[cat.id] : { name: "", cost: "", sell: "", save: true } }))} className="text-xs font-bold text-cyan-400 hover:underline flex items-center gap-1"><FaPlus size={9} /> Add a new part (not in catalogue)</button>
               </div>
 
               {adding[cat.id] && (() => {
                 const f = adding[cat.id];
                 const save = f.save !== false;
+                const previewSp = save && Number(f.cost) > 0 ? sp(Number(f.cost), cat.dbCat) : 0;
                 return (
-                <div className="mt-3 bg-black/30 border border-white/10 rounded-lg p-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <input value={f.name} onChange={(e) => setAdding((a) => ({ ...a, [cat.id]: { ...a[cat.id], name: e.target.value } }))} className={`${inp} flex-1 min-w-[200px]`} placeholder="New part name / model" />
-                    {save && (
-                      <div className="relative"><span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span><input type="number" value={f.dist} onChange={(e) => setAdding((a) => ({ ...a, [cat.id]: { ...a[cat.id], dist: e.target.value } }))} className={`${inp} w-36 pl-6`} placeholder="distributor price" /></div>
-                    )}
-                    <div className="relative"><span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span><input type="number" value={f.sell} onChange={(e) => setAdding((a) => ({ ...a, [cat.id]: { ...a[cat.id], sell: e.target.value } }))} className={`${inp} w-36 pl-6`} placeholder="selling price (this quote)" /></div>
-                    <button onClick={() => submitNewPart(cat)} disabled={f.busy} className="bg-cyan-500 text-black px-4 py-2 rounded text-sm font-bold disabled:opacity-50">{f.busy ? "Adding…" : "Add"}</button>
+                  <div className="mt-3 bg-black/30 border border-white/10 rounded-lg p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input value={f.name} onChange={(e) => setAdding((a) => ({ ...a, [cat.id]: { ...a[cat.id], name: e.target.value } }))} className={`${inp} flex-1 min-w-[200px]`} placeholder="New part name / model" />
+                      {save ? (
+                        <>
+                          <div className="relative"><span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span><input type="number" value={f.cost} onChange={(e) => setAdding((a) => ({ ...a, [cat.id]: { ...a[cat.id], cost: e.target.value } }))} className={`${inp} w-36 pl-6`} placeholder="distributor price (cost)" /></div>
+                          <span className="text-xs text-gray-300">→ SP ₹{inr(previewSp)}</span>
+                        </>
+                      ) : (
+                        <div className="relative"><span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span><input type="number" value={f.sell} onChange={(e) => setAdding((a) => ({ ...a, [cat.id]: { ...a[cat.id], sell: e.target.value } }))} className={`${inp} w-36 pl-6`} placeholder="selling price (this quote)" /></div>
+                      )}
+                      <button onClick={() => submitNewPart(cat)} disabled={f.busy} className="bg-cyan-500 text-black px-4 py-2 rounded text-sm font-bold disabled:opacity-50">{f.busy ? "Adding…" : "Add"}</button>
+                    </div>
+                    <label className="flex items-center gap-2 mt-3 text-[12px] text-gray-300 cursor-pointer">
+                      <input type="checkbox" className="accent-cyan-500 w-4 h-4" checked={save} onChange={(e) => setAdding((a) => ({ ...a, [cat.id]: { ...a[cat.id], save: e.target.checked } }))} />
+                      Save this part to the catalogue
+                    </label>
+                    <p className="text-[11px] text-gray-500 mt-1">{save ? "Saves name + distributor price to the catalogue; the quote SP is auto-calculated from the cost (per the pricing mode above)." : "One-time part — a manual selling price used only on this quotation. Nothing is saved."}</p>
                   </div>
-                  <label className="flex items-center gap-2 mt-3 text-[12px] text-gray-300 cursor-pointer">
-                    <input type="checkbox" className="accent-cyan-500 w-4 h-4" checked={save} onChange={(e) => setAdding((a) => ({ ...a, [cat.id]: { ...a[cat.id], save: e.target.checked } }))} />
-                    Save this part to the catalogue
-                  </label>
-                  <p className="text-[11px] text-gray-500 mt-1">
-                    {save
-                      ? "Saves the name + distributor price to the catalogue (the system auto-calculates the real selling price). The selling price above is used only on this quotation."
-                      : "One-time part — used only on this quotation. Nothing is saved to the database."}
-                  </p>
-                </div>
                 );
               })()}
             </div>
           ))}
 
-          <button onClick={addCategory} className="w-full py-3 border border-dashed border-white/20 rounded-xl text-sm font-bold text-gray-300 hover:border-[#ff5a1f] hover:text-[#ff5a1f] transition-colors flex items-center justify-center gap-2 mb-10">
-            <FaPlus /> Add category
-          </button>
+          <button onClick={addCategory} className="w-full py-3 border border-dashed border-white/20 rounded-xl text-sm font-bold text-gray-300 hover:border-[#ff5a1f] hover:text-[#ff5a1f] transition-colors flex items-center justify-center gap-2 mb-10"><FaPlus /> Add category</button>
         </div>
       </div>
 
       {/* ===== PRINTABLE QUOTATION PREVIEW ===== */}
       <div className="qp-wrap px-6 py-10 bg-[#0e0e0e] print:bg-white">
         <div className="qp">
-          <div className="brand">RIG<span>BUILDERS</span></div>
-          <div className="qh1">Quotation</div>
-          <div className="subtitle">
-            {customer ? `Prepared for ${customer}` : "Custom build quotation"}
-            {validUntil ? ` · Valid until ${new Date(validUntil).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}` : ""}
-          </div>
-
-          <div className="card">
-            <div className="ch">
-              <span>{title || "Quotation"}</span>
-              <span className="badge">{itemCount} item{itemCount === 1 ? "" : "s"}</span>
+          <div className="top">
+            <div className="brandrow">
+              <img className="bicon" src="/icons/icon_only_black.svg" alt="Rig Builders" />
+              <div className="brand">RIG<span>BUILDERS</span><span className="tag">Custom Gaming PCs & Workstations · Bathinda, Punjab</span></div>
             </div>
-            <table>
-              <tbody>
-                <tr><th>Component</th><th>Spec</th><th className="price">Price (Rs.)</th></tr>
-                {lines.length === 0 && <tr><td colSpan={3} style={{ color: "#9a9a9a", textAlign: "center" }}>Add parts to see them here.</td></tr>}
-                {lines.map((l, i) => (
-                  <tr key={i}>
-                    <td>{l.label}{l.qty > 1 ? ` x${l.qty}` : ""}</td>
-                    <td>{l.name}</td>
-                    <td className="price">{inr(l.total)}</td>
-                  </tr>
-                ))}
-                {deliveryFee > 0 && (
-                  <tr>
-                    <td>Delivery</td>
-                    <td>Insured shipping, pan-India</td>
-                    <td className="price">{inr(deliveryFee)}</td>
-                  </tr>
+            <div className="meta">
+              <div className="qt">Quotation</div>
+              {quotationNo ? <div className="ml" style={{ fontWeight: 700, color: "#161616" }}>{quotationNo}</div> : null}
+              <div className="ml">{fmtD(new Date().toISOString())}</div>
+              {validUntil ? <div className="ml">Valid until {fmtD(validUntil)}</div> : null}
+            </div>
+          </div>
+
+          {title && <div className="qtitle">{title}</div>}
+
+          {(customer || (showEmail && customerEmail) || (showPhone && customerPhone) || (showAddress && customerAddress)) && (
+            <div className="billto">
+              <div className="bl">Prepared for</div>
+              {customer ? <div className="bn">{customer}</div> : null}
+              {showAddress && customerAddress ? <div className="bm">{customerAddress}</div> : null}
+              {showPhone && customerPhone ? <div className="bm">{customerPhone}</div> : null}
+              {showEmail && customerEmail ? <div className="bm">{customerEmail}</div> : null}
+            </div>
+          )}
+
+          <table className={showGst ? "gst" : ""}>
+            <thead>
+              {showGst ? (
+                <tr><th>Component</th><th>Specification</th><th className="price">Taxable (₹)</th><th className="price">CGST/SGST</th><th className="price">IGST</th><th className="price">Total (₹)</th></tr>
+              ) : (
+                <tr><th>Component</th><th>Specification</th><th className="price">Amount (₹)</th></tr>
+              )}
+            </thead>
+            <tbody>
+              {perLine.length === 0 && <tr><td colSpan={showGst ? 6 : 3} style={{ color: "#999", textAlign: "center" }}>Add parts to see them here.</td></tr>}
+              {perLine.map((l, i) => (showGst ? (
+                <tr key={i}>
+                  <td className="cmp">{l.label}{l.qty > 1 ? ` ×${l.qty}` : ""}</td>
+                  <td>{l.name}</td>
+                  <td className="price">{inr2(l.taxable)}</td>
+                  <td className="price">{gstLocation === "punjab" ? inr2(l.gst) : <span className="muted">–</span>}</td>
+                  <td className="price">{gstLocation === "outside" ? inr2(l.gst) : <span className="muted">–</span>}</td>
+                  <td className="price">{inr2(l.lineTotal)}</td>
+                </tr>
+              ) : (
+                <tr key={i}>
+                  <td className="cmp">{l.label}{l.qty > 1 ? ` ×${l.qty}` : ""}</td>
+                  <td>{l.name}</td>
+                  <td className="price">{inr(l.face)}</td>
+                </tr>
+              )))}
+            </tbody>
+          </table>
+
+          <div className="summary">
+            {showGst && (
+              <>
+                <div className="r sub"><span>Total taxable value</span><span>₹{inr2(totalTaxable)}</span></div>
+                {gstLocation === "punjab" ? (
+                  <>
+                    <div className="r sub"><span>CGST @ 9%</span><span>₹{inr2(gstHalf)}</span></div>
+                    <div className="r sub"><span>SGST @ 9%</span><span>₹{inr2(gstHalf)}</span></div>
+                    <div className="r"><span style={{ fontWeight: 700 }}>GST amount (18%){gstInclusive ? " (incl.)" : ""}</span><span style={{ fontWeight: 700 }}>₹{inr2(totalGst)}</span></div>
+                  </>
+                ) : (
+                  <div className="r"><span style={{ fontWeight: 700 }}>IGST @ 18%{gstInclusive ? " (incl.)" : ""}</span><span style={{ fontWeight: 700 }}>₹{inr2(totalGst)}</span></div>
                 )}
-                <tr className="total-row"><td colSpan={2}>Total{deliveryFee > 0 ? " (incl. delivery)" : ""}</td><td className="price">Rs.{inr(grandTotal)}</td></tr>
-              </tbody>
-            </table>
+              </>
+            )}
+            {deliveryFee > 0 && <div className="r sub"><span>Delivery (insured, pan-India)</span><span>₹{inr2(deliveryFee)}</span></div>}
+            <div className="r final"><span>Final amount</span><span className="amt">₹{inr2(grandTotal)}</span></div>
           </div>
 
-          <div className="gt">
-            <div className="label">Total Quotation Value</div>
-            <div className="amount">Rs.{inr(grandTotal)}</div>
-          </div>
-
-          <div className="ty">
+          <div className="note">
             <b>Thank you for considering Rig Builders.</b>
-            <div style={{ marginTop: "8px" }}>
+            <div style={{ marginTop: "7px" }}>
               Every system is professionally assembled, stress-tested and delivered insured across India.
-              {validUntil ? ` This quotation is valid until ${new Date(validUntil).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}.` : ""}
+              {validUntil ? ` This quotation is valid until ${fmtD(validUntil)}.` : ""}
               {" "}Prices are subject to stock availability. · info@rigbuilders.in · www.rigbuilders.in
             </div>
           </div>

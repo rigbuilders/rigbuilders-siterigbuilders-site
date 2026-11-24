@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import {
   FaBox, FaClipboardList, FaPlusCircle, FaShoppingCart, FaTools,
   FaFileInvoice, FaChartPie, FaPenNib, FaTags, FaShieldAlt, FaArrowRight,
-  FaComments, FaLayerGroup, FaTruck, FaKey, FaImages, FaHandshake, FaFileInvoiceDollar
+  FaComments, FaLayerGroup, FaTruck, FaKey, FaImages, FaHandshake, FaFileInvoiceDollar, FaUsers
 } from "react-icons/fa";
 
 export default function AdminDashboard() {
@@ -144,6 +144,13 @@ export default function AdminDashboard() {
           icon: <FaHandshake />,
           desc: "Manage supplier accounts, review their product submissions, and audit cost-price changes.",
           color: "text-cyan-400 border-cyan-400/20 hover:bg-cyan-400/10"
+        },
+        {
+          title: "Customers",
+          href: "/admin/customers",
+          icon: <FaUsers />,
+          desc: "View, edit or delete customer contact details and their linked website accounts and quotations.",
+          color: "text-sky-400 border-sky-400/20 hover:bg-sky-400/10"
         },
       ]
     },
