@@ -201,7 +201,7 @@ export default function QuotationBuilder() {
       const res = await fetch("/api/admin/quick-product", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ nickname: f.name.trim(), category: cat.dbCat, distributor_price: Number(f.cost) }) });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || "Failed to add part");
-      const item: CatalogItem = { id: json.product.id, label: f.name.trim(), nickname: f.name.trim(), price: Number(json.product.price) || 0, cost: Number(f.cost), draft: true };
+      const item: CatalogItem = { id: json.product.id, label: f.name.trim(), nickname: f.name.trim(), breadcrumb: "", price: Number(json.product.price) || 0, cost: Number(f.cost), draft: true };
       setCatalog((c) => ({ ...c, [cat.dbCat]: [...(c[cat.dbCat] || []), item].sort((a, b) => a.label.localeCompare(b.label)) }));
       patchCat(cat.id, { parts: [...cat.parts, { id: uid(), productId: item.id, name: item.label, cost: item.cost, price: sp(item.cost, cat.dbCat), qty: 1, manual: false }] });
       setAdding((a) => ({ ...a, [cat.id]: { name: "", cost: "", sell: "", save: true } }));

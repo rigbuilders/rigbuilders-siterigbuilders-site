@@ -207,7 +207,7 @@ export async function POST(req: Request) {
             subject: `Your Rig Builders quotation ${assignedNo} is ready`,
             react: QuotationReadyEmail({
               loginLink,
-              quotationNo: assignedNo,
+              quotationNo: assignedNo || undefined,
               buildName: body?.title || undefined,
               total: Number(body?.total) || undefined,
               userName: name || undefined,
@@ -225,11 +225,13 @@ export async function POST(req: Request) {
     }
 
     // 5. Archive a PDF copy to the private bucket (best-effort).
-    try {
-      await archiveQuotationPdf(body, assignedNo);
-      console.log(`[quotations] archived PDF ${assignedNo}.pdf to bucket "${QUOTES_BUCKET}"`);
-    } catch (e) {
-      console.error("[quotations] PDF archive failed:", (e as Error).message);
+    if (assignedNo) {
+      try {
+        await archiveQuotationPdf(body, assignedNo);
+        console.log(`[quotations] archived PDF ${assignedNo}.pdf to bucket "${QUOTES_BUCKET}"`);
+      } catch (e) {
+        console.error("[quotations] PDF archive failed:", (e as Error).message);
+      }
     }
   }
 

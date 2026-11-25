@@ -131,7 +131,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // rather than a separate message or a different pipeline.
     const age = daysSince(payload?.receivedAt);
     const overdue = age !== null && age >= APOLOGY_AFTER_DAYS;
-    const text = overdue ? `${BACKLOG_APOLOGY}\n\n${reply.text}` : reply.text;
+    const outText = overdue ? `${BACKLOG_APOLOGY}\n\n${reply.text}` : reply.text;
 
     // Dry run exists because the first backlog pass is the risky one: it can
     // touch hundreds of threads at once, and seeing what would go out beats
@@ -143,14 +143,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         wouldSendTo: address,
         ageDays: age !== null ? Math.round(age) : null,
         apologyAdded: overdue,
-        preview: text.slice(0, 500),
+        preview: outText.slice(0, 500),
       });
     }
 
     const sent = await sendEmailReply({
       to: address,
       subject: subject ? `Re: ${subject}` : "Your Rig Builders enquiry",
-      text,
+      text: outText,
       inReplyTo: payload?.messageId,
       attachmentUrl: reply.media?.url,
     });
