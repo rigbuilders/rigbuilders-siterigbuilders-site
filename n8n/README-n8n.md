@@ -92,6 +92,100 @@ Then fill two placeholders:
 
 Save, then toggle the workflow **Active**.
 
+## Running across multiple Windows profiles
+
+n8n's default data folder is `%USERPROFILE%\.n8n`, which lives **inside one
+Windows profile**. Start n8n from a different profile and it finds a fresh
+install: no workflow, no credentials. The startup method isn't the problem —
+the data location is.
+
+### Move the data somewhere machine-wide
+
+1. Stop n8n.
+2. Create `C:\n8n\data`.
+3. Copy the **contents** of `C:\Users\<the profile that has it>\.n8n` into it —
+   including the `config` file.
+4. `start-n8n.bat` already points `N8N_USER_FOLDER` at `C:\n8n\data`.
+5. Start it and check the workflow and IMAP credential are both there.
+
+**About that `config` file.** If you created the IMAP credential by running
+`n8n` directly rather than through the batch file, n8n generated its own
+encryption key into `config` — not the one in the batch file. Those two
+disagreeing is what makes a credential come back as unreadable. If that
+happens, open the old `config`, copy `encryptionKey`, and paste it into
+`start-n8n.bat`. Or just re-enter the mailbox password; it's one field.
+
+### Start at boot, for every profile
+
+Task Scheduler, triggered at **startup** rather than logon, so it runs before
+anyone signs in and regardless of which profile is used.
+
+1. **Task Scheduler → Create Task.**
+2. **General:** name `n8n`. Select **Run whether user is logged on or not**
+   and tick **Run with highest privileges**. Leave the account as an admin
+   user — Windows asks for that password once and stores it.
+3. **Triggers → New:** *At startup*, with a **1 minute delay** so networking
+   and the disk are ready.
+4. **Actions → New:** *Start a program*
+   - Program: `C:\Users\ginni\rigbuilders-site\n8n\start-n8n.bat`
+   - Start in: `C:\Users\ginni\rigbuilders-site\n8n`
+5. **Conditions:** untick **Start only if on AC power**.
+6. **Settings:** tick **If the task fails, restart every** 1 minute, 3 times.
+   Set **If the task is already running: Do not start a new instance** —
+   without that, a restart can leave two copies fighting over port 5678.
+
+Any profile can then open <http://127.0.0.1:5678> — it's the same machine, so
+the editor is reachable from all of them.
+
+There'll be no console window, since the task runs in the background. To check
+it's alive, load that URL, or look in Task Manager for a `node` process.
+
+### Opening the editor automatically
+
+`start-n8n.bat --open` launches the browser 12 seconds after starting, once
+the server is listening. Use that when running it by hand.
+
+The scheduled task must **not** pass `--open`. Running "whether user is logged
+on or not" puts it in session 0, which has no desktop — a browser window
+can't appear there, so the flag would either do nothing or leave stray
+processes behind.
+
+If you want the editor to appear when you sign in, keep the startup task as
+it is (headless, serving every profile) and add a **separate** shortcut:
+
+1. Right-click your desktop → New → Shortcut.
+2. Location: `explorer http://127.0.0.1:5678`
+3. Name it "n8n", then move it into
+   `shell:startup` (press `Win+R`, type `shell:startup`, Enter).
+
+That opens the editor at logon for that profile only, and leaves the
+automation independent of it.
+
+### Sturdier alternative
+
+If you want proper service behaviour — automatic restart on crash, Windows
+service management, log files — wrap it with
+[NSSM](https://nssm.cc): `nssm install n8n "C:\nvm4w\nodejs\n8n.cmd" start`,
+then set the same environment variables and the log paths in NSSM's UI. Task
+Scheduler is enough to start with; NSSM is what you'd move to if it proves
+flaky.
+
+## ⚠ Move the encryption key out of the repo
+
+`start-n8n.bat` currently holds `N8N_ENCRYPTION_KEY` in plain text, and this
+folder is inside the git repo — so that key is in your commit history and in
+GitHub. It unlocks the stored mailbox password.
+
+Fix it: create `C:\n8n\env.bat` containing just
+
+```
+set N8N_ENCRYPTION_KEY=<your key>
+```
+
+replace the line in `start-n8n.bat` with `call C:\n8n\env.bat`, and add
+`n8n/start-n8n.bat` to `.gitignore`. The key then lives outside the repo
+entirely.
+
 ## 7. Start automatically at logon
 
 Task Scheduler is more reliable than a Startup-folder shortcut: it restarts on

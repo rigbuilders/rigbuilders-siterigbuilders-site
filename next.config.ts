@@ -81,6 +81,18 @@ const nextConfig: NextConfig = {
   // runtime require from node_modules instead.
   serverExternalPackages: ["web-push"],
 
+  // @react-pdf/renderer ships as ESM only. Turbopack (the Next 16 default)
+  // imports it happily; webpack refuses with "ESM packages need to be
+  // imported" even though app/admin/ops/documents/page.tsx already uses a
+  // dynamic import() correctly. Listing it here makes webpack transpile it
+  // instead of treating it as an external, which fixes the build without
+  // touching the page.
+  //
+  // Only needed because the Vercel Build Command overrides to
+  // `next build --webpack`. Dropping that override is the better fix — this
+  // line is harmless under Turbopack either way.
+  transpilePackages: ["@react-pdf/renderer"],
+
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**" }, // Allows all external images

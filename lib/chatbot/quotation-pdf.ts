@@ -117,6 +117,7 @@ export interface QuotationOptions {
   customerPhone?: string;
   customerAddress?: string;
   validUntil?: string;      // ISO date
+  quoteDate?: string;       // ISO date shown as the quotation date (defaults to today)
   delivery?: number;        // ₹ delivery charges
   gst?: {
     show: boolean;
@@ -213,7 +214,7 @@ function groupByCategory(items: QuotationItem[]): QuotationGroup[] {
 function buildDocument(items: QuotationItem[], options: QuotationOptions) {
   const groups = groupByCategory(items);
   const faceTotal = items.reduce((sum, item) => sum + item.price, 0);
-  const dateLine = new Date().toLocaleDateString("en-IN");
+  const dateLine = options.quoteDate ? fmtDate(options.quoteDate) : new Date().toLocaleDateString("en-IN");
 
   // GST math — mirrors the admin builder. `lineTotalAllIn` is the GST-inclusive
   // goods value; `taxable` backs the 18% out of it.

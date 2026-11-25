@@ -27,6 +27,7 @@ async function archiveQuotationPdf(body: any, quotationNo: string) {
     customerPhone: body?.show_phone ? body?.customer_phone || undefined : undefined,
     customerAddress: body?.show_address ? body?.customer_address || undefined : undefined,
     validUntil: body?.valid_until || undefined,
+    quoteDate: body?.quote_date || undefined,
     delivery: Number(body?.delivery) || 0,
     gst: { show: body?.data?.showGst !== false, location: body?.gst_location || "punjab", inclusive: !!body?.gst_inclusive },
   });
@@ -70,6 +71,7 @@ const FIELDS = [
   "title", "customer", "valid_until", "status", "include_floor", "gst_location", "gst_inclusive",
   "delivery", "data", "total",
   "customer_email", "customer_phone", "customer_address", "show_email", "show_phone", "show_address",
+  "quote_date",
 ] as const;
 function pick(body: any) {
   const row: any = {};

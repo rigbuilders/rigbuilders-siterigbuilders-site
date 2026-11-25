@@ -68,6 +68,31 @@ function extractAddress(from: string): string | null {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  // ---- One-time discovery mode -------------------------------------------
+  // Hostinger's OpenAPI spec documents how to CREATE a webhook but not the
+  // shape of what it delivers, nor which header carries the signature. Set
+  // EMAIL_WEBHOOK_DEBUG=true, press Test on the Hostinger webhook screen, and
+  // the headers and body appear in the Vercel logs — then the real handler
+  // can be written against the actual payload instead of a guess.
+  //
+  // Nothing is processed and no mail is sent in this mode. TURN IT OFF once
+  // the shape is known: it accepts unauthenticated requests by design.
+  if (process.env.EMAIL_WEBHOOK_DEBUG === "true") {
+    const raw = await req.text().catch(() => "");
+    const headers: Record<string, string> = {};
+    req.headers.forEach((value, key) => {
+      // Header values can themselves be secrets, so log names in full and
+      // values truncated — enough to identify a signature header without
+      // writing the signature itself to a log that others can read.
+      headers[key] = value.length > 80 ? `${value.slice(0, 80)}…` : value;
+    });
+
+    console.log(`[webhook:email] DISCOVERY headers: ${JSON.stringify(headers, null, 2)}`);
+    console.log(`[webhook:email] DISCOVERY body: ${raw.slice(0, 4000)}`);
+
+    return NextResponse.json({ status: "ok", discovery: true });
+  }
+
   const expected = process.env.EMAIL_WEBHOOK_SECRET;
   if (!expected || req.headers.get("x-webhook-secret") !== expected) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

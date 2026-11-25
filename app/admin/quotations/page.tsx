@@ -4,7 +4,7 @@ import Navbar from "@/components/Navbar";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import { FaFileInvoiceDollar, FaPlus, FaTrash, FaPrint, FaPen } from "react-icons/fa";
+import { FaFileInvoiceDollar, FaPlus, FaTrash, FaPrint, FaPen, FaUser, FaThLarge } from "react-icons/fa";
 
 const CATS = ["cpu","gpu","motherboard","ram","storage","psu","cabinet","cooler","monitor","keyboard","mouse","combo","mousepad","usb","prebuilt"];
 const inr = (n: any) => Number(n || 0).toLocaleString("en-IN");
@@ -41,6 +41,7 @@ export default function QuotationBuilder() {
   const [defaultPct, setDefaultPct] = useState(0.05);
 
   const [title, setTitle] = useState("");
+  const [quoteDate, setQuoteDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [customer, setCustomer] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -62,6 +63,13 @@ export default function QuotationBuilder() {
   const [status, setStatus] = useState<"draft" | "final">("draft");
   const [saving, setSaving] = useState(false);
   const [savedList, setSavedList] = useState<any[]>([]);
+
+  // Entry flow: a chooser screen with 3 paths, then the builder.
+  const [stage, setStage] = useState<"choose" | "build">("choose");
+  const [chooserView, setChooserView] = useState<"menu" | "customer" | "quote">("menu");
+  const [customersList, setCustomersList] = useState<any[]>([]);
+  const [custQuery, setCustQuery] = useState("");
+  const [quoteSearch, setQuoteSearch] = useState("");
 
   const [adding, setAdding] = useState<Record<string, { name: string; cost: string; sell: string; save?: boolean; busy?: boolean }>>({});
   const [partQuery, setPartQuery] = useState<Record<string, string>>({});
@@ -107,6 +115,7 @@ export default function QuotationBuilder() {
       if (cfg?.rules) setRules(cfg.rules);
       if (cfg?.defaultPct != null) setDefaultPct(Number(cfg.defaultPct));
       await loadSavedList();
+      await loadCustomers();
       setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -205,13 +214,18 @@ export default function QuotationBuilder() {
     const res = await fetch("/api/admin/quotations", { headers: { Authorization: `Bearer ${token}` } });
     if (res.ok) { const j = await res.json(); setSavedList(j.quotations || []); }
   };
+  const loadCustomers = async () => {
+    const token = await authToken();
+    const res = await fetch("/api/admin/customers", { headers: { Authorization: `Bearer ${token}` } });
+    if (res.ok) { const j = await res.json(); setCustomersList(j.customers || []); }
+  };
   const saveQuotation = async (asStatus: "draft" | "final") => {
     setSaving(true);
     try {
       const token = await authToken();
       const payload = {
         id: quotationId || undefined,
-        title, customer, valid_until: validUntil || null, status: asStatus,
+        title, customer, valid_until: validUntil || null, quote_date: quoteDate || null, status: asStatus,
         customer_email: customerEmail || null, customer_phone: customerPhone || null, customer_address: customerAddress || null,
         show_email: showEmail, show_phone: showPhone, show_address: showAddress,
         include_floor: includeFloor, gst_location: gstLocation, gst_inclusive: gstInclusive,
@@ -244,6 +258,7 @@ export default function QuotationBuilder() {
     const q = j.quotation;
     setQuotationId(q.id); setQuotationNo(q.quotation_no || null); setStatus(q.status || "draft");
     setTitle(q.title || ""); setCustomer(q.customer || ""); setValidUntil(q.valid_until || "");
+    setQuoteDate(q.quote_date || new Date().toISOString().slice(0, 10));
     setCustomerEmail(q.customer_email || ""); setCustomerPhone(q.customer_phone || ""); setCustomerAddress(q.customer_address || "");
     setShowEmail(q.show_email !== false); setShowPhone(q.show_phone !== false); setShowAddress(q.show_address !== false);
     setDelivery(q.delivery != null ? String(q.delivery) : "");
@@ -254,8 +269,18 @@ export default function QuotationBuilder() {
   const newQuotation = () => {
     setQuotationId(null); setQuotationNo(null); setStatus("draft"); setTitle(""); setCustomer("");
     setCustomerEmail(""); setCustomerPhone(""); setCustomerAddress(""); setShowEmail(true); setShowPhone(true); setShowAddress(true);
-    setValidUntil(""); setDelivery(""); setCats([]);
+    setValidUntil(""); setQuoteDate(new Date().toISOString().slice(0, 10)); setDelivery(""); setCats([]);
   };
+
+  // ---- entry flow ----
+  const startBlank = () => { newQuotation(); setStage("build"); };
+  const startForCustomer = (c: any) => {
+    newQuotation();
+    setCustomer(c.name || ""); setCustomerEmail(c.email || ""); setCustomerPhone(c.phone || ""); setCustomerAddress(c.address || "");
+    setStage("build");
+  };
+  const editQuote = async (id: string) => { await loadQuotation(id); setStage("build"); };
+  const backToMenu = () => { setStage("choose"); setChooserView("menu"); setCustQuery(""); setQuoteSearch(""); loadSavedList(); loadCustomers(); };
 
   const lines = useMemo(() => cats.flatMap((c) => c.parts.filter((p) => p.name).map((p) => ({ label: c.label, name: p.name, qty: p.qty, price: p.price }))), [cats]);
   const itemCount = lines.length;
@@ -278,6 +303,89 @@ export default function QuotationBuilder() {
   const inp = "bg-black border border-white/15 rounded px-3 py-2 text-sm text-white focus:border-[#ff5a1f] outline-none";
 
   if (loading) return <div className="min-h-screen bg-[#121212] flex items-center justify-center text-white font-orbitron animate-pulse">Loading…</div>;
+
+  // ===== ENTRY CHOOSER =====
+  if (stage === "choose") {
+    const cq = custQuery.trim().toLowerCase();
+    const custFiltered = !cq ? customersList : customersList.filter((c) => [c.name, c.email, c.phone].some((v) => (v || "").toLowerCase().includes(cq)));
+    const sq = quoteSearch.trim().toLowerCase();
+    const quoteFiltered = !sq ? savedList : savedList.filter((q) => [q.title, q.customer, q.quotation_no, q.status].some((v) => (v || "").toLowerCase().includes(sq)));
+    return (
+      <div className="min-h-screen bg-[#121212] text-white font-saira pb-24">
+        <Navbar />
+        <div className="pt-28 px-6 max-w-5xl mx-auto">
+          <div className="flex items-center gap-4 mb-8 border-b border-white/10 pb-6">
+            <div className="w-14 h-14 rounded-2xl bg-[#ff5a1f] flex items-center justify-center text-2xl text-black"><FaFileInvoiceDollar /></div>
+            <div>
+              <h1 className="font-orbitron text-3xl font-bold">QUOTATIONS</h1>
+              <p className="text-gray-400 text-sm">Start a new quotation or continue a previous one</p>
+            </div>
+          </div>
+
+          {chooserView === "menu" && (
+            <div className="grid md:grid-cols-3 gap-5">
+              <button onClick={startBlank} className="text-left bg-[#1A1A1A] border border-white/10 rounded-2xl p-6 hover:border-[#ff5a1f] hover:bg-[#ff5a1f]/5 transition-all group">
+                <div className="w-12 h-12 rounded-xl bg-[#ff5a1f]/15 text-[#ff5a1f] flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition-transform"><FaPlus /></div>
+                <h3 className="font-orbitron font-bold text-lg mb-1">New customer</h3>
+                <p className="text-sm text-gray-400">Create a quotation for someone new. Fill their details as you go.</p>
+              </button>
+              <button onClick={() => { setChooserView("customer"); loadCustomers(); }} className="text-left bg-[#1A1A1A] border border-white/10 rounded-2xl p-6 hover:border-cyan-400 hover:bg-cyan-400/5 transition-all group">
+                <div className="w-12 h-12 rounded-xl bg-cyan-400/15 text-cyan-400 flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition-transform"><FaUser /></div>
+                <h3 className="font-orbitron font-bold text-lg mb-1">Existing customer</h3>
+                <p className="text-sm text-gray-400">New quotation for someone you&apos;ve quoted before — contact pre-filled.</p>
+              </button>
+              <button onClick={() => { setChooserView("quote"); loadSavedList(); }} className="text-left bg-[#1A1A1A] border border-white/10 rounded-2xl p-6 hover:border-amber-400 hover:bg-amber-400/5 transition-all group">
+                <div className="w-12 h-12 rounded-xl bg-amber-400/15 text-amber-400 flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition-transform"><FaPen /></div>
+                <h3 className="font-orbitron font-bold text-lg mb-1">Edit previous</h3>
+                <p className="text-sm text-gray-400">Open a saved quotation — draft or finalized — to review or change.</p>
+              </button>
+            </div>
+          )}
+
+          {chooserView === "customer" && (
+            <div>
+              <button onClick={() => setChooserView("menu")} className="text-sm text-gray-400 hover:text-white mb-4">← Back</button>
+              <input value={custQuery} onChange={(e) => setCustQuery(e.target.value)} placeholder="Search customers by name, email or phone…" className={`${inp} w-full mb-4`} />
+              <div className="space-y-2 max-h-[55vh] overflow-y-auto">
+                {custFiltered.length === 0 && <div className="text-center py-12 text-gray-500 text-sm border border-dashed border-white/10 rounded-xl">No customers found.</div>}
+                {custFiltered.map((c) => (
+                  <button key={c.id} onClick={() => startForCustomer(c)} className="w-full text-left bg-[#1A1A1A] border border-white/10 rounded-xl p-4 hover:border-cyan-400 transition-colors flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-bold text-white truncate">{c.name || "—"}</div>
+                      <div className="text-xs text-gray-400 truncate">{[c.email, c.phone].filter(Boolean).join(" · ") || "no contact"}</div>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-[10px] text-gray-500">{c.quotation_count || 0} quote{c.quotation_count === 1 ? "" : "s"}</span>
+                      <span className="text-xs font-bold text-cyan-400">New quote →</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {chooserView === "quote" && (
+            <div>
+              <button onClick={() => setChooserView("menu")} className="text-sm text-gray-400 hover:text-white mb-4">← Back</button>
+              <input value={quoteSearch} onChange={(e) => setQuoteSearch(e.target.value)} placeholder="Search by title, customer or number…" className={`${inp} w-full mb-4`} />
+              <div className="space-y-2 max-h-[55vh] overflow-y-auto">
+                {quoteFiltered.length === 0 && <div className="text-center py-12 text-gray-500 text-sm border border-dashed border-white/10 rounded-xl">No saved quotations.</div>}
+                {quoteFiltered.map((q) => (
+                  <button key={q.id} onClick={() => editQuote(q.id)} className="w-full text-left bg-[#1A1A1A] border border-white/10 rounded-xl p-4 hover:border-amber-400 transition-colors flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-bold text-white truncate">{q.title || "Untitled"}{q.customer ? <span className="text-gray-400 font-normal"> · {q.customer}</span> : null}</div>
+                      <div className="text-xs text-gray-500">{q.quotation_no || "no number"} · ₹{inr(q.total)}</div>
+                    </div>
+                    <span className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded shrink-0 ${q.status === "final" ? "bg-cyan-500/15 text-cyan-400" : "bg-amber-500/15 text-amber-400"}`}>{q.status === "final" ? "finalized" : "draft"}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#121212] text-white font-saira pb-24 print:bg-white print:pb-0">
@@ -340,10 +448,7 @@ export default function QuotationBuilder() {
               <p className="text-gray-400 text-sm">Build a customer quotation, then print or save as PDF</p>
             </div>
             <div className="ml-auto flex flex-wrap items-center gap-2">
-              <select onChange={(e) => { loadQuotation(e.target.value); e.target.value = ""; }} value="" className={inp} title="Load a saved quotation">
-                <option value="">Load saved…</option>
-                {savedList.map((q) => <option key={q.id} value={q.id}>{(q.title || "Untitled")}{q.customer ? ` · ${q.customer}` : ""} · {q.status}</option>)}
-              </select>
+              <button onClick={backToMenu} className="px-3 py-2.5 border border-white/15 rounded-lg text-sm font-bold text-gray-300 hover:bg-white/5 flex items-center gap-2"><FaThLarge size={12} /> Menu</button>
               <button onClick={newQuotation} className="px-3 py-2.5 border border-white/15 rounded-lg text-sm font-bold text-gray-300 hover:bg-white/5">New</button>
               <button onClick={() => saveQuotation("draft")} disabled={saving} className="px-4 py-2.5 border border-white/15 rounded-lg text-sm font-bold text-gray-200 hover:bg-white/5 disabled:opacity-50">{saving ? "Saving…" : "Save draft"}</button>
               <button onClick={() => saveQuotation("final")} disabled={saving} className="px-4 py-2.5 bg-cyan-500 text-black rounded-lg text-sm font-bold hover:bg-cyan-400 disabled:opacity-50">Save final</button>
@@ -357,6 +462,7 @@ export default function QuotationBuilder() {
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div><label className="text-[10px] uppercase tracking-wider text-gray-400">Quotation title / build name</label><input className={`${inp} w-full mt-1`} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Nvidia Build (2x RTX 5060)" /></div>
               <div><label className="text-[10px] uppercase tracking-wider text-gray-400">Customer name</label><input className={`${inp} w-full mt-1`} value={customer} onChange={(e) => setCustomer(e.target.value)} placeholder="Customer name" /></div>
+              <div><label className="text-[10px] uppercase tracking-wider text-gray-400">Quotation date</label><input type="date" className={`${inp} w-full mt-1`} value={quoteDate} onChange={(e) => setQuoteDate(e.target.value)} /></div>
               <div><label className="text-[10px] uppercase tracking-wider text-gray-400">Valid until</label><input type="date" className={`${inp} w-full mt-1`} value={validUntil} onChange={(e) => setValidUntil(e.target.value)} /></div>
               <div><label className="text-[10px] uppercase tracking-wider text-gray-400">Delivery charges (₹)</label><div className="relative mt-1"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span><input type="number" min="0" className={`${inp} w-full pl-6`} value={delivery} onChange={(e) => setDelivery(e.target.value)} placeholder="0 = free / included" /></div></div>
             </div>
@@ -524,7 +630,7 @@ export default function QuotationBuilder() {
             <div className="meta">
               <div className="qt">Quotation</div>
               {quotationNo ? <div className="ml" style={{ fontWeight: 700, color: "#161616" }}>{quotationNo}</div> : null}
-              <div className="ml">{fmtD(new Date().toISOString())}</div>
+              <div className="ml">{fmtD(quoteDate || new Date().toISOString())}</div>
               {validUntil ? <div className="ml">Valid until {fmtD(validUntil)}</div> : null}
             </div>
           </div>

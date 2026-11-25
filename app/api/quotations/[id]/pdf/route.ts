@@ -74,6 +74,7 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
       customerPhone: q.show_phone ? q.customer_phone || undefined : undefined,
       customerAddress: q.show_address ? q.customer_address || undefined : undefined,
       validUntil: q.valid_until || undefined,
+      quoteDate: q.quote_date || undefined,
       delivery: Number(q.delivery) || 0,
       gst: {
         show: q.data?.showGst !== false,

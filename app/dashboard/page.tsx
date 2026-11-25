@@ -87,7 +87,7 @@ export default function DashboardPage() {
       // 3. FETCH QUOTATIONS (finalized only; RLS restricts to this user).
       const { data: quoteData } = await supabase
         .from("quotations")
-        .select("id, quotation_no, title, customer, total, valid_until, created_at, delivery, gst_location, gst_inclusive, data")
+        .select("id, quotation_no, title, customer, total, valid_until, created_at, quote_date, delivery, gst_location, gst_inclusive, data")
         .eq("user_id", user.id)
         .eq("status", "final")
         .order("created_at", { ascending: false });
@@ -418,7 +418,7 @@ export default function DashboardPage() {
                           <div className="min-w-0">
                             <p className="text-[10px] font-bold tracking-widest text-rb-orange uppercase">{q.quotation_no || "Quotation"}</p>
                             <h3 className="font-orbitron font-bold text-rb-white text-lg truncate" title={q.title}>{q.title || "Custom Build"}</h3>
-                            <p className="text-xs text-rb-silver">Issued {new Date(q.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</p>
+                            <p className="text-xs text-rb-silver">Issued {new Date(q.quote_date || q.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</p>
                           </div>
                           <div className="w-11 h-11 rounded-xl bg-rb-surface border border-rb-line flex items-center justify-center text-rb-orange shrink-0"><FaFileInvoiceDollar /></div>
                         </div>
@@ -469,7 +469,7 @@ export default function DashboardPage() {
                   <div className="text-right">
                     <p className="font-orbitron font-bold text-lg uppercase">Quotation</p>
                     {viewQuote.quotation_no && <p className="text-sm font-bold">{viewQuote.quotation_no}</p>}
-                    <p className="text-xs text-gray-500">{new Date(viewQuote.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</p>
+                    <p className="text-xs text-gray-500">{new Date(viewQuote.quote_date || viewQuote.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</p>
                   </div>
                 </div>
 

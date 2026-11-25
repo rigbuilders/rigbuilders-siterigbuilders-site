@@ -342,6 +342,19 @@ export default function CreateOrderPage() {
             toast.warning("Order created, but failed to add items to Procurement list.");
         }
 
+        // 4. Record the customer in the directory (offline / one-time orders too).
+        try {
+            const token = await authToken();
+            const fullAddress = [customer.address, customer.city, customer.state, customer.pincode].filter(Boolean).join(", ");
+            await fetch("/api/admin/customers", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                body: JSON.stringify({ name: customer.name, email: customer.email, phone: customer.phone, address: fullAddress, source: "order" }),
+            });
+        } catch (e) {
+            console.error("Customer directory upsert failed:", e);
+        }
+
         toast.dismiss(toastId);
         toast.success(`Order ${finalDisplayId} Created!`, {
             description: "Items moved to Procurement Phase."

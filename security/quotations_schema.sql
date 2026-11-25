@@ -39,6 +39,7 @@ alter table public.quotations add column if not exists show_address boolean not 
 alter table public.quotations add column if not exists user_id     uuid;   -- linked auth.users id (customer's website login)
 alter table public.quotations add column if not exists customer_id uuid;   -- -> public.customers.id
 alter table public.quotations add column if not exists login_email_sent_at timestamptz; -- when the login-link email was sent
+alter table public.quotations add column if not exists quote_date date;    -- the date shown on the quotation (editable, incl. finalized)
 
 create unique index if not exists idx_quotations_no on public.quotations (quotation_no) where quotation_no is not null;
 create index if not exists idx_quotations_user on public.quotations (user_id);

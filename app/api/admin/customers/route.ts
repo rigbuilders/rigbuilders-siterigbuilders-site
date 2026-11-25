@@ -34,6 +34,50 @@ export async function GET(req: Request) {
   });
 }
 
+// POST { name?, email?, phone?, address?, source? } → find-or-create a customer.
+// Dedup by email first, then phone. Used by the ops order flow so offline /
+// one-time orders also land a customer in the directory. Never overwrites an
+// existing non-empty field with a blank.
+export async function POST(req: Request) {
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
+  const body = await req.json().catch(() => ({}));
+  const name = (body?.name || "").trim();
+  const email = (body?.email || "").trim().toLowerCase();
+  const phone = (body?.phone || "").trim();
+  const address = (body?.address || "").trim();
+  if (!name && !email && !phone) return NextResponse.json({ error: "Provide at least a name, email or phone." }, { status: 400 });
+
+  // Locate an existing customer: email takes priority, then phone.
+  let existing: any = null;
+  if (email) {
+    const { data } = await admin.from("customers").select("*").ilike("email", email).limit(1);
+    existing = data?.[0] || null;
+  }
+  if (!existing && phone) {
+    const { data } = await admin.from("customers").select("*").eq("phone", phone).limit(1);
+    existing = data?.[0] || null;
+  }
+
+  if (existing) {
+    const patch: any = { updated_at: new Date().toISOString() };
+    if (name) patch.name = name;
+    if (email) patch.email = email;
+    if (phone) patch.phone = phone;
+    if (address) patch.address = address;
+    const { data, error } = await admin.from("customers").update(patch).eq("id", existing.id).select("*").single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ customer: data, created: false });
+  }
+
+  const { data, error } = await admin.from("customers")
+    .insert({ name: name || null, email: email || null, phone: phone || null, address: address || null, source: body?.source || "order" })
+    .select("*").single();
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ customer: data, created: true });
+}
+
 // PATCH { id, name?, email?, phone?, address? } → edit a customer. If the customer
 // has a linked website login, name/email are mirrored onto that auth account too.
 export async function PATCH(req: Request) {
